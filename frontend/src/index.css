@@ -56,10 +56,21 @@ body {
 .current-project-name {
   font-size: 0.78rem;
   opacity: 0.85;
-  max-width: 140px;
+  max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: all 0.3s;
+}
+.current-project-name.sparkle {
+  opacity: 1;
+  color: #ffe566;
+  text-shadow: 0 0 8px rgba(255,229,102,0.7);
+  animation: sparkle-pulse 0.6s ease-in-out infinite alternate;
+}
+@keyframes sparkle-pulse {
+  from { text-shadow: 0 0 6px rgba(255,229,102,0.5); }
+  to   { text-shadow: 0 0 14px rgba(255,229,102,0.9); }
 }
 
 .app-main {

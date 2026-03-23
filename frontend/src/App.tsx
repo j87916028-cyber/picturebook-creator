@@ -17,6 +17,7 @@ export default function App() {
   // Project state
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
   const [projectName, setProjectName] = useState('')
+  const [titleSparkle, setTitleSparkle] = useState(false)
   const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [projectPanelOpen, setProjectPanelOpen] = useState(true)
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -227,6 +228,32 @@ export default function App() {
           autoSave(projId!, prev)
           return prev
         })
+      }
+
+      // Auto-generate book title on the very first scene if still unnamed
+      if (projId && scenes.length === 0 && projectName === '未命名作品') {
+        try {
+          const tr = await fetch('/api/generate-title', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              characters: droppedCharacters,
+              scene_description: description,
+              first_lines: script.lines.map(l => l.text),
+            }),
+          })
+          if (tr.ok) {
+            const { title } = await tr.json()
+            setProjectName(title)
+            setTitleSparkle(true)
+            setTimeout(() => setTitleSparkle(false), 2500)
+            await fetch(`/api/projects/${projId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: title }),
+            })
+          }
+        } catch {}
       }
     } catch (e: unknown) {
       if (e instanceof DOMException && e.name === 'AbortError') {
@@ -453,7 +480,9 @@ export default function App() {
             {savedStatus === 'saving' && <span className="save-indicator saving">儲存中...</span>}
             {savedStatus === 'saved' && <span className="save-indicator saved">✓ 已儲存</span>}
             {currentProjectId && projectName && (
-              <span className="current-project-name" title={projectName}>{projectName}</span>
+              <span className={`current-project-name${titleSparkle ? ' sparkle' : ''}`} title={projectName}>
+                {titleSparkle ? '✨ ' : ''}{projectName}
+              </span>
             )}
             <div className="export-dropdown-wrap">
               <button

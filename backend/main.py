@@ -283,6 +283,53 @@ async def voice_preview(voice_id: str):
         logger.warning("Voice preview failed for %s: %s", voice_id, e)
         raise HTTPException(status_code=502, detail="試聽生成失敗")
 
+# ── 端點：自動生成書名 ────────────────────────────────────────
+class GenerateTitleRequest(BaseModel):
+    characters: Annotated[List[Character], Field(min_length=1, max_length=6)]
+    scene_description: str = Field(..., max_length=500)
+    first_lines: List[str] = Field(default_factory=list, max_length=20)
+
+@app.post("/api/generate-title")
+async def generate_title(req: GenerateTitleRequest):
+    if not MINIMAX_API_KEY:
+        raise HTTPException(status_code=503, detail="服務未設定")
+    char_names = "、".join(c.name for c in req.characters)
+    lines_preview = " ".join(req.first_lines[:5])
+    prompt = f"""你是台灣繪本作家。根據以下資訊，為這本繪本取一個有創意的書名。
+
+角色：{char_names}
+場景：{req.scene_description}
+對話片段：{lines_preview}
+
+要求：
+- 使用台灣繁體中文
+- 書名 4～12 個字，簡短吸引人
+- 風格溫馨、適合兒童
+- 只回傳書名文字，不要任何說明或標點符號"""
+    try:
+        resp = await _http_client.post(
+            f"{MINIMAX_BASE}/chat/completions",
+            headers=MINIMAX_HEADERS,
+            json={
+                "model": "MiniMax-M2.7",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.9,
+                "max_tokens": 30,
+            },
+            timeout=30,
+        )
+        resp.raise_for_status()
+        raw = resp.json()["choices"][0]["message"]["content"].strip()
+        # Strip any surrounding quotes or think tags
+        title = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+        title = title.strip('「」『』""\'').strip()
+        if not title or len(title) > 20:
+            raise ValueError(f"invalid title: {title!r}")
+        return {"title": title}
+    except Exception as e:
+        logger.warning("generate-title failed: %s", e)
+        raise HTTPException(status_code=502, detail="書名生成失敗")
+
 # ── 端點：生成劇本 ────────────────────────────────────────────
 @app.post("/api/generate-script", response_model=ScriptResponse)
 async def generate_script(req: GenerateScriptRequest):
