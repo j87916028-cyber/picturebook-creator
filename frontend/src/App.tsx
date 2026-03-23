@@ -374,14 +374,16 @@ export default function App() {
 
   // Re-generate entire scene
   const handleSceneRegen = async (sceneId: string, newDescription: string, style: string) => {
+    // Snapshot the old scene BEFORE clearing — needed for rollback on failure.
+    // `scenes` here refers to the closure-captured state at call time (correct).
+    const oldScene = scenes.find(s => s.id === sceneId)
+    if (!oldScene) return
+
     setScenes(prev => prev.map(s =>
       s.id === sceneId ? { ...s, description: newDescription, style, lines: [], image: '', script: { lines: [], scene_prompt: '', sfx_description: '' } } : s
     ))
 
-    const scene = scenes.find(s => s.id === sceneId)
-    if (!scene) return
-
-    // Build story context from scenes before this one
+    // Build story context from scenes before this one (uses pre-update `scenes`)
     const sceneIndex = scenes.findIndex(s => s.id === sceneId)
     const prevScenes = scenes.slice(Math.max(0, sceneIndex - 3), sceneIndex)
     const storyContext = prevScenes.length > 0
@@ -402,7 +404,10 @@ export default function App() {
           story_context: storyContext,
         }),
       })
-      if (!scriptRes.ok) return
+      if (!scriptRes.ok) {
+        const errBody = await scriptRes.json().catch(() => ({}))
+        throw new Error(errBody.detail ?? `場景重新生成失敗（${scriptRes.status}）`)
+      }
       const script = await scriptRes.json()
 
       setScenes(prev => prev.map(s =>
@@ -446,7 +451,11 @@ export default function App() {
         setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, prev) }, 0)
         return prev
       })
-    } catch {}
+    } catch (e) {
+      // Restore old scene so the user doesn't lose their existing content
+      setScenes(prev => prev.map(s => s.id === sceneId ? oldScene : s))
+      throw e   // rethrow so SceneCard can display the error message
+    }
   }
 
   const handleExport = async (format: string) => {

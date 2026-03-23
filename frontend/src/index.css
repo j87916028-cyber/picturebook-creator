@@ -481,6 +481,7 @@ body {
   background: #fff5f5; border: 1px solid #fed7d7;
   border-radius: 10px; padding: 12px 16px; color: #e53e3e; font-size: 0.875rem;
 }
+.regen-error-box { margin-top: 8px; font-size: 0.82rem; padding: 8px 12px; }
 
 .plan-warning {
   background: #fffbeb; border: 1px solid #fcd34d;

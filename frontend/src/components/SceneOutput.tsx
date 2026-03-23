@@ -62,6 +62,7 @@ function SceneCard({
   const [regenDesc, setRegenDesc] = useState(scene.description)
   const [regenStyle, setRegenStyle] = useState(scene.style)
   const [regenLoading, setRegenLoading] = useState(false)
+  const [regenError, setRegenError] = useState<string | null>(null)
   const [expandedImage, setExpandedImage] = useState(false)
 
   const getCharacter = (id: string) => characters.find(c => c.id === id)
@@ -173,9 +174,12 @@ function SceneCard({
   const handleSceneRegenSubmit = async () => {
     if (!regenDesc.trim()) return
     setRegenLoading(true)
+    setRegenError(null)
     try {
       await onSceneRegen(scene.id, regenDesc.trim(), regenStyle)
       setShowRegenForm(false)
+    } catch (e) {
+      setRegenError(e instanceof Error ? e.message : '重新生成失敗，請稍後重試')
     } finally {
       setRegenLoading(false)
     }
@@ -270,6 +274,9 @@ function SceneCard({
               ))}
             </div>
           </div>
+          {regenError && (
+            <div className="error-box regen-error-box">⚠️ {regenError}</div>
+          )}
           <div className="line-edit-btns" style={{ marginTop: '10px' }}>
             <button
               className="btn-scene-action"
@@ -280,7 +287,7 @@ function SceneCard({
             </button>
             <button
               className="btn-ghost"
-              onClick={() => setShowRegenForm(false)}
+              onClick={() => { setShowRegenForm(false); setRegenError(null) }}
               disabled={regenLoading}
               style={{ fontSize: '0.8rem', padding: '5px 12px' }}
             >
