@@ -131,12 +131,28 @@ body {
 .card-info { flex: 1; }
 .card-name { font-weight: 700; font-size: 0.95rem; }
 .card-personality { font-size: 0.75rem; color: #888; margin-top: 2px; }
+.card-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.card-edit {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.85rem; padding: 2px 4px; line-height: 1;
+  opacity: 0.4; transition: opacity 0.15s;
+}
+.card-edit:hover { opacity: 1; }
 .card-delete {
   background: none; border: none; cursor: pointer;
   color: #ccc; font-size: 1.2rem; padding: 0 4px;
   line-height: 1;
 }
 .card-delete:hover { color: #ff6b6b; }
+
+/* Edit form below card */
+.character-list > div > .add-form {
+  margin-top: 4px;
+  border: 1.5px solid #c5cae9;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #f8f9ff;
+}
 
 /* ── Add Form ────────────────────────────────── */
 .add-form {

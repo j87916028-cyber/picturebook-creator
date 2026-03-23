@@ -5,10 +5,11 @@ import { Character } from '../types'
 interface Props {
   character: Character
   onDelete: (id: string) => void
+  onEdit: (id: string) => void
   isDragging?: boolean
 }
 
-export default function CharacterCard({ character, onDelete, isDragging = false }: Props) {
+export default function CharacterCard({ character, onDelete, onEdit, isDragging = false }: Props) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: character.id,
     data: { character },
@@ -33,11 +34,18 @@ export default function CharacterCard({ character, onDelete, isDragging = false 
           <div className="card-personality">{character.personality}</div>
         </div>
       </div>
-      <button
-        className="card-delete"
-        onClick={() => onDelete(character.id)}
-        title="刪除角色"
-      >×</button>
+      <div className="card-actions">
+        <button
+          className="card-edit"
+          onClick={() => onEdit(character.id)}
+          title="編輯角色"
+        >✏️</button>
+        <button
+          className="card-delete"
+          onClick={() => onDelete(character.id)}
+          title="刪除角色"
+        >×</button>
+      </div>
     </div>
   )
 }

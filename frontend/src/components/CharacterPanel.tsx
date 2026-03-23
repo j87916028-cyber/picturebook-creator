@@ -21,6 +21,13 @@ const DEFAULT_VOICES: Voice[] = [
 
 const EMOJIS = ['🐰', '🦊', '🐻', '🐼', '🦁', '🐸', '🦄', '🐧', '🐶', '🐱', '🐮', '🐷']
 
+interface FormState {
+  name: string
+  personality: string
+  voice_id: string
+  emoji: string
+}
+
 function VoicePicker({
   voices,
   value,
@@ -82,15 +89,79 @@ function VoicePicker({
   )
 }
 
+function CharacterForm({
+  initial,
+  voices,
+  submitLabel,
+  onSubmit,
+  onCancel,
+}: {
+  initial: FormState
+  voices: Voice[]
+  submitLabel: string
+  onSubmit: (f: FormState) => void
+  onCancel: () => void
+}) {
+  const [form, setForm] = useState<FormState>(initial)
+
+  return (
+    <div className="add-form">
+      <div className="form-row">
+        <label>選擇表情</label>
+        <div className="emoji-picker">
+          {EMOJIS.map(e => (
+            <button
+              key={e}
+              className={`emoji-btn ${form.emoji === e ? 'selected' : ''}`}
+              onClick={() => setForm(f => ({ ...f, emoji: e }))}
+            >{e}</button>
+          ))}
+        </div>
+      </div>
+      <div className="form-row">
+        <label>角色名稱</label>
+        <input
+          value={form.name}
+          onChange={e => setForm(f => ({ ...f, name: e.target.value.slice(0, 30) }))}
+          placeholder="例：小兔子"
+          maxLength={30}
+          onKeyDown={e => e.key === 'Enter' && form.name.trim() && onSubmit(form)}
+          autoFocus
+        />
+      </div>
+      <div className="form-row">
+        <label>個性描述</label>
+        <input
+          value={form.personality}
+          onChange={e => setForm(f => ({ ...f, personality: e.target.value.slice(0, 100) }))}
+          placeholder="例：膽小但善良"
+          maxLength={100}
+        />
+      </div>
+      <div className="form-row">
+        <label>選擇聲音 <span style={{ fontSize: '0.72rem', color: '#aaa' }}>（▶ 試聽）</span></label>
+        <VoicePicker
+          voices={voices}
+          value={form.voice_id}
+          onChange={id => setForm(f => ({ ...f, voice_id: id }))}
+        />
+      </div>
+      <div className="form-actions">
+        <button
+          className="btn-primary"
+          onClick={() => form.name.trim() && onSubmit(form)}
+          disabled={!form.name.trim()}
+        >{submitLabel}</button>
+        <button className="btn-ghost" onClick={onCancel}>取消</button>
+      </div>
+    </div>
+  )
+}
+
 export default function CharacterPanel({ characters, onChange }: Props) {
   const [voices, setVoices] = useState<Voice[]>(DEFAULT_VOICES)
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({
-    name: '',
-    personality: '',
-    voice_id: DEFAULT_VOICES[0].id,
-    emoji: EMOJIS[0],
-  })
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/voices')
@@ -99,8 +170,7 @@ export default function CharacterPanel({ characters, onChange }: Props) {
       .catch(() => {})
   }, [])
 
-  const addCharacter = () => {
-    if (!form.name.trim()) return
+  const handleAdd = (form: FormState) => {
     const newChar: Character = {
       id: `char_${Date.now()}`,
       name: form.name.trim(),
@@ -110,12 +180,21 @@ export default function CharacterPanel({ characters, onChange }: Props) {
       emoji: form.emoji,
     }
     onChange([...characters, newChar])
-    setForm({ name: '', personality: '', voice_id: DEFAULT_VOICES[0].id, emoji: EMOJIS[0] })
-    setShowForm(false)
+    setShowAddForm(false)
+  }
+
+  const handleEditSave = (id: string, form: FormState) => {
+    onChange(characters.map(c =>
+      c.id === id
+        ? { ...c, name: form.name.trim(), personality: form.personality.trim() || '開朗活潑', voice_id: form.voice_id, emoji: form.emoji }
+        : c
+    ))
+    setEditingId(null)
   }
 
   const deleteCharacter = (id: string) => {
     onChange(characters.filter(c => c.id !== id))
+    if (editingId === id) setEditingId(null)
   }
 
   return (
@@ -127,62 +206,38 @@ export default function CharacterPanel({ characters, onChange }: Props) {
 
       <div className="character-list">
         {characters.map(c => (
-          <CharacterCard key={c.id} character={c} onDelete={deleteCharacter} />
+          <div key={c.id}>
+            <CharacterCard
+              character={c}
+              onDelete={deleteCharacter}
+              onEdit={id => setEditingId(id === editingId ? null : id)}
+            />
+            {editingId === c.id && (
+              <CharacterForm
+                initial={{ name: c.name, personality: c.personality, voice_id: c.voice_id, emoji: c.emoji }}
+                voices={voices}
+                submitLabel="儲存變更"
+                onSubmit={form => handleEditSave(c.id, form)}
+                onCancel={() => setEditingId(null)}
+              />
+            )}
+          </div>
         ))}
         {characters.length === 0 && (
           <div className="empty-hint">還沒有角色，<br />點下方按鈕新增</div>
         )}
       </div>
 
-      {showForm ? (
-        <div className="add-form">
-          <div className="form-row">
-            <label>選擇表情</label>
-            <div className="emoji-picker">
-              {EMOJIS.map(e => (
-                <button
-                  key={e}
-                  className={`emoji-btn ${form.emoji === e ? 'selected' : ''}`}
-                  onClick={() => setForm(f => ({ ...f, emoji: e }))}
-                >{e}</button>
-              ))}
-            </div>
-          </div>
-          <div className="form-row">
-            <label>角色名稱</label>
-            <input
-              value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value.slice(0, 30) }))}
-              placeholder="例：小兔子"
-              maxLength={30}
-              onKeyDown={e => e.key === 'Enter' && addCharacter()}
-            />
-          </div>
-          <div className="form-row">
-            <label>個性描述</label>
-            <input
-              value={form.personality}
-              onChange={e => setForm(f => ({ ...f, personality: e.target.value.slice(0, 100) }))}
-              placeholder="例：膽小但善良"
-              maxLength={100}
-              onKeyDown={e => e.key === 'Enter' && addCharacter()}
-            />
-          </div>
-          <div className="form-row">
-            <label>選擇聲音 <span style={{ fontSize: '0.72rem', color: '#aaa' }}>（▶ 試聽）</span></label>
-            <VoicePicker
-              voices={voices}
-              value={form.voice_id}
-              onChange={id => setForm(f => ({ ...f, voice_id: id }))}
-            />
-          </div>
-          <div className="form-actions">
-            <button className="btn-primary" onClick={addCharacter}>新增角色</button>
-            <button className="btn-ghost" onClick={() => setShowForm(false)}>取消</button>
-          </div>
-        </div>
+      {showAddForm ? (
+        <CharacterForm
+          initial={{ name: '', personality: '', voice_id: DEFAULT_VOICES[0].id, emoji: EMOJIS[0] }}
+          voices={voices}
+          submitLabel="新增角色"
+          onSubmit={handleAdd}
+          onCancel={() => setShowAddForm(false)}
+        />
       ) : (
-        <button className="btn-add-character" onClick={() => setShowForm(true)}>
+        <button className="btn-add-character" onClick={() => { setShowAddForm(true); setEditingId(null) }}>
           ＋ 新增角色
         </button>
       )}

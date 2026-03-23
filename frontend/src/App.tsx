@@ -529,7 +529,42 @@ export default function App() {
             />
           )}
 
-          <CharacterPanel characters={characters} onChange={setCharacters} />
+          <CharacterPanel
+            characters={characters}
+            onChange={updated => {
+              // Build a lookup of what changed from the current characters array
+              const prevMap = new Map(characters.map(c => [c.id, c]))
+              const changed = new Map(
+                updated
+                  .filter(u => {
+                    const p = prevMap.get(u.id)
+                    return p && (p.name !== u.name || p.voice_id !== u.voice_id || p.emoji !== u.emoji)
+                  })
+                  .map(u => [u.id, u])
+              )
+              if (changed.size > 0) {
+                // Sync droppedCharacters
+                setDroppedCharacters(prev => prev.map(dc => changed.get(dc.id) ?? dc))
+                // Sync scene lines: update name/voice, clear audio if voice changed
+                setScenes(prev => prev.map(scene => ({
+                  ...scene,
+                  lines: scene.lines.map(line => {
+                    const upd = changed.get(line.character_id)
+                    if (!upd) return line
+                    const voiceChanged = upd.voice_id !== prevMap.get(upd.id)?.voice_id
+                    return {
+                      ...line,
+                      character_name: upd.name,
+                      voice_id: upd.voice_id,
+                      audio_base64: voiceChanged ? undefined : line.audio_base64,
+                      audio_format: voiceChanged ? undefined : line.audio_format,
+                    }
+                  }),
+                })))
+              }
+              setCharacters(updated)
+            }}
+          />
 
           <div className="right-panel">
             <SceneEditor
