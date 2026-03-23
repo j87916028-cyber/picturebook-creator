@@ -563,12 +563,13 @@ class RenameProjectRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
 
 class SceneIn(BaseModel):
-    idx: int
-    description: str = ""
-    style: str = "溫馨童趣"
+    idx: int = Field(..., ge=0, le=999)
+    description: str = Field("", max_length=500)
+    style: str = Field("溫馨童趣", max_length=20)
     script: Dict[str, Any] = {}
-    lines: List[Any] = []
-    image: str = ""
+    lines: List[Any] = Field(default_factory=list, max_length=50)
+    # base64-encoded image: cap at ~6 MB of encoded data (≈ 4.5 MB raw)
+    image: str = Field("", max_length=6_000_000)
 
 class SaveScenesRequest(BaseModel):
     scenes: List[SceneIn]
