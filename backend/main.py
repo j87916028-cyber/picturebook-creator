@@ -4,6 +4,7 @@ import os
 import re
 import json
 import uuid
+import asyncio
 import random
 import base64
 import glob as _glob
@@ -117,6 +118,8 @@ MINIMAX_HEADERS = {
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_TTS_URL = "https://api.groq.com/openai/v1/audio/speech"
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")
 HF_IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
@@ -382,21 +385,43 @@ async def generate_voice(req: GenerateVoiceRequest):
 
     raise HTTPException(status_code=502, detail="語音生成失敗，請稍後重試")
 
-# ── 端點：生成場景圖片（HuggingFace FLUX / Pollinations fallback）─
+# ── 端點：生成場景圖片（Gemini Imagen → HuggingFace → Pollinations）─
 @app.post("/api/generate-image")
 async def generate_image(req: GenerateImageRequest):
     full_prompt = f"{req.prompt}, {req.style} style, soft colors, child-friendly, high quality"
 
-    # ── 優先：HuggingFace Inference API（需 HUGGINGFACE_API_KEY）──
+    # ── 優先：Gemini Imagen 3（GEMINI_API_KEY）───────────────────
+    if GEMINI_API_KEY:
+        try:
+            from google import genai as _genai
+            from google.genai import types as _gtypes
+            _gclient = _genai.Client(api_key=GEMINI_API_KEY)
+            result = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: _gclient.models.generate_images(
+                    model="imagen-3.0-generate-002",
+                    prompt=full_prompt,
+                    config=_gtypes.GenerateImagesConfig(
+                        number_of_images=1,
+                        aspect_ratio="4:3",
+                        language="zh",
+                    ),
+                )
+            )
+            if result.generated_images:
+                img_bytes = result.generated_images[0].image.image_bytes
+                b64 = base64.b64encode(img_bytes).decode("utf-8")
+                logger.info("Gemini Imagen success")
+                return {"url": f"data:image/png;base64,{b64}"}
+        except Exception as e:
+            logger.warning("Gemini Imagen exception: %s", e)
+
+    # ── 次要：HuggingFace Inference API（HUGGINGFACE_API_KEY）────
     if HUGGINGFACE_API_KEY:
-        hf_headers = {
-            "Authorization": f"Bearer {HUGGINGFACE_API_KEY}",
-            "Content-Type": "application/json",
-        }
         try:
             resp = await _http_client.post(
                 HF_INFERENCE_URL,
-                headers=hf_headers,
+                headers={"Authorization": f"Bearer {HUGGINGFACE_API_KEY}", "Content-Type": "application/json"},
                 json={"inputs": full_prompt},
                 timeout=60,
             )
@@ -408,14 +433,14 @@ async def generate_image(req: GenerateImageRequest):
         except Exception as e:
             logger.warning("HF image exception: %s", e)
 
-    # ── 備用：Pollinations.ai URL（瀏覽器直接載入）──────────────
+    # ── 備用：Pollinations.ai URL ─────────────────────────────────
     encoded = urllib.parse.quote(full_prompt)
     seed = random.randint(1, 99999)
     image_url = (
         f"https://image.pollinations.ai/prompt/{encoded}"
-        f"?width=1024&height=768&nologo=true&seed={seed}"
+        f"?width=1024&height=768&nologo=true&seed={seed}&model=flux"
     )
-    logger.info("Fallback image URL: %s", image_url[:200])
+    logger.info("Fallback Pollinations URL: %s", image_url[:200])
     return {"url": image_url}
 
 # ── 端點：圖片辨識（Groq Vision → 繁體中文場景描述）────────────
