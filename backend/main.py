@@ -238,6 +238,51 @@ class ScriptResponse(BaseModel):
 def get_voices():
     return VOICES
 
+# ── 聲音試聽快取（記憶體，每個 voice 只合成一次）──────────────
+_voice_preview_cache: dict[str, bytes] = {}
+
+# 每種聲音類型對應的試聽範例句
+_VOICE_SAMPLE: dict[str, str] = {
+    "female-tianmei-jingpin": "嗨！大家好，我是你的故事角色，很高興認識你喔！",
+    "female-shaonv":          "嗨嗨！今天的冒險要開始囉，準備好了嗎？",
+    "female-yujie":           "嗯，這個故事才剛開始，有趣的事還在後頭呢。",
+    "female-chengshu":        "孩子們，今天的故事讓我們一起來聽聽看吧。",
+    "male-qn-qingse":         "呃……我有點緊張，不過我會努力的！",
+    "male-qn-jingying":       "很好，一切都在掌握之中，讓我們繼續前進。",
+    "male-qn-badao":          "哼，這點小事難不倒我，跟我走就對了！",
+    "presenter_male":         "各位朋友，歡迎收聽今天的精彩故事。",
+    "audiobook_male_2":       "話說在很久很久以前，有一個神奇的地方……",
+    "audiobook_female_2":     "從前從前，在一座美麗的森林裡，住著一群可愛的動物。",
+    "cute_boy":               "哇！好好玩喔！我要去探險了，耶！",
+    "elderly_man":            "孩子啊，來，爺爺說個故事給你聽。",
+    "elderly_woman":          "來來來，乖孫子，奶奶今天要說一個很特別的故事。",
+}
+
+@app.get("/api/voices/{voice_id}/preview")
+async def voice_preview(voice_id: str):
+    if voice_id not in VALID_VOICE_IDS:
+        raise HTTPException(status_code=404, detail="找不到此聲音")
+    if voice_id in _voice_preview_cache:
+        cached = _voice_preview_cache[voice_id]
+        return {"audio_base64": base64.b64encode(cached).decode(), "format": "mp3"}
+    sample_text = _VOICE_SAMPLE.get(voice_id, "大家好！我是故事裡的角色，很高興認識你。")
+    edge_voice = VOICE_TO_EDGE.get(voice_id, "zh-TW-HsiaoYuNeural")
+    try:
+        ssml = _build_ssml(sample_text, edge_voice, "happy")
+        communicate = edge_tts.Communicate(text=ssml, voice=edge_voice)
+        buf = io.BytesIO()
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                buf.write(chunk["data"])
+        audio = buf.getvalue()
+        if not audio:
+            raise ValueError("empty audio")
+        _voice_preview_cache[voice_id] = audio
+        return {"audio_base64": base64.b64encode(audio).decode(), "format": "mp3"}
+    except Exception as e:
+        logger.warning("Voice preview failed for %s: %s", voice_id, e)
+        raise HTTPException(status_code=502, detail="試聽生成失敗")
+
 # ── 端點：生成劇本 ────────────────────────────────────────────
 @app.post("/api/generate-script", response_model=ScriptResponse)
 async def generate_script(req: GenerateScriptRequest):
