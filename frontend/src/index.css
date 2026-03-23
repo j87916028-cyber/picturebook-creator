@@ -1,0 +1,424 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+  background: #f0f4ff;
+  color: #333;
+  min-height: 100vh;
+}
+
+/* ── Layout ─────────────────────────────────── */
+.app { display: flex; flex-direction: column; min-height: 100vh; }
+
+.app-header {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 20px 32px;
+  text-align: center;
+}
+.app-header h1 { font-size: 1.8rem; margin-bottom: 4px; }
+.app-header p  { opacity: 0.85; font-size: 0.95rem; }
+
+.app-main {
+  display: flex;
+  flex: 1;
+  gap: 0;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 16px;
+  gap: 20px;
+}
+
+/* ── Character Panel ─────────────────────────── */
+.character-panel {
+  width: 260px;
+  flex-shrink: 0;
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: fit-content;
+  position: sticky;
+  top: 24px;
+}
+
+.panel-header { display: flex; align-items: baseline; justify-content: space-between; }
+.panel-header h2 { font-size: 1rem; color: #555; }
+.panel-hint { font-size: 0.75rem; color: #aaa; }
+
+.character-list { display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
+
+.empty-hint {
+  text-align: center; color: #bbb; font-size: 0.85rem;
+  padding: 16px 0; line-height: 1.6;
+}
+
+/* ── Character Card ──────────────────────────── */
+.character-card {
+  border: 2px solid;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: grab;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.character-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+.character-card:active { cursor: grabbing; }
+
+.card-drag-handle { display: flex; align-items: center; gap: 10px; flex: 1; }
+.card-emoji { font-size: 1.8rem; }
+.card-info { flex: 1; }
+.card-name { font-weight: 700; font-size: 0.95rem; }
+.card-personality { font-size: 0.75rem; color: #888; margin-top: 2px; }
+.card-delete {
+  background: none; border: none; cursor: pointer;
+  color: #ccc; font-size: 1.2rem; padding: 0 4px;
+  line-height: 1;
+}
+.card-delete:hover { color: #ff6b6b; }
+
+/* ── Add Form ────────────────────────────────── */
+.add-form {
+  background: #f8f9ff;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-row { display: flex; flex-direction: column; gap: 4px; }
+.form-row label { font-size: 0.75rem; color: #888; font-weight: 600; }
+.form-row input, .form-row select {
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.form-row input:focus, .form-row select:focus { border-color: #667eea; }
+
+.emoji-picker { display: flex; flex-wrap: wrap; gap: 4px; }
+.emoji-btn {
+  background: none; border: 2px solid transparent;
+  border-radius: 8px; font-size: 1.3rem;
+  padding: 2px 4px; cursor: pointer; transition: all 0.15s;
+}
+.emoji-btn:hover { background: #f0f0f0; }
+.emoji-btn.selected { border-color: #667eea; background: #eef0ff; }
+
+.form-actions { display: flex; gap: 8px; }
+
+.btn-primary {
+  flex: 1; background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white; border: none; border-radius: 8px;
+  padding: 9px; cursor: pointer; font-size: 0.875rem; font-weight: 600;
+}
+.btn-primary:hover { opacity: 0.9; }
+
+.btn-ghost {
+  background: none; border: 1.5px solid #ddd; border-radius: 8px;
+  padding: 9px 14px; cursor: pointer; font-size: 0.875rem; color: #888;
+}
+.btn-ghost:hover { border-color: #aaa; }
+
+.btn-add-character {
+  width: 100%; background: none;
+  border: 2px dashed #c5cae9; border-radius: 10px;
+  padding: 10px; color: #7986cb; cursor: pointer;
+  font-size: 0.875rem; font-weight: 600; transition: all 0.15s;
+}
+.btn-add-character:hover { background: #eef0ff; border-color: #7986cb; }
+
+/* ── Right Panel ─────────────────────────────── */
+.right-panel { flex: 1; display: flex; flex-direction: column; gap: 16px; }
+
+/* ── Scene Editor ────────────────────────────── */
+.scene-editor {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+}
+
+.scene-editor h2 { font-size: 1rem; color: #555; margin-bottom: 14px; }
+
+.scene-top { display: flex; flex-direction: column; gap: 14px; }
+
+.scene-input {
+  width: 100%; border: 1.5px solid #e0e0e0;
+  border-radius: 12px; padding: 12px 14px;
+  font-size: 0.95rem; resize: none; outline: none;
+  font-family: inherit; transition: border-color 0.2s; line-height: 1.6;
+}
+.scene-input:focus { border-color: #667eea; }
+
+.style-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.style-row label { font-size: 0.8rem; color: #888; white-space: nowrap; }
+.style-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+.style-btn {
+  border: 1.5px solid #e0e0e0; border-radius: 20px;
+  padding: 4px 12px; font-size: 0.8rem; cursor: pointer;
+  background: none; color: #666; transition: all 0.15s;
+}
+.style-btn:hover { border-color: #667eea; color: #667eea; }
+.style-btn.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-color: transparent; color: white;
+}
+
+/* ── Drop Zone ───────────────────────────────── */
+.drop-zone {
+  border: 2px dashed #c5cae9;
+  border-radius: 12px;
+  padding: 20px;
+  min-height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  background: #fafbff;
+}
+.drop-zone.over { border-color: #667eea; background: #eef0ff; }
+.drop-zone.has-chars { border-style: solid; border-color: #b0bce8; }
+
+.drop-hint { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #aaa; }
+.drop-icon { font-size: 2rem; }
+
+.dropped-chars { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; align-items: center; }
+.dropped-char-chip {
+  border: 2px solid; border-radius: 20px;
+  padding: 4px 10px 4px 8px;
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.85rem; font-weight: 600;
+}
+.dropped-char-chip button {
+  background: none; border: none; cursor: pointer;
+  color: #aaa; font-size: 1rem; line-height: 1; padding: 0 2px;
+}
+.dropped-char-chip button:hover { color: #ff6b6b; }
+.drop-more-hint { font-size: 0.75rem; color: #bbb; width: 100%; }
+
+/* ── Generate Button ─────────────────────────── */
+.btn-generate {
+  width: 100%;
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  color: white; border: none; border-radius: 12px;
+  padding: 14px; font-size: 1rem; font-weight: 700;
+  cursor: pointer; transition: opacity 0.2s, transform 0.1s;
+}
+.btn-generate:hover:not(:disabled) { opacity: 0.92; transform: translateY(-1px); }
+.btn-generate:active:not(:disabled) { transform: translateY(0); }
+.btn-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.loading-text { display: flex; align-items: center; gap: 8px; justify-content: center; }
+.spinner {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: white; border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.form-hint { font-size: 0.8rem; color: #ffb347; text-align: center; }
+
+/* ── Scene Image Output ──────────────────────── */
+.scene-output { margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
+.output-section h3 { font-size: 0.95rem; color: #555; margin-bottom: 10px; }
+.scene-image { width: 100%; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+.image-loading {
+  height: 200px; background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 200% 100%; animation: shimmer 1.5s infinite;
+  border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #aaa;
+}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.sfx-note { font-size: 0.82rem; color: #888; margin-top: 8px; font-style: italic; }
+
+/* ── Error ───────────────────────────────────── */
+.error-box {
+  background: #fff5f5; border: 1px solid #fed7d7;
+  border-radius: 10px; padding: 12px 16px; color: #e53e3e; font-size: 0.875rem;
+}
+
+.plan-warning {
+  background: #fffbeb; border: 1px solid #fcd34d;
+  border-radius: 10px; padding: 12px 16px; color: #92400e; font-size: 0.875rem;
+}
+
+/* ── Scene Output Panel ──────────────────────── */
+.scene-output-panel {
+  background: white; border-radius: 16px;
+  padding: 24px; box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+}
+
+.output-header {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-bottom: 16px;
+}
+.output-header h3 { font-size: 1rem; color: #555; }
+
+.btn-play-all {
+  background: linear-gradient(135deg, #43e97b, #38f9d7);
+  color: white; border: none; border-radius: 20px;
+  padding: 7px 18px; font-size: 0.875rem; font-weight: 700; cursor: pointer;
+}
+.btn-play-all:hover { opacity: 0.88; }
+
+.dialogue-list { display: flex; flex-direction: column; gap: 12px; }
+
+.dialogue-line {
+  border-left: 4px solid;
+  border-radius: 0 12px 12px 0;
+  padding: 12px 16px;
+  background: #fafafa;
+  transition: background 0.2s;
+}
+.dialogue-line.playing { background: #f0f8ff; }
+
+.dialogue-speaker { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.speaker-emoji { font-size: 1.3rem; }
+.speaker-name { font-weight: 700; font-size: 0.9rem; }
+.emotion-badge {
+  font-size: 0.7rem; background: #f0f0f0;
+  border-radius: 10px; padding: 2px 7px; color: #888;
+}
+
+.dialogue-text { font-size: 1rem; line-height: 1.6; color: #333; margin-bottom: 8px; }
+
+.dialogue-controls { display: flex; align-items: center; gap: 8px; }
+
+.btn-play-line {
+  border: 1.5px solid; border-radius: 20px;
+  padding: 4px 14px; font-size: 0.8rem; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.btn-play-line:hover { opacity: 0.85; }
+
+.audio-loading { font-size: 0.78rem; color: #bbb; font-style: italic; }
+
+/* ── Scene Input Toolbar ─────────────────────── */
+.scene-input-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: -8px;
+}
+
+.char-count {
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.scene-input-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-input-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 1.5px solid #c5cae9;
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #5c6bc0;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn-input-tool:hover:not(:disabled) {
+  background: #eef0ff;
+  border-color: #7986cb;
+  color: #3949ab;
+}
+.btn-input-tool:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.spinner-sm {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(92, 107, 192, 0.3);
+  border-top-color: #5c6bc0;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ── Generate Row (button + reset) ──────────────── */
+.generate-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+.generate-row .btn-generate { flex: 1; }
+
+.btn-reset {
+  background: none;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 0 16px;
+  font-size: 0.875rem;
+  color: #888;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.btn-reset:hover:not(:disabled) { border-color: #aaa; color: #555; background: #f9f9f9; }
+.btn-reset:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Multi-scene Output ──────────────────────────── */
+.scene-output-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.scene-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.scene-card-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+.scene-card-title {
+  font-weight: 800;
+  font-size: 1rem;
+  color: #667eea;
+  white-space: nowrap;
+}
+.scene-card-desc {
+  font-size: 0.875rem;
+  color: #888;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scene-card-image-wrap { width: 100%; }
+
+.scene-card-dialogue .output-header { margin-bottom: 12px; }
+.scene-card-dialogue .output-header h4 { font-size: 0.9rem; color: #555; }
