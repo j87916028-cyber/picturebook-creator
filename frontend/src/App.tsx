@@ -205,7 +205,7 @@ export default function App() {
           const res = await fetch('/api/generate-voice', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: line.text, voice_id: line.voice_id }),
+            body: JSON.stringify({ text: line.text, voice_id: line.voice_id, emotion: line.emotion }),
             signal,
           })
           if (res.status === 402) { setPlanWarning('voice'); return }
@@ -281,7 +281,7 @@ export default function App() {
       const res = await fetch('/api/generate-voice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: line.text, voice_id: line.voice_id }),
+        body: JSON.stringify({ text: line.text, voice_id: line.voice_id, emotion: line.emotion }),
       })
       if (!res.ok) return
       const data = await res.json()
@@ -373,7 +373,7 @@ export default function App() {
           const res = await fetch('/api/generate-voice', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: line.text, voice_id: line.voice_id }),
+            body: JSON.stringify({ text: line.text, voice_id: line.voice_id, emotion: line.emotion }),
           })
           if (!res.ok) return
           const data = await res.json()

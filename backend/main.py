@@ -208,6 +208,7 @@ class GenerateLine(BaseModel):
 class GenerateVoiceRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=200)
     voice_id: str = Field(..., max_length=64)
+    emotion: Optional[str] = Field(None, max_length=20)
 
     @field_validator("voice_id")
     @classmethod
@@ -338,24 +339,62 @@ async def generate_script(req: GenerateScriptRequest):
         logger.error("JSON parse failed: %s\nContent: %s", e, content[:800])
         raise HTTPException(status_code=502, detail=f"劇本解析失敗，請重試（{type(e).__name__}）")
 
+# ── SSML 情緒對應語調設定（Edge TTS 對話風格）───────────────────
+_EMOTION_PROSODY: dict[str, dict[str, str]] = {
+    "happy":     {"rate": "+8%",  "pitch": "+2st"},
+    "sad":       {"rate": "-12%", "pitch": "-2st"},
+    "angry":     {"rate": "+10%", "pitch": "+3st"},
+    "surprised": {"rate": "+5%",  "pitch": "+3st"},
+    "fearful":   {"rate": "-5%",  "pitch": "+1st"},
+    "disgusted": {"rate": "-5%",  "pitch": "-1st"},
+    "neutral":   {"rate": "0%",   "pitch": "0st"},
+}
+
+def _build_ssml(text: str, voice: str, emotion: Optional[str]) -> str:
+    """Build SSML with chat style + emotion-aware prosody for natural dialogue."""
+    p = _EMOTION_PROSODY.get(emotion or "neutral", _EMOTION_PROSODY["neutral"])
+    safe = (text.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace('"', "&quot;"))
+    return (
+        f"<speak version='1.0' "
+        f"xmlns='http://www.w3.org/2001/10/synthesis' "
+        f"xmlns:mstts='https://www.w3.org/2001/mstts' "
+        f"xml:lang='zh-TW'>"
+        f"<voice name='{voice}'>"
+        f"<mstts:express-as style='chat'>"
+        f"<prosody rate='{p['rate']}' pitch='{p['pitch']}'>{safe}</prosody>"
+        f"</mstts:express-as>"
+        f"</voice></speak>"
+    )
+
 # ── 端點：生成語音（Edge TTS 台灣腔優先，Groq Orpheus 英文備用）───
 @app.post("/api/generate-voice")
 async def generate_voice(req: GenerateVoiceRequest):
-    # ── 優先：Microsoft Edge TTS（台灣繁體中文 zh-TW）────────
+    # ── 優先：Microsoft Edge TTS（台灣繁體中文 zh-TW，SSML 對話風格）─
     edge_voice = VOICE_TO_EDGE.get(req.voice_id, "zh-TW-HsiaoYuNeural")
-    logger.info("TTS voice_id=%s → edge_voice=%s", req.voice_id, edge_voice)
-    try:
-        communicate = edge_tts.Communicate(text=req.text, voice=edge_voice)
-        audio_buffer = io.BytesIO()
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                audio_buffer.write(chunk["data"])
-        audio_bytes = audio_buffer.getvalue()
-        if audio_bytes:
-            return {"audio_base64": base64.b64encode(audio_bytes).decode("utf-8"), "format": "mp3"}
-        logger.warning("Edge TTS returned empty audio")
-    except Exception as e:
-        logger.warning("Edge TTS error: %s", e)
+    logger.info("TTS voice_id=%s emotion=%s → edge_voice=%s", req.voice_id, req.emotion, edge_voice)
+    # Try SSML with chat style first, fall back to plain text
+    for use_ssml in (True, False):
+        try:
+            if use_ssml:
+                ssml = _build_ssml(req.text, edge_voice, req.emotion)
+                communicate = edge_tts.Communicate(text=ssml, voice=edge_voice)
+            else:
+                communicate = edge_tts.Communicate(text=req.text, voice=edge_voice)
+            audio_buffer = io.BytesIO()
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    audio_buffer.write(chunk["data"])
+            audio_bytes = audio_buffer.getvalue()
+            if audio_bytes:
+                return {"audio_base64": base64.b64encode(audio_bytes).decode("utf-8"), "format": "mp3"}
+            logger.warning("Edge TTS returned empty audio (ssml=%s)", use_ssml)
+        except Exception as e:
+            logger.warning("Edge TTS error (ssml=%s): %s", use_ssml, e)
+            if not use_ssml:
+                break  # both attempts failed
 
     # ── 備用：Groq Orpheus（英文聲音，僅供緊急 fallback）────
     if GROQ_API_KEY:
