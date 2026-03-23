@@ -3,6 +3,7 @@ import io
 import os
 import re
 import json
+import time
 import uuid
 import asyncio
 import random
@@ -13,12 +14,13 @@ import zipfile
 import httpx
 import logging
 import urllib.parse
+from collections import defaultdict
 from contextlib import asynccontextmanager
 import edge_tts
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
@@ -26,6 +28,44 @@ from typing import List, Optional, Annotated, Any, Dict, Literal
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ── In-memory sliding-window rate limiter ────────────────────────
+class _RateLimiter:
+    """Per-IP sliding-window rate limiter (in-process, single-replica safe)."""
+
+    def __init__(self, max_calls: int, window_secs: int):
+        self.max_calls = max_calls
+        self.window_secs = window_secs
+        self._calls: dict[str, list[float]] = defaultdict(list)
+
+    def is_allowed(self, key: str) -> bool:
+        now = time.monotonic()
+        cutoff = now - self.window_secs
+        bucket = self._calls[key]
+        # Prune expired timestamps
+        while bucket and bucket[0] < cutoff:
+            bucket.pop(0)
+        if len(bucket) >= self.max_calls:
+            return False
+        bucket.append(now)
+        return True
+
+
+def _client_ip(request: Request) -> str:
+    """Best-effort client IP: respects X-Forwarded-For from trusted proxies."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+# Per-endpoint limits (per IP, per minute)
+_rl_script  = _RateLimiter(max_calls=10,  window_secs=60)   # LLM script gen
+_rl_voice   = _RateLimiter(max_calls=60,  window_secs=60)   # TTS (many lines/scene)
+_rl_image   = _RateLimiter(max_calls=10,  window_secs=60)   # Image gen
+_rl_suggest = _RateLimiter(max_calls=15,  window_secs=60)   # Scene suggestions
+_rl_title   = _RateLimiter(max_calls=15,  window_secs=60)   # Title gen
+_rl_upload  = _RateLimiter(max_calls=20,  window_secs=60)   # Image/audio upload
 
 # ── Optional asyncpg import (graceful if not installed) ──────────
 try:
@@ -305,7 +345,9 @@ class GenerateTitleRequest(BaseModel):
     first_lines: List[str] = Field(default_factory=list, max_length=20)
 
 @app.post("/api/generate-title")
-async def generate_title(req: GenerateTitleRequest):
+async def generate_title(req: GenerateTitleRequest, request: Request):
+    if not _rl_title.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     if not MINIMAX_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
     char_names = "、".join(c.name for c in req.characters)
@@ -352,7 +394,9 @@ class SuggestNextSceneRequest(BaseModel):
     style: Optional[str] = Field("溫馨童趣", max_length=20)
 
 @app.post("/api/suggest-next-scene")
-async def suggest_next_scene(req: SuggestNextSceneRequest):
+async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
+    if not _rl_suggest.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     if not MINIMAX_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
     char_names = "、".join(c.name for c in req.characters)
@@ -402,7 +446,9 @@ async def suggest_next_scene(req: SuggestNextSceneRequest):
 
 # ── 端點：生成劇本 ────────────────────────────────────────────
 @app.post("/api/generate-script", response_model=ScriptResponse)
-async def generate_script(req: GenerateScriptRequest):
+async def generate_script(req: GenerateScriptRequest, request: Request):
+    if not _rl_script.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     if not MINIMAX_API_KEY:
         raise HTTPException(status_code=503, detail="服務未正確設定，請聯絡管理員")
 
@@ -533,7 +579,9 @@ def _build_ssml(text: str, voice: str, emotion: Optional[str]) -> str:
 
 # ── 端點：生成語音（Edge TTS 台灣腔優先，Groq Orpheus 英文備用）───
 @app.post("/api/generate-voice")
-async def generate_voice(req: GenerateVoiceRequest):
+async def generate_voice(req: GenerateVoiceRequest, request: Request):
+    if not _rl_voice.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     # ── 優先：Microsoft Edge TTS（台灣繁體中文 zh-TW，SSML 對話風格）─
     edge_voice = VOICE_TO_EDGE.get(req.voice_id, "zh-TW-HsiaoYuNeural")
     logger.info("TTS voice_id=%s emotion=%s → edge_voice=%s", req.voice_id, req.emotion, edge_voice)
@@ -588,7 +636,9 @@ async def generate_voice(req: GenerateVoiceRequest):
 
 # ── 端點：生成場景圖片（Gemini Imagen → HuggingFace → Pollinations）─
 @app.post("/api/generate-image")
-async def generate_image(req: GenerateImageRequest):
+async def generate_image(req: GenerateImageRequest, request: Request):
+    if not _rl_image.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     full_prompt = f"{req.prompt}, {req.style} style, soft colors, child-friendly, high quality"
 
     # ── 優先：Gemini Imagen 3（module-level client，避免每次重建）──
@@ -647,7 +697,9 @@ IMAGE_DESCRIBE_PROMPT = (
 )
 
 @app.post("/api/recognize-image")
-async def recognize_image(file: UploadFile = File(...)):
+async def recognize_image(request: Request, file: UploadFile = File(...)):
+    if not _rl_upload.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     if not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="GROQ_API_KEY 未設定，服務無法使用")
 
@@ -724,7 +776,9 @@ ALLOWED_AUDIO_TYPES = {
 GROQ_TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
 
 @app.post("/api/transcribe")
-async def transcribe_audio(file: UploadFile = File(...)):
+async def transcribe_audio(request: Request, file: UploadFile = File(...)):
+    if not _rl_upload.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     if not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="GROQ_API_KEY 未設定，服務無法使用")
 
