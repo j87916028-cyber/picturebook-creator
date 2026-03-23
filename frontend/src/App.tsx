@@ -10,9 +10,11 @@ export default function App() {
   const [characters, setCharacters] = useState<Character[]>([])
   const [droppedCharacters, setDroppedCharacters] = useState<Character[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [genStatus, setGenStatus] = useState<{ step: string; done: number; total: number } | null>(null)
   const [scenes, setScenes] = useState<Scene[]>([])
   const [error, setError] = useState('')
   const [planWarning, setPlanWarning] = useState<'voice' | 'image' | null>(null)
+  const voiceDoneRef = useRef(0)
 
   // Project state
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
@@ -161,6 +163,8 @@ export default function App() {
     setIsLoading(true)
     setError('')
     setPlanWarning(null)
+    setGenStatus({ step: 'script', done: 0, total: 0 })
+    voiceDoneRef.current = 0
 
     const updateScene = (updater: (s: Scene) => Scene) => {
       setScenes(prev => prev.map(s => s.id === newSceneId ? updater(s) : s))
@@ -189,6 +193,10 @@ export default function App() {
       updateScene(s => ({ ...s, script, lines: script.lines.map(l => ({ ...l })) }))
 
       // Step 2: 並行生成圖片 + 各台詞語音
+      const totalLines = script.lines.length
+      voiceDoneRef.current = 0
+      setGenStatus({ step: 'media', done: 0, total: totalLines })
+
       const imagePromise = fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -217,10 +225,13 @@ export default function App() {
             updated[index] = { ...updated[index], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
             return { ...s, lines: updated }
           })
+          voiceDoneRef.current += 1
+          setGenStatus({ step: 'media', done: voiceDoneRef.current, total: totalLines })
         } catch {}
       })
 
       await Promise.all([imagePromise, ...voicePromises])
+      setGenStatus({ step: 'done', done: totalLines, total: totalLines })
 
       // Auto-save after all generation completes (read latest state via setter, then save outside)
       if (projId) {
@@ -265,6 +276,7 @@ export default function App() {
       setError(e instanceof Error ? e.message : '發生錯誤，請重試')
     } finally {
       setIsLoading(false)
+      setTimeout(() => setGenStatus(null), 1200)  // keep 'done' visible briefly
     }
   }
 
@@ -572,6 +584,7 @@ export default function App() {
               onRemoveCharacter={removeDropped}
               onGenerate={handleGenerate}
               isLoading={isLoading}
+              genStatus={genStatus}
               sceneCount={scenes.length}
               onReset={handleReset}
               storyContext={scenes.length > 0

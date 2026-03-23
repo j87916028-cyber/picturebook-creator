@@ -547,6 +547,44 @@ body {
   flex-shrink: 0;
 }
 
+/* ── Generation progress indicator ──────────────── */
+.gen-progress {
+  background: #f8f9ff;
+  border: 1.5px solid #c5cae9;
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gen-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: #9fa8da;
+}
+.gen-step.active { color: #5c6bc0; font-weight: 600; }
+.gen-step.done { color: #43a047; font-weight: 600; }
+.gen-step-icon { font-size: 0.9rem; width: 16px; text-align: center; flex-shrink: 0; }
+.gen-step-icon.spinning {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+.gen-progress-bar {
+  height: 4px;
+  background: #e8eaf6;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+.gen-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #f093fb);
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
 /* ── Generate Row (button + reset) ──────────────── */
 .generate-row {
   display: flex;

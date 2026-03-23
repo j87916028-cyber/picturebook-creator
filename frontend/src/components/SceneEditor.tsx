@@ -2,11 +2,18 @@ import { useRef, useState, useEffect, useCallback } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { Character } from '../types'
 
+interface GenStatus {
+  step: string   // 'script' | 'media' | 'done'
+  done: number
+  total: number
+}
+
 interface Props {
   droppedCharacters: Character[]
   onRemoveCharacter: (id: string) => void
   onGenerate: (description: string, style: string) => void
   isLoading: boolean
+  genStatus: GenStatus | null
   sceneCount: number
   onReset: () => void
   storyContext?: string   // context from previous scenes for suggestions
@@ -19,6 +26,7 @@ export default function SceneEditor({
   onRemoveCharacter,
   onGenerate,
   isLoading,
+  genStatus,
   sceneCount,
   onReset,
   storyContext,
@@ -279,6 +287,48 @@ export default function SceneEditor({
             </button>
           )}
         </div>
+
+        {/* 生成進度指示器 */}
+        {isLoading && genStatus && (
+          <div className="gen-progress">
+            {genStatus.step === 'script' && (
+              <div className="gen-step">
+                <span className="gen-step-icon spinning">⟳</span>
+                <span>正在生成劇本...</span>
+              </div>
+            )}
+            {genStatus.step === 'media' && (
+              <>
+                <div className="gen-step">
+                  <span className="gen-step-icon">✓</span>
+                  <span>劇本完成</span>
+                </div>
+                <div className="gen-step active">
+                  <span className="gen-step-icon spinning">⟳</span>
+                  <span>
+                    合成配音
+                    {genStatus.total > 0 && ` ${genStatus.done} / ${genStatus.total}`}
+                    &nbsp;· 繪製插圖
+                  </span>
+                </div>
+                {genStatus.total > 0 && (
+                  <div className="gen-progress-bar">
+                    <div
+                      className="gen-progress-fill"
+                      style={{ width: `${Math.round((genStatus.done / genStatus.total) * 100)}%` }}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+            {genStatus.step === 'done' && (
+              <div className="gen-step done">
+                <span className="gen-step-icon">✓</span>
+                <span>生成完成！</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {droppedCharacters.length === 0 && (
           <p className="form-hint">請先拖入至少一個角色</p>
