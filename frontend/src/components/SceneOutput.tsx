@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback } from 'react'
 import { Scene, Character } from '../types'
+import PlaybackModal from './PlaybackModal'
 
 const STYLES = ['溫馨童趣', '奇幻冒險', '搞笑幽默', '感動溫情', '懸疑神秘']
 
@@ -350,10 +351,31 @@ export default function SceneOutput({
   onImageRegen,
   onSceneRegen,
 }: Props) {
+  const [showPlayback, setShowPlayback] = useState(false)
+
   if (scenes.length === 0) return null
+
+  const hasAudio = scenes.some(s => s.lines.some(l => l.audio_base64))
 
   return (
     <div className="scene-output-panel">
+      {hasAudio && (
+        <div className="playbook-bar">
+          <button className="btn-playbook" onClick={() => setShowPlayback(true)}>
+            🎬 播放全書
+          </button>
+          <span className="playbook-hint">全螢幕朗讀模式</span>
+        </div>
+      )}
+
+      {showPlayback && (
+        <PlaybackModal
+          scenes={scenes}
+          characters={characters}
+          onClose={() => setShowPlayback(false)}
+        />
+      )}
+
       {scenes.map((scene, i) => (
         <SceneCard
           key={scene.id}
