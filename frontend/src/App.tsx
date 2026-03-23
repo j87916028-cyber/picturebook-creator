@@ -21,6 +21,10 @@ export default function App() {
   const [projectPanelOpen, setProjectPanelOpen] = useState(true)
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Export state
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
+
   const abortControllerRef = useRef<AbortController | null>(null)
 
   // ── Auto-init: fetch projects on mount, auto-load most recent ──
@@ -393,6 +397,29 @@ export default function App() {
     } catch {}
   }
 
+  const handleExport = async (format: string) => {
+    if (!currentProjectId) return
+    setExporting(true)
+    setExportOpen(false)
+    try {
+      const res = await fetch(`/api/projects/${currentProjectId}/export?format=${format}`)
+      if (!res.ok) throw new Error('匯出失敗')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const extMap: Record<string, string> = { pdf: 'pdf', epub: 'epub', html: 'zip', mp3: 'zip' }
+      const ext = extMap[format] || format
+      a.download = `${projectName || '繪本'}.${ext}`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '匯出失敗')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const handleProjectLoad = (proj: ProjectDetail) => {
     loadProjectData(proj)
   }
@@ -428,6 +455,23 @@ export default function App() {
             {currentProjectId && projectName && (
               <span className="current-project-name" title={projectName}>{projectName}</span>
             )}
+            <div className="export-dropdown-wrap">
+              <button
+                className="btn-export"
+                onClick={() => setExportOpen(v => !v)}
+                disabled={exporting || !currentProjectId || scenes.length === 0}
+              >
+                {exporting ? '匯出中...' : '📤 匯出'}
+              </button>
+              {exportOpen && (
+                <div className="export-menu">
+                  <button onClick={() => handleExport('pdf')}>📄 PDF（印刷/Gumroad）</button>
+                  <button onClick={() => handleExport('epub')}>📚 EPUB 3（Apple Books/Kobo）</button>
+                  <button onClick={() => handleExport('html')}>🌐 HTML（互動網頁版）</button>
+                  <button onClick={() => handleExport('mp3')}>🎵 MP3 音檔包</button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 

@@ -4,6 +4,9 @@ import re
 import json
 import random
 import base64
+import glob as _glob
+import tempfile
+import zipfile
 import httpx
 import logging
 import urllib.parse
@@ -14,6 +17,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Annotated, Any, Dict
 from dotenv import load_dotenv
@@ -718,6 +722,437 @@ async def save_scenes(project_id: str, req: SaveScenesRequest):
                 "UPDATE projects SET updated_at = NOW() WHERE id = $1", project_id
             )
     return {"ok": True}
+
+
+# ── Export helpers ────────────────────────────────────────────
+
+def _find_cjk_font() -> str | None:
+    """Return path to a NotoSansCJK TTF/TTC font, or None if not found."""
+    candidates = [
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf",
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    hits = _glob.glob("/usr/share/fonts/**/*CJK*", recursive=True)
+    if hits:
+        return hits[0]
+    return None
+
+
+def _export_pdf(project_name: str, scenes: list) -> bytes:
+    try:
+        from fpdf import FPDF
+    except ImportError:
+        raise HTTPException(status_code=501, detail="fpdf2 未安裝，PDF 匯出不可用")
+
+    font_path = _find_cjk_font()
+
+    pdf = FPDF(orientation="P", unit="mm", format="A4")
+    pdf.set_auto_page_break(auto=True, margin=15)
+
+    # Register CJK font if available
+    use_cjk = font_path is not None
+    if use_cjk:
+        pdf.add_font("NotoSansCJK", "", font_path, uni=True)
+
+    def set_font_safe(size: int, style: str = ""):
+        if use_cjk:
+            pdf.set_font("NotoSansCJK", style=style, size=size)
+        else:
+            pdf.set_font("Helvetica", style=style, size=size)
+
+    # Cover page
+    pdf.add_page()
+    set_font_safe(28, "B")
+    pdf.set_y(100)
+    pdf.cell(0, 14, project_name, align="C", new_x="LMARGIN", new_y="NEXT")
+    set_font_safe(12)
+    pdf.cell(0, 10, "繪本有聲書", align="C")
+
+    # Scene pages
+    for i, scene in enumerate(scenes):
+        pdf.add_page()
+        current_y = 15
+
+        # Title
+        set_font_safe(16, "B")
+        pdf.set_xy(10, current_y)
+        pdf.cell(0, 10, f"第{i + 1}幕", align="L", new_x="LMARGIN", new_y="NEXT")
+        current_y += 12
+
+        # Description
+        desc = scene.get("description", "")
+        if desc:
+            set_font_safe(10)
+            pdf.set_xy(10, current_y)
+            pdf.multi_cell(190, 6, desc)
+            current_y = pdf.get_y() + 4
+
+        # Image
+        image_data = scene.get("image", "")
+        if image_data and image_data.startswith("data:"):
+            try:
+                header, b64data = image_data.split(",", 1)
+                img_ext = header.split("/")[1].split(";")[0]
+                if img_ext == "jpeg":
+                    img_ext = "jpg"
+                img_bytes = base64.b64decode(b64data)
+                with tempfile.NamedTemporaryFile(suffix=f".{img_ext}", delete=False) as tmp:
+                    tmp.write(img_bytes)
+                    tmp_path = tmp.name
+                # Keep image within page, max height 80mm
+                img_h = min(80, 297 - current_y - 50)
+                if img_h > 10:
+                    pdf.image(tmp_path, x=10, y=current_y, w=190, h=img_h)
+                    current_y += img_h + 4
+                os.unlink(tmp_path)
+            except Exception as e:
+                logger.warning("PDF image embed failed: %s", e)
+                set_font_safe(9)
+                pdf.set_xy(10, current_y)
+                pdf.cell(0, 6, "【插圖】", align="C")
+                current_y += 8
+        elif image_data:
+            set_font_safe(9)
+            pdf.set_xy(10, current_y)
+            pdf.cell(0, 6, "【插圖】", align="C")
+            current_y += 8
+
+        # Dialogue lines
+        lines = scene.get("lines", [])
+        if lines:
+            set_font_safe(11, "B")
+            pdf.set_xy(10, current_y)
+            pdf.cell(0, 8, "對白", new_x="LMARGIN", new_y="NEXT")
+            current_y = pdf.get_y()
+
+        set_font_safe(10)
+        for line in lines:
+            char_name = line.get("character_name", "")
+            text = line.get("text", "")
+            pdf.set_xy(10, current_y)
+            pdf.multi_cell(190, 7, f"{char_name}：{text}")
+            current_y = pdf.get_y() + 2
+
+    return pdf.output()
+
+
+def _export_epub(project_name: str, scenes: list) -> bytes:
+    try:
+        from ebooklib import epub
+    except ImportError:
+        raise HTTPException(status_code=501, detail="ebooklib 未安裝，EPUB 匯出不可用")
+
+    book = epub.EpubBook()
+    book.set_title(project_name)
+    book.set_language("zh-TW")
+    book.set_identifier(f"picturebook-{hash(project_name)}")
+
+    css_content = """
+body { font-family: 'Noto Sans CJK TC', 'Microsoft JhengHei', sans-serif; margin: 2em; line-height: 1.8; color: #333; }
+h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding-bottom: 0.3em; }
+.scene-desc { font-style: italic; color: #666; margin: 0.8em 0; font-size: 0.95em; }
+.dialogue-table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+.dialogue-table td { padding: 8px 12px; vertical-align: top; }
+.char-name { font-weight: bold; color: #764ba2; white-space: nowrap; width: 6em; }
+.dialogue-text { color: #333; }
+.scene-image { max-width: 100%; border-radius: 8px; margin: 1em auto; display: block; }
+"""
+    nav_css = epub.EpubItem(uid="style_nav", file_name="style/nav.css", media_type="text/css", content=css_content)
+    book.add_item(nav_css)
+
+    chapters = []
+
+    for i, scene in enumerate(scenes):
+        desc = scene.get("description", "")
+        lines = scene.get("lines", [])
+        image_data = scene.get("image", "")
+
+        # Build image HTML
+        img_html = ""
+        if image_data and image_data.startswith("data:"):
+            try:
+                header, b64data = image_data.split(",", 1)
+                mime = header.split(";")[0].replace("data:", "")
+                ext = mime.split("/")[1]
+                if ext == "jpeg":
+                    ext = "jpg"
+                img_bytes = base64.b64decode(b64data)
+                img_item = epub.EpubItem(
+                    uid=f"img_{i}",
+                    file_name=f"images/scene{i}.{ext}",
+                    media_type=mime,
+                    content=img_bytes,
+                )
+                book.add_item(img_item)
+                img_html = f'<img src="../images/scene{i}.{ext}" class="scene-image" alt="第{i+1}幕插圖"/>'
+            except Exception as e:
+                logger.warning("EPUB image embed failed: %s", e)
+        elif image_data:
+            img_html = f'<img src="{image_data}" class="scene-image" alt="第{i+1}幕插圖"/>'
+
+        # Build dialogue HTML
+        dialogue_rows = ""
+        for line in lines:
+            char_name = line.get("character_name", "")
+            text = line.get("text", "")
+            dialogue_rows += f'<tr><td class="char-name">{char_name}</td><td class="dialogue-text">{text}</td></tr>'
+
+        dialogue_html = ""
+        if dialogue_rows:
+            dialogue_html = f'<table class="dialogue-table"><tbody>{dialogue_rows}</tbody></table>'
+
+        # Add audio items
+        audio_items_html = ""
+        for j, line in enumerate(lines):
+            audio_b64 = line.get("audio_base64")
+            if audio_b64:
+                try:
+                    audio_bytes = base64.b64decode(audio_b64)
+                    audio_item = epub.EpubItem(
+                        uid=f"audio_{i}_{j}",
+                        file_name=f"audio/scene{i}_line{j}.mp3",
+                        media_type="audio/mpeg",
+                        content=audio_bytes,
+                    )
+                    book.add_item(audio_item)
+                    char_name = line.get("character_name", "")
+                    audio_items_html += (
+                        f'<audio controls src="../audio/scene{i}_line{j}.mp3">'
+                        f'<p>{char_name}</p></audio>'
+                    )
+                except Exception as e:
+                    logger.warning("EPUB audio embed failed: %s", e)
+
+        chapter_content = f"""<?xml version='1.0' encoding='utf-8'?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-TW">
+<head>
+  <title>第{i+1}幕</title>
+  <link rel="stylesheet" type="text/css" href="../style/nav.css"/>
+</head>
+<body>
+  <h1>第{i+1}幕</h1>
+  <p class="scene-desc">{desc}</p>
+  {img_html}
+  {dialogue_html}
+  {audio_items_html}
+</body>
+</html>"""
+
+        chapter = epub.EpubHtml(title=f"第{i+1}幕", file_name=f"scenes/scene_{i}.xhtml", lang="zh-TW")
+        chapter.content = chapter_content
+        chapter.add_item(nav_css)
+        book.add_item(chapter)
+        chapters.append(chapter)
+
+    book.toc = tuple(chapters)
+    book.add_item(epub.EpubNcx())
+    book.add_item(epub.EpubNav())
+    book.spine = ["nav"] + chapters
+
+    buf = io.BytesIO()
+    epub.write_epub(buf, book)
+    return buf.getvalue()
+
+
+def _export_html_zip(project_name: str, scenes: list) -> bytes:
+    # Build a self-contained index.html with all scenes
+    scene_htmls = []
+    for i, scene in enumerate(scenes):
+        desc = scene.get("description", "")
+        lines = scene.get("lines", [])
+        image_data = scene.get("image", "")
+
+        if image_data:
+            img_tag = f'<img class="scene-img" src="{image_data}" alt="第{i+1}幕插圖"/>'
+        else:
+            img_tag = '<div class="scene-img-placeholder">【插圖待生成】</div>'
+
+        line_divs = ""
+        for j, line in enumerate(lines):
+            char_name = line.get("character_name", "")
+            text = line.get("text", "")
+            audio_b64 = line.get("audio_base64")
+            audio_fmt = line.get("audio_format", "mp3")
+            if audio_b64:
+                mime = "audio/mpeg" if audio_fmt in ("mp3",) else f"audio/{audio_fmt}"
+                audio_tag = (
+                    f'<audio id="audio-{i}-{j}" src="data:{mime};base64,{audio_b64}" preload="auto"></audio>'
+                    f'<button class="btn-play" onclick="playLine({i},{j})">▶ 播放</button>'
+                )
+            else:
+                audio_tag = '<span class="no-audio">（無音檔）</span>'
+            line_divs += f"""
+        <div class="dialogue-line" id="line-{i}-{j}">
+          <span class="char-name">{char_name}</span>
+          <span class="dialogue-text">{text}</span>
+          {audio_tag}
+        </div>"""
+
+        scene_htmls.append(f"""
+  <section class="scene-card" id="scene-{i}">
+    <h2 class="scene-title">第{i+1}幕</h2>
+    <p class="scene-desc">{desc}</p>
+    {img_tag}
+    <div class="dialogue-block">{line_divs}
+    </div>
+  </section>""")
+
+    scenes_joined = "\n".join(scene_htmls)
+
+    html = f"""<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{project_name}</title>
+  <style>
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{ font-family: 'Microsoft JhengHei', 'Noto Sans TC', sans-serif; background: #f0f4ff; color: #333; }}
+    header {{ background: linear-gradient(135deg,#667eea,#764ba2); color: white; text-align: center; padding: 32px 16px; }}
+    header h1 {{ font-size: 2rem; margin-bottom: 8px; }}
+    main {{ max-width: 860px; margin: 0 auto; padding: 32px 16px; display: flex; flex-direction: column; gap: 32px; }}
+    .scene-card {{ background: white; border-radius: 16px; padding: 28px; box-shadow: 0 2px 16px rgba(0,0,0,0.08); }}
+    .scene-title {{ font-size: 1.3rem; font-weight: 800; color: #667eea; margin-bottom: 8px; }}
+    .scene-desc {{ color: #888; font-style: italic; margin-bottom: 16px; }}
+    .scene-img {{ width: 100%; border-radius: 12px; margin-bottom: 20px; }}
+    .scene-img-placeholder {{ background: #f0f0f0; border-radius: 12px; height: 200px; display: flex; align-items: center; justify-content: center; color: #bbb; margin-bottom: 20px; }}
+    .dialogue-block {{ display: flex; flex-direction: column; gap: 12px; }}
+    .dialogue-line {{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #fafbff; border-radius: 10px; padding: 10px 14px; border-left: 4px solid #667eea; }}
+    .char-name {{ font-weight: 700; color: #764ba2; white-space: nowrap; min-width: 4em; }}
+    .dialogue-text {{ flex: 1; font-size: 1rem; line-height: 1.6; }}
+    .btn-play {{ background: linear-gradient(135deg,#43e97b,#38f9d7); border: none; border-radius: 20px; padding: 5px 14px; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: white; transition: opacity 0.15s; }}
+    .btn-play:hover {{ opacity: 0.85; }}
+    .no-audio {{ font-size: 0.78rem; color: #bbb; font-style: italic; }}
+    footer {{ text-align: center; padding: 24px; color: #aaa; font-size: 0.8rem; }}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>{project_name}</h1>
+    <p>繪本有聲書互動版</p>
+  </header>
+  <main>
+{scenes_joined}
+  </main>
+  <footer>由「繪本有聲書創作工坊」匯出</footer>
+  <script>
+    function playLine(sceneIdx, lineIdx) {{
+      var audio = document.getElementById('audio-' + sceneIdx + '-' + lineIdx);
+      if (audio) {{ audio.currentTime = 0; audio.play(); }}
+    }}
+  </script>
+</body>
+</html>"""
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("index.html", html.encode("utf-8"))
+    return buf.getvalue()
+
+
+def _export_mp3_zip(project_name: str, scenes: list) -> bytes:
+    buf = io.BytesIO()
+    readme_lines = [f"《{project_name}》有聲書音檔", "=" * 40, ""]
+    has_any_audio = False
+
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for i, scene in enumerate(scenes):
+            folder = f"幕{i+1:02d}"
+            lines = scene.get("lines", [])
+            desc = scene.get("description", "")
+            readme_lines.append(f"【第{i+1}幕】{desc}")
+
+            for j, line in enumerate(lines):
+                char_name = line.get("character_name", "")
+                text = line.get("text", "")
+                audio_b64 = line.get("audio_base64")
+                readme_lines.append(f"  行{j+1:02d} {char_name}：{text}")
+                if audio_b64:
+                    try:
+                        audio_bytes = base64.b64decode(audio_b64)
+                        # Sanitise char_name for filename
+                        safe_name = re.sub(r'[\\/:*?"<>|]', "_", char_name)
+                        filename = f"{folder}/{folder}_行{j+1:02d}_{safe_name}.mp3"
+                        zf.writestr(filename, audio_bytes)
+                        has_any_audio = True
+                    except Exception as e:
+                        logger.warning("MP3 ZIP audio decode failed: %s", e)
+                else:
+                    readme_lines.append("    （此行無音檔）")
+
+            readme_lines.append("")
+
+        readme_lines.append("=" * 40)
+        if not has_any_audio:
+            readme_lines.append("注意：此作品尚未生成任何語音，請先在創作工坊中生成配音後再匯出。")
+        zf.writestr("README.txt", "\n".join(readme_lines).encode("utf-8"))
+
+    return buf.getvalue()
+
+
+# ── GET /api/projects/{project_id}/export ────────────────────
+@app.get("/api/projects/{project_id}/export")
+async def export_project(project_id: str, format: str = "pdf"):
+    _db_required()
+
+    # Load project from DB
+    async with _db_pool.acquire() as conn:
+        proj = await conn.fetchrow(
+            "SELECT id, name FROM projects WHERE id = $1", project_id
+        )
+        if proj is None:
+            raise HTTPException(status_code=404, detail="專案不存在")
+        scene_rows = await conn.fetch(
+            "SELECT idx, description, style, lines, image FROM scenes "
+            "WHERE project_id = $1 ORDER BY idx",
+            project_id,
+        )
+
+    project_name = proj["name"]
+    scenes = []
+    for row in scene_rows:
+        raw_lines = row["lines"]
+        if isinstance(raw_lines, str):
+            raw_lines = json.loads(raw_lines)
+        scenes.append({
+            "idx": row["idx"],
+            "description": row["description"],
+            "style": row["style"],
+            "lines": raw_lines,
+            "image": row["image"],
+        })
+
+    fmt = format.lower()
+    if fmt == "pdf":
+        data = _export_pdf(project_name, scenes)
+        media_type = "application/pdf"
+        filename = f"{project_name}.pdf"
+    elif fmt == "epub":
+        data = _export_epub(project_name, scenes)
+        media_type = "application/epub+zip"
+        filename = f"{project_name}.epub"
+    elif fmt == "html":
+        data = _export_html_zip(project_name, scenes)
+        media_type = "application/zip"
+        filename = f"{project_name}_web.zip"
+    elif fmt == "mp3":
+        data = _export_mp3_zip(project_name, scenes)
+        media_type = "application/zip"
+        filename = f"{project_name}_audio.zip"
+    else:
+        raise HTTPException(status_code=400, detail=f"不支援的匯出格式：{format}，請使用 pdf、epub、html 或 mp3")
+
+    # URL-encode filename for Content-Disposition
+    encoded_filename = urllib.parse.quote(filename)
+    headers = {
+        "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}",
+        "Content-Length": str(len(data)),
+    }
+    return StreamingResponse(io.BytesIO(data), media_type=media_type, headers=headers)
 
 
 # ── 健康檢查 ──────────────────────────────────────────────────
