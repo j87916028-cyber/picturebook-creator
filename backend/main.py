@@ -105,6 +105,12 @@ CREATE TABLE IF NOT EXISTS scenes (
 );
 """
 
+# Migration: add characters column to existing projects tables
+_ALTER_PROJECTS_CHARS = """
+ALTER TABLE projects
+  ADD COLUMN IF NOT EXISTS characters JSONB NOT NULL DEFAULT '[]';
+"""
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _http_client, _db_pool
@@ -117,6 +123,7 @@ async def lifespan(app: FastAPI):
             async with _db_pool.acquire() as conn:
                 await conn.execute(_CREATE_PROJECTS)
                 await conn.execute(_CREATE_SCENES)
+                await conn.execute(_ALTER_PROJECTS_CHARS)
             logger.info("PostgreSQL pool created and schema applied")
         except Exception as exc:
             logger.warning("Failed to connect to PostgreSQL: %s — DB features disabled", exc)
@@ -846,6 +853,15 @@ class SceneLineIn(BaseModel):
     audio_base64: Optional[str] = Field(None, max_length=6_000_000)
     audio_format: Optional[str] = Field(None, max_length=10)
 
+class CharacterIn(BaseModel):
+    """Character definition stored alongside a project."""
+    id: str = Field("", max_length=64)
+    name: str = Field("", max_length=30)
+    personality: str = Field("", max_length=100)
+    voice_id: str = Field("", max_length=64)
+    color: str = Field("", max_length=20)
+    emoji: str = Field("", max_length=10)
+
 class SceneIn(BaseModel):
     idx: int = Field(..., ge=0, le=999)
     description: str = Field("", max_length=500)
@@ -857,6 +873,7 @@ class SceneIn(BaseModel):
 
 class SaveScenesRequest(BaseModel):
     scenes: Annotated[List[SceneIn], Field(max_length=100)]
+    characters: List[CharacterIn] = Field(default_factory=list, max_length=20)
 
 
 def _db_required():
@@ -924,7 +941,7 @@ async def get_project(project_id: str):
     _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
         proj = await conn.fetchrow(
-            "SELECT id, name, created_at, updated_at FROM projects WHERE id = $1",
+            "SELECT id, name, characters, created_at, updated_at FROM projects WHERE id = $1",
             project_id,
         )
         if proj is None:
@@ -933,9 +950,12 @@ async def get_project(project_id: str):
             "SELECT id, idx, description, style, script, lines, image FROM scenes WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
+    raw_chars = proj["characters"]
+    characters = json.loads(raw_chars) if isinstance(raw_chars, str) else (raw_chars or [])
     return {
         "id": str(proj["id"]),
         "name": proj["name"],
+        "characters": characters,
         "created_at": proj["created_at"].isoformat(),
         "updated_at": proj["updated_at"].isoformat(),
         "scenes": [
@@ -1024,7 +1044,14 @@ async def save_scenes(project_id: str, req: SaveScenesRequest):
                     ],
                 )
             await conn.execute(
-                "UPDATE projects SET updated_at = NOW() WHERE id = $1", project_id
+                """
+                UPDATE projects
+                SET updated_at = NOW(),
+                    characters = $1::jsonb
+                WHERE id = $2
+                """,
+                json.dumps([c.model_dump() for c in req.characters], ensure_ascii=False),
+                project_id,
             )
     return {"ok": True}
 

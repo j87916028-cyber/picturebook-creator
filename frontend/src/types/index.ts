@@ -52,6 +52,7 @@ export interface ProjectMeta {
 }
 
 export interface ProjectDetail extends ProjectMeta {
+  characters?: Character[]
   scenes: Array<{
     id: string
     idx: number

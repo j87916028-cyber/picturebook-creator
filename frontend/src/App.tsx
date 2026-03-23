@@ -60,12 +60,15 @@ export default function App() {
       image: s.image,
     }))
     setScenes(loaded)
+    if (proj.characters && proj.characters.length > 0) {
+      setCharacters(proj.characters)
+    }
     setError('')
     setPlanWarning(null)
   }
 
-  // ── Auto-save scenes after generation completes ──────────────
-  const autoSave = useCallback(async (projectId: string, currentScenes: Scene[]) => {
+  // ── Auto-save scenes + characters after generation completes ──
+  const autoSave = useCallback(async (projectId: string, currentScenes: Scene[], currentCharacters?: Character[]) => {
     if (!projectId || currentScenes.length === 0) return
     setSavedStatus('saving')
     try {
@@ -78,6 +81,7 @@ export default function App() {
           lines: s.lines,
           image: s.image,
         })),
+        characters: currentCharacters ?? [],
       }
       await fetch(`/api/projects/${projectId}/scenes`, {
         method: 'PUT',
@@ -237,7 +241,7 @@ export default function App() {
       if (projId) {
         setScenes(prev => {
           // schedule save outside the pure updater
-          setTimeout(() => autoSave(projId!, prev), 0)
+          setTimeout(() => autoSave(projId!, prev, characters), 0)
           return prev
         })
       }
@@ -286,7 +290,7 @@ export default function App() {
   const handleSceneDelete = (sceneId: string) => {
     const next = scenes.filter(s => s.id !== sceneId)
     setScenes(next)
-    if (currentProjectId) autoSave(currentProjectId, next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
   // Move a scene up or down
@@ -298,7 +302,7 @@ export default function App() {
     const next = [...scenes]
     ;[next[idx], next[swapIdx]] = [next[swapIdx], next[idx]]
     setScenes(next)
-    if (currentProjectId) autoSave(currentProjectId, next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
   // Update a single line's text (inline edit)
@@ -310,7 +314,7 @@ export default function App() {
       return { ...s, lines }
     })
     setScenes(next)
-    if (currentProjectId) autoSave(currentProjectId, next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
   // Re-generate voice for a single line
@@ -344,7 +348,7 @@ export default function App() {
         saved = next
         return next
       })
-      if (saved && currentProjectId) autoSave(currentProjectId, saved)
+      if (saved && currentProjectId) autoSave(currentProjectId, saved, characters)
     } catch {}
   }
 
@@ -368,7 +372,7 @@ export default function App() {
         saved = next
         return next
       })
-      if (saved && currentProjectId) autoSave(currentProjectId, saved)
+      if (saved && currentProjectId) autoSave(currentProjectId, saved, characters)
     } catch {}
   }
 
@@ -448,7 +452,7 @@ export default function App() {
 
       await Promise.all([imageP, ...voicePs])
       setScenes(prev => {
-        setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, prev) }, 0)
+        setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, prev, characters) }, 0)
         return prev
       })
     } catch (e) {
