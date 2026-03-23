@@ -562,12 +562,23 @@ class CreateProjectRequest(BaseModel):
 class RenameProjectRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
 
+class SceneLineIn(BaseModel):
+    """Typed representation of a single dialogue line stored in a scene."""
+    character_id: str = Field("", max_length=64)
+    character_name: str = Field("", max_length=30)
+    voice_id: str = Field("", max_length=64)
+    text: str = Field("", max_length=200)
+    emotion: Optional[str] = Field("neutral", max_length=20)
+    # audio_base64 may be a large data URI; cap at ~6 MB encoded (≈ 4.5 MB raw)
+    audio_base64: Optional[str] = Field(None, max_length=6_000_000)
+    audio_format: Optional[str] = Field(None, max_length=10)
+
 class SceneIn(BaseModel):
     idx: int = Field(..., ge=0, le=999)
     description: str = Field("", max_length=500)
     style: str = Field("溫馨童趣", max_length=20)
     script: Dict[str, Any] = {}
-    lines: List[Any] = Field(default_factory=list, max_length=50)
+    lines: List[SceneLineIn] = Field(default_factory=list, max_length=50)
     # base64-encoded image: cap at ~6 MB of encoded data (≈ 4.5 MB raw)
     image: str = Field("", max_length=6_000_000)
 
@@ -731,7 +742,7 @@ async def save_scenes(project_id: str, req: SaveScenesRequest):
                     scene.description,
                     scene.style,
                     json.dumps(scene.script, ensure_ascii=False),
-                    json.dumps(scene.lines, ensure_ascii=False),
+                    json.dumps([ln.model_dump() for ln in scene.lines], ensure_ascii=False),
                     scene.image,
                 )
             await conn.execute(
