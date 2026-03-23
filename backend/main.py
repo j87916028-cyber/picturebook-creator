@@ -1,9 +1,13 @@
+import io
 import os
 import re
 import json
+import random
 import base64
 import httpx
 import logging
+import urllib.parse
+import edge_tts
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -80,6 +84,23 @@ VOICE_TO_GROQ = {
     "cute_boy":               "austin",
     "elderly_man":            "troy",
     "elderly_woman":          "hannah",
+}
+
+# MiniMax voice ID → Microsoft Edge TTS voice (fallback)
+VOICE_TO_EDGE = {
+    "female-tianmei-jingpin": "zh-TW-HsiaoYuNeural",
+    "female-shaonv":          "zh-CN-XiaoxiaoNeural",
+    "female-yujie":           "zh-CN-XiaohanNeural",
+    "female-chengshu":        "zh-TW-HsiaoChenNeural",
+    "male-qn-qingse":         "zh-CN-YunxiNeural",
+    "male-qn-jingying":       "zh-CN-YunyangNeural",
+    "male-qn-badao":          "zh-CN-YunjianNeural",
+    "presenter_male":         "zh-CN-YunyangNeural",
+    "audiobook_male_2":       "zh-CN-YunxiNeural",
+    "audiobook_female_2":     "zh-CN-XiaomoNeural",
+    "cute_boy":               "zh-CN-XiaoxiaoNeural",
+    "elderly_man":            "zh-CN-YunyangNeural",
+    "elderly_woman":          "zh-TW-HsiaoChenNeural",
 }
 
 # ── Models ───────────────────────────────────────────────────
@@ -272,24 +293,6 @@ async def generate_voice(req: GenerateVoiceRequest):
             logger.warning("Groq TTS exception: %s", e)
 
     # ── 備用：Microsoft Edge TTS（中文）──────────────────────
-    import io
-    import edge_tts
-
-    VOICE_TO_EDGE = {
-        "female-tianmei-jingpin": "zh-TW-HsiaoYuNeural",
-        "female-shaonv":          "zh-CN-XiaoxiaoNeural",
-        "female-yujie":           "zh-CN-XiaohanNeural",
-        "female-chengshu":        "zh-TW-HsiaoChenNeural",
-        "male-qn-qingse":         "zh-CN-YunxiNeural",
-        "male-qn-jingying":       "zh-CN-YunyangNeural",
-        "male-qn-badao":          "zh-CN-YunjianNeural",
-        "presenter_male":         "zh-CN-YunyangNeural",
-        "audiobook_male_2":       "zh-CN-YunxiNeural",
-        "audiobook_female_2":     "zh-CN-XiaomoNeural",
-        "cute_boy":               "zh-CN-XiaoxiaoNeural",
-        "elderly_man":            "zh-CN-YunyangNeural",
-        "elderly_woman":          "zh-TW-HsiaoChenNeural",
-    }
     edge_voice = VOICE_TO_EDGE.get(req.voice_id, "zh-TW-HsiaoYuNeural")
     logger.info("Fallback edge-tts voice: %s", edge_voice)
     try:
@@ -309,9 +312,6 @@ async def generate_voice(req: GenerateVoiceRequest):
 # ── 端點：生成場景圖片（HuggingFace FLUX / Pollinations fallback）─
 @app.post("/api/generate-image")
 async def generate_image(req: GenerateImageRequest):
-    import urllib.parse
-    import random
-
     full_prompt = f"{req.prompt}, {req.style} style, soft colors, child-friendly, high quality"
 
     # ── 優先：HuggingFace Inference API（需 HUGGINGFACE_API_KEY）──
