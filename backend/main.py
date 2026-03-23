@@ -99,21 +99,21 @@ VOICE_TO_GROQ = {
     "elderly_woman":          "hannah",
 }
 
-# MiniMax voice ID → Microsoft Edge TTS voice (fallback)
+# MiniMax voice ID → Microsoft Edge TTS voice（全部使用台灣腔 zh-TW）
 VOICE_TO_EDGE = {
-    "female-tianmei-jingpin": "zh-TW-HsiaoYuNeural",
-    "female-shaonv":          "zh-CN-XiaoxiaoNeural",
-    "female-yujie":           "zh-CN-XiaohanNeural",
-    "female-chengshu":        "zh-TW-HsiaoChenNeural",
-    "male-qn-qingse":         "zh-CN-YunxiNeural",
-    "male-qn-jingying":       "zh-CN-YunyangNeural",
-    "male-qn-badao":          "zh-CN-YunjianNeural",
-    "presenter_male":         "zh-CN-YunyangNeural",
-    "audiobook_male_2":       "zh-CN-YunxiNeural",
-    "audiobook_female_2":     "zh-CN-XiaomoNeural",
-    "cute_boy":               "zh-CN-XiaoxiaoNeural",
-    "elderly_man":            "zh-CN-YunyangNeural",
-    "elderly_woman":          "zh-TW-HsiaoChenNeural",
+    "female-tianmei-jingpin": "zh-TW-HsiaoYuNeural",   # 甜美女聲
+    "female-shaonv":          "zh-TW-HsiaoYuNeural",   # 少女音
+    "female-yujie":           "zh-TW-HsiaoChenNeural", # 御姐音
+    "female-chengshu":        "zh-TW-HsiaoChenNeural", # 成熟女聲
+    "male-qn-qingse":         "zh-TW-YunJheNeural",    # 青澀男聲
+    "male-qn-jingying":       "zh-TW-YunJheNeural",    # 精英男聲
+    "male-qn-badao":          "zh-TW-YunJheNeural",    # 霸道男聲
+    "presenter_male":         "zh-TW-YunJheNeural",    # 播報男聲
+    "audiobook_male_2":       "zh-TW-YunJheNeural",    # 說書男聲
+    "audiobook_female_2":     "zh-TW-HsiaoChenNeural", # 說書女聲
+    "cute_boy":               "zh-TW-HsiaoYuNeural",   # 可愛男孩
+    "elderly_man":            "zh-TW-YunJheNeural",    # 老爺爺音
+    "elderly_woman":          "zh-TW-HsiaoChenNeural", # 老奶奶音
 }
 
 # ── Models ───────────────────────────────────────────────────
@@ -186,7 +186,7 @@ async def generate_script(req: GenerateScriptRequest):
         for c in req.characters
     ])
 
-    prompt = f"""你是一位繪本故事作家。請根據以下場景和角色，生成一段繪本對話劇本。
+    prompt = f"""你是一位台灣繪本故事作家。請根據以下場景和角色，生成一段繪本對話劇本。
 
 場景描述：{req.scene_description}
 風格：{req.style}
@@ -209,6 +209,7 @@ async def generate_script(req: GenerateScriptRequest):
 }}
 
 注意：
+- 請使用台灣繁體中文，符合台灣的語言習慣與用語，避免使用中國大陸用語
 - 對話要自然有趣，適合兒童
 - 每個角色至少說一句話
 - 台詞不超過20字/句
@@ -275,14 +276,29 @@ async def generate_script(req: GenerateScriptRequest):
         logger.error("JSON parse failed: %s\nContent: %s", e, content[:800])
         raise HTTPException(status_code=502, detail=f"劇本解析失敗，請重試（{type(e).__name__}）")
 
-# ── 端點：生成語音（Groq Orpheus TTS → edge-tts fallback）───
+# ── 端點：生成語音（Edge TTS 台灣腔優先，Groq Orpheus 英文備用）───
 @app.post("/api/generate-voice")
 async def generate_voice(req: GenerateVoiceRequest):
-    groq_voice = VOICE_TO_GROQ.get(req.voice_id, "diana")
-    logger.info("TTS voice_id=%s → groq_voice=%s", req.voice_id, groq_voice)
+    # ── 優先：Microsoft Edge TTS（台灣繁體中文 zh-TW）────────
+    edge_voice = VOICE_TO_EDGE.get(req.voice_id, "zh-TW-HsiaoYuNeural")
+    logger.info("TTS voice_id=%s → edge_voice=%s", req.voice_id, edge_voice)
+    try:
+        communicate = edge_tts.Communicate(text=req.text, voice=edge_voice)
+        audio_buffer = io.BytesIO()
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio_buffer.write(chunk["data"])
+        audio_bytes = audio_buffer.getvalue()
+        if audio_bytes:
+            return {"audio_base64": base64.b64encode(audio_bytes).decode("utf-8"), "format": "mp3"}
+        logger.warning("Edge TTS returned empty audio")
+    except Exception as e:
+        logger.warning("Edge TTS error: %s", e)
 
-    # ── 優先：Groq Orpheus ────────────────────────────────────
+    # ── 備用：Groq Orpheus（英文聲音，僅供緊急 fallback）────
     if GROQ_API_KEY:
+        groq_voice = VOICE_TO_GROQ.get(req.voice_id, "diana")
+        logger.info("Fallback groq_voice=%s", groq_voice)
         try:
             resp = await _http_client.post(
                 GROQ_TTS_URL,
@@ -304,21 +320,6 @@ async def generate_voice(req: GenerateVoiceRequest):
             logger.warning("Groq TTS error %s: %s", resp.status_code, resp.text[:200])
         except Exception as e:
             logger.warning("Groq TTS exception: %s", e)
-
-    # ── 備用：Microsoft Edge TTS（中文）──────────────────────
-    edge_voice = VOICE_TO_EDGE.get(req.voice_id, "zh-TW-HsiaoYuNeural")
-    logger.info("Fallback edge-tts voice: %s", edge_voice)
-    try:
-        communicate = edge_tts.Communicate(text=req.text, voice=edge_voice)
-        audio_buffer = io.BytesIO()
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                audio_buffer.write(chunk["data"])
-        audio_bytes = audio_buffer.getvalue()
-        if audio_bytes:
-            return {"audio_base64": base64.b64encode(audio_bytes).decode("utf-8"), "format": "mp3"}
-    except Exception as e:
-        logger.error("Edge TTS fallback error: %s", e)
 
     raise HTTPException(status_code=502, detail="語音生成失敗，請稍後重試")
 
@@ -364,7 +365,7 @@ ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 IMAGE_DESCRIBE_PROMPT = (
-    "請用繁體中文描述這張圖片的場景內容，100字以內，適合作為兒童繪本的場景描述。"
+    "請用台灣繁體中文描述這張圖片的場景內容，100字以內，符合台灣語言習慣，適合作為兒童繪本的場景描述。"
 )
 
 @app.post("/api/recognize-image")
