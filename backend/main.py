@@ -1284,23 +1284,155 @@ def _export_html_zip(project_name: str, scenes: list) -> bytes:
     .btn-play {{ background: linear-gradient(135deg,#43e97b,#38f9d7); border: none; border-radius: 20px; padding: 5px 14px; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: white; transition: opacity 0.15s; }}
     .btn-play:hover {{ opacity: 0.85; }}
     .no-audio {{ font-size: 0.78rem; color: #bbb; font-style: italic; }}
-    footer {{ text-align: center; padding: 24px; color: #aaa; font-size: 0.8rem; }}
+    footer {{ text-align: center; padding: 24px; color: #aaa; font-size: 0.8rem; padding-bottom: 100px; }}
+    .dialogue-line.playing {{ background: #eef0ff; border-left-color: #43e97b; box-shadow: 0 0 0 2px #43e97b44; }}
+    /* ── sticky player bar ── */
+    #player-bar {{
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white; padding: 12px 20px;
+      display: flex; align-items: center; gap: 14px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.18);
+      z-index: 999; font-family: 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
+    }}
+    #player-bar.hidden {{ display: none; }}
+    #btn-play-all {{
+      background: linear-gradient(135deg,#43e97b,#38f9d7);
+      border: none; border-radius: 24px; padding: 8px 22px;
+      font-weight: 800; font-size: 1rem; color: white;
+      cursor: pointer; white-space: nowrap; transition: opacity .15s;
+    }}
+    #btn-play-all:hover {{ opacity: .85; }}
+    #player-now {{ flex: 1; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .92; }}
+    #player-progress {{ font-size: 0.8rem; opacity: .7; white-space: nowrap; }}
+    /* header launch button */
+    .header-play-btn {{
+      margin-top: 14px; background: white; color: #667eea;
+      border: none; border-radius: 28px; padding: 10px 28px;
+      font-weight: 800; font-size: 1rem; cursor: pointer;
+      transition: box-shadow .15s;
+    }}
+    .header-play-btn:hover {{ box-shadow: 0 4px 16px rgba(0,0,0,.18); }}
   </style>
 </head>
 <body>
   <header>
     <h1>{escaped_project_name}</h1>
     <p>繪本有聲書互動版</p>
+    <button class="header-play-btn" onclick="startPlayAll()">▶ 播放全書</button>
   </header>
   <main>
 {scenes_joined}
   </main>
   <footer>由「繪本有聲書創作工坊」匯出</footer>
+
+  <!-- Sticky player bar (hidden until Play All starts) -->
+  <div id="player-bar" class="hidden">
+    <button id="btn-play-all" onclick="togglePlayAll()">⏸ 暫停</button>
+    <span id="player-now">準備播放...</span>
+    <span id="player-progress"></span>
+  </div>
+
   <script>
+    // ── per-line playback ──
     function playLine(sceneIdx, lineIdx) {{
       var audio = document.getElementById('audio-' + sceneIdx + '-' + lineIdx);
       if (audio) {{ audio.currentTime = 0; audio.play(); }}
     }}
+
+    // ── Play-All logic ──
+    var _playlist = [];   // {{id, charName, text}}
+    var _cursor   = -1;
+    var _paused   = false;
+
+    function _buildPlaylist() {{
+      var items = [];
+      document.querySelectorAll('.dialogue-line').forEach(function(el) {{
+        var audio = el.querySelector('audio');
+        if (!audio) return;
+        items.push({{
+          audioId: audio.id,
+          lineId: el.id,
+          charName: (el.querySelector('.char-name') || {{}}).textContent || '',
+          text: (el.querySelector('.dialogue-text') || {{}}).textContent || '',
+        }});
+      }});
+      return items;
+    }}
+
+    function startPlayAll() {{
+      _playlist = _buildPlaylist();
+      if (_playlist.length === 0) {{ alert('此繪本尚無音檔，請先在「創作工坊」生成配音。'); return; }}
+      _cursor = -1;
+      _paused = false;
+      document.getElementById('player-bar').classList.remove('hidden');
+      _advance();
+    }}
+
+    function _advance() {{
+      // clear previous highlight
+      document.querySelectorAll('.dialogue-line.playing').forEach(function(el) {{
+        el.classList.remove('playing');
+      }});
+      _cursor++;
+      if (_cursor >= _playlist.length) {{
+        // finished
+        document.getElementById('player-now').textContent = '✓ 播放完畢';
+        document.getElementById('player-progress').textContent = '';
+        document.getElementById('btn-play-all').textContent = '▶ 重播全書';
+        _cursor = -1;
+        return;
+      }}
+      _playAt(_cursor);
+    }}
+
+    function _playAt(idx) {{
+      var item = _playlist[idx];
+      var lineEl = document.getElementById(item.lineId);
+      if (lineEl) {{
+        lineEl.classList.add('playing');
+        lineEl.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+      }}
+      document.getElementById('player-now').textContent = item.charName + '：' + item.text;
+      document.getElementById('player-progress').textContent = (idx + 1) + ' / ' + _playlist.length;
+
+      var audio = document.getElementById(item.audioId);
+      if (!audio) {{ _advance(); return; }}
+      audio.currentTime = 0;
+      audio.onended = function() {{
+        if (!_paused) _advance();
+      }};
+      audio.play().catch(function() {{ _advance(); }});
+    }}
+
+    function togglePlayAll() {{
+      if (_cursor === -1) {{ startPlayAll(); return; }}
+      var btn = document.getElementById('btn-play-all');
+      if (_paused) {{
+        _paused = false;
+        btn.textContent = '⏸ 暫停';
+        if (_cursor >= 0 && _cursor < _playlist.length) {{
+          var a = document.getElementById(_playlist[_cursor].audioId);
+          if (a) a.play().catch(function(){{}});
+        }}
+      }} else {{
+        _paused = true;
+        btn.textContent = '▶ 繼續';
+        document.querySelectorAll('audio').forEach(function(a) {{ a.pause(); }});
+      }}
+    }}
+
+    // keyboard shortcuts: Space = toggle, Esc = stop
+    document.addEventListener('keydown', function(e) {{
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.code === 'Space') {{ e.preventDefault(); togglePlayAll(); }}
+      if (e.code === 'Escape') {{
+        document.querySelectorAll('audio').forEach(function(a) {{ a.pause(); }});
+        document.querySelectorAll('.dialogue-line.playing').forEach(function(el) {{ el.classList.remove('playing'); }});
+        document.getElementById('player-bar').classList.add('hidden');
+        _cursor = -1; _paused = false;
+      }}
+    }});
   </script>
 </body>
 </html>"""
