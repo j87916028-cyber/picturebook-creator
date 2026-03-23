@@ -731,19 +731,24 @@ async def save_scenes(project_id: str, req: SaveScenesRequest):
 
         async with conn.transaction():
             await conn.execute("DELETE FROM scenes WHERE project_id = $1", project_id)
-            for scene in req.scenes:
-                await conn.execute(
+            if req.scenes:
+                await conn.executemany(
                     """
                     INSERT INTO scenes (project_id, idx, description, style, script, lines, image)
                     VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7)
                     """,
-                    project_id,
-                    scene.idx,
-                    scene.description,
-                    scene.style,
-                    json.dumps(scene.script, ensure_ascii=False),
-                    json.dumps([ln.model_dump() for ln in scene.lines], ensure_ascii=False),
-                    scene.image,
+                    [
+                        (
+                            project_id,
+                            scene.idx,
+                            scene.description,
+                            scene.style,
+                            json.dumps(scene.script, ensure_ascii=False),
+                            json.dumps([ln.model_dump() for ln in scene.lines], ensure_ascii=False),
+                            scene.image,
+                        )
+                        for scene in req.scenes
+                    ],
                 )
             await conn.execute(
                 "UPDATE projects SET updated_at = NOW() WHERE id = $1", project_id
