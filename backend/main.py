@@ -15,22 +15,75 @@ logger = logging.getLogger(__name__)
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional, Annotated
+from typing import List, Optional, Annotated, Any, Dict
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── Shared HTTP client (reuses connection pool across all requests) ──
+# ── Optional asyncpg import (graceful if not installed) ──────────
+try:
+    import asyncpg
+    _asyncpg_available = True
+except ImportError:
+    asyncpg = None  # type: ignore
+    _asyncpg_available = False
+
+# ── Shared HTTP client & DB pool ─────────────────────────────────
 _http_client: httpx.AsyncClient | None = None
+_db_pool: Any = None  # asyncpg.Pool or None
+
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+
+_CREATE_PROJECTS = """
+CREATE TABLE IF NOT EXISTS projects (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        VARCHAR(100) NOT NULL DEFAULT '未命名作品',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+"""
+
+_CREATE_SCENES = """
+CREATE TABLE IF NOT EXISTS scenes (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id  UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  idx         SMALLINT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  style       VARCHAR(20) NOT NULL DEFAULT '溫馨童趣',
+  script      JSONB NOT NULL DEFAULT '{}',
+  lines       JSONB NOT NULL DEFAULT '[]',
+  image       TEXT NOT NULL DEFAULT '',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(project_id, idx)
+);
+"""
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _http_client
+    global _http_client, _db_pool
     _http_client = httpx.AsyncClient()
     logger.info("Shared httpx.AsyncClient created")
+
+    if DATABASE_URL and _asyncpg_available:
+        try:
+            _db_pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=5)
+            async with _db_pool.acquire() as conn:
+                await conn.execute(_CREATE_PROJECTS)
+                await conn.execute(_CREATE_SCENES)
+            logger.info("PostgreSQL pool created and schema applied")
+        except Exception as exc:
+            logger.warning("Failed to connect to PostgreSQL: %s — DB features disabled", exc)
+            _db_pool = None
+    else:
+        logger.info("DATABASE_URL not set or asyncpg unavailable — DB features disabled")
+
     yield
+
     await _http_client.aclose()
     logger.info("Shared httpx.AsyncClient closed")
+    if _db_pool:
+        await _db_pool.close()
+        logger.info("PostgreSQL pool closed")
 
 app = FastAPI(title="Picturebook Creator API", lifespan=lifespan)
 
@@ -45,7 +98,7 @@ CORS_ORIGINS = (
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Content-Type"],
 )
 
@@ -494,6 +547,177 @@ async def transcribe_audio(file: UploadFile = File(...)):
         raise HTTPException(status_code=502, detail="語音辨識回應格式異常")
 
     return {"text": text.strip()}
+
+
+# ── Project persistence models ────────────────────────────────
+class CreateProjectRequest(BaseModel):
+    name: str = Field("未命名作品", max_length=100)
+
+class RenameProjectRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+
+class SceneIn(BaseModel):
+    idx: int
+    description: str = ""
+    style: str = "溫馨童趣"
+    script: Dict[str, Any] = {}
+    lines: List[Any] = []
+    image: str = ""
+
+class SaveScenesRequest(BaseModel):
+    scenes: List[SceneIn]
+
+
+def _db_required():
+    if _db_pool is None:
+        raise HTTPException(status_code=503, detail="資料庫未連線，專案功能暫時無法使用")
+
+
+# ── GET /api/projects ─────────────────────────────────────────
+@app.get("/api/projects")
+async def list_projects():
+    _db_required()
+    async with _db_pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT p.id, p.name, p.created_at, p.updated_at,
+                   COUNT(s.id)::int AS scene_count
+            FROM projects p
+            LEFT JOIN scenes s ON s.project_id = p.id
+            GROUP BY p.id
+            ORDER BY p.updated_at DESC
+            """
+        )
+    return [
+        {
+            "id": str(r["id"]),
+            "name": r["name"],
+            "created_at": r["created_at"].isoformat(),
+            "updated_at": r["updated_at"].isoformat(),
+            "scene_count": r["scene_count"],
+        }
+        for r in rows
+    ]
+
+
+# ── POST /api/projects ────────────────────────────────────────
+@app.post("/api/projects", status_code=201)
+async def create_project(req: CreateProjectRequest):
+    _db_required()
+    async with _db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "INSERT INTO projects (name) VALUES ($1) RETURNING id, name, created_at, updated_at",
+            req.name,
+        )
+    return {
+        "id": str(row["id"]),
+        "name": row["name"],
+        "created_at": row["created_at"].isoformat(),
+        "updated_at": row["updated_at"].isoformat(),
+    }
+
+
+# ── GET /api/projects/{project_id} ───────────────────────────
+@app.get("/api/projects/{project_id}")
+async def get_project(project_id: str):
+    _db_required()
+    async with _db_pool.acquire() as conn:
+        proj = await conn.fetchrow(
+            "SELECT id, name, created_at, updated_at FROM projects WHERE id = $1",
+            project_id,
+        )
+        if proj is None:
+            raise HTTPException(status_code=404, detail="專案不存在")
+        scenes = await conn.fetch(
+            "SELECT id, idx, description, style, script, lines, image FROM scenes WHERE project_id = $1 ORDER BY idx",
+            project_id,
+        )
+    return {
+        "id": str(proj["id"]),
+        "name": proj["name"],
+        "created_at": proj["created_at"].isoformat(),
+        "updated_at": proj["updated_at"].isoformat(),
+        "scenes": [
+            {
+                "id": str(s["id"]),
+                "idx": s["idx"],
+                "description": s["description"],
+                "style": s["style"],
+                "script": json.loads(s["script"]) if isinstance(s["script"], str) else s["script"],
+                "lines": json.loads(s["lines"]) if isinstance(s["lines"], str) else s["lines"],
+                "image": s["image"],
+            }
+            for s in scenes
+        ],
+    }
+
+
+# ── PATCH /api/projects/{project_id} ─────────────────────────
+@app.patch("/api/projects/{project_id}")
+async def rename_project(project_id: str, req: RenameProjectRequest):
+    _db_required()
+    async with _db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            UPDATE projects SET name = $1, updated_at = NOW()
+            WHERE id = $2
+            RETURNING id, name, created_at, updated_at
+            """,
+            req.name,
+            project_id,
+        )
+        if row is None:
+            raise HTTPException(status_code=404, detail="專案不存在")
+    return {
+        "id": str(row["id"]),
+        "name": row["name"],
+        "created_at": row["created_at"].isoformat(),
+        "updated_at": row["updated_at"].isoformat(),
+    }
+
+
+# ── DELETE /api/projects/{project_id} ────────────────────────
+@app.delete("/api/projects/{project_id}")
+async def delete_project(project_id: str):
+    _db_required()
+    async with _db_pool.acquire() as conn:
+        result = await conn.execute(
+            "DELETE FROM projects WHERE id = $1", project_id
+        )
+        if result == "DELETE 0":
+            raise HTTPException(status_code=404, detail="專案不存在")
+    return {"ok": True}
+
+
+# ── PUT /api/projects/{project_id}/scenes ────────────────────
+@app.put("/api/projects/{project_id}/scenes")
+async def save_scenes(project_id: str, req: SaveScenesRequest):
+    _db_required()
+    async with _db_pool.acquire() as conn:
+        proj = await conn.fetchrow("SELECT id FROM projects WHERE id = $1", project_id)
+        if proj is None:
+            raise HTTPException(status_code=404, detail="專案不存在")
+
+        async with conn.transaction():
+            await conn.execute("DELETE FROM scenes WHERE project_id = $1", project_id)
+            for scene in req.scenes:
+                await conn.execute(
+                    """
+                    INSERT INTO scenes (project_id, idx, description, style, script, lines, image)
+                    VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7)
+                    """,
+                    project_id,
+                    scene.idx,
+                    scene.description,
+                    scene.style,
+                    json.dumps(scene.script, ensure_ascii=False),
+                    json.dumps(scene.lines, ensure_ascii=False),
+                    scene.image,
+                )
+            await conn.execute(
+                "UPDATE projects SET updated_at = NOW() WHERE id = $1", project_id
+            )
+    return {"ok": True}
 
 
 # ── 健康檢查 ──────────────────────────────────────────────────

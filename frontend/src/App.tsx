@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { DndContext, DragEndEvent } from '@dnd-kit/core'
-import { Character, ScriptLine, ScriptResponse, Scene } from './types'
+import { Character, ScriptLine, ScriptResponse, Scene, ProjectDetail } from './types'
 import CharacterPanel from './components/CharacterPanel'
 import SceneEditor from './components/SceneEditor'
 import SceneOutput from './components/SceneOutput'
+import ProjectPanel from './components/ProjectPanel'
 
 export default function App() {
   const [characters, setCharacters] = useState<Character[]>([])
@@ -13,7 +14,76 @@ export default function App() {
   const [error, setError] = useState('')
   const [planWarning, setPlanWarning] = useState<'voice' | 'image' | null>(null)
 
+  // Project state
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
+  const [projectName, setProjectName] = useState('')
+  const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [projectPanelOpen, setProjectPanelOpen] = useState(true)
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const abortControllerRef = useRef<AbortController | null>(null)
+
+  // ── Auto-init: fetch projects on mount, auto-load most recent ──
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const res = await fetch('/api/projects')
+        if (!res.ok) return
+        const list = await res.json()
+        if (list.length > 0) {
+          const res2 = await fetch(`/api/projects/${list[0].id}`)
+          if (!res2.ok) return
+          const proj: ProjectDetail = await res2.json()
+          loadProjectData(proj)
+        }
+      } catch {}
+    }
+    init()
+  }, [])
+
+  const loadProjectData = (proj: ProjectDetail) => {
+    setCurrentProjectId(proj.id)
+    setProjectName(proj.name)
+    const loaded: Scene[] = proj.scenes.map(s => ({
+      id: s.id,
+      description: s.description,
+      style: s.style,
+      script: s.script,
+      lines: s.lines,
+      image: s.image,
+    }))
+    setScenes(loaded)
+    setError('')
+    setPlanWarning(null)
+  }
+
+  // ── Auto-save scenes after generation completes ──────────────
+  const autoSave = useCallback(async (projectId: string, currentScenes: Scene[]) => {
+    if (!projectId || currentScenes.length === 0) return
+    setSavedStatus('saving')
+    try {
+      const body = {
+        scenes: currentScenes.map((s, idx) => ({
+          idx,
+          description: s.description,
+          style: s.style,
+          script: s.script,
+          lines: s.lines,
+          image: s.image,
+        })),
+      }
+      await fetch(`/api/projects/${projectId}/scenes`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      setSavedStatus('saved')
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+      savedTimerRef.current = setTimeout(() => setSavedStatus('idle'), 2500)
+    } catch {
+      setSavedStatus('idle')
+    }
+  }, [])
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { over, active } = event
@@ -38,6 +108,24 @@ export default function App() {
 
   const handleGenerate = async (description: string, style: string) => {
     if (!description.trim() || droppedCharacters.length === 0) return
+
+    // Ensure a project exists before generating
+    let projId = currentProjectId
+    if (!projId) {
+      try {
+        const res = await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: '未命名作品' }),
+        })
+        if (res.ok) {
+          const proj = await res.json()
+          projId = proj.id
+          setCurrentProjectId(proj.id)
+          setProjectName(proj.name)
+        }
+      } catch {}
+    }
 
     if (abortControllerRef.current) abortControllerRef.current.abort()
     const controller = new AbortController()
@@ -128,6 +216,14 @@ export default function App() {
       })
 
       await Promise.all([imagePromise, ...voicePromises])
+
+      // Auto-save after all generation completes
+      if (projId) {
+        setScenes(prev => {
+          autoSave(projId!, prev)
+          return prev
+        })
+      }
     } catch (e: unknown) {
       if (e instanceof DOMException && e.name === 'AbortError') {
         setScenes(prev => prev.filter(s => s.id !== newSceneId))
@@ -140,15 +236,56 @@ export default function App() {
     }
   }
 
+  const handleProjectLoad = (proj: ProjectDetail) => {
+    loadProjectData(proj)
+  }
+
+  const handleProjectCreated = (id: string, name: string) => {
+    setCurrentProjectId(id || null)
+    setProjectName(name)
+    setScenes([])
+    setError('')
+    setPlanWarning(null)
+  }
+
   return (
     <DndContext onDragEnd={handleDragEnd}>
       <div className="app">
         <header className="app-header">
-          <h1>🎨 繪本有聲書創作工坊</h1>
-          <p>建立角色 → 描述場景 → 一鍵生成故事、配音、插圖</p>
+          <div className="app-header-left">
+            <button
+              className="btn-toggle-drawer"
+              onClick={() => setProjectPanelOpen(v => !v)}
+              title={projectPanelOpen ? '收起作品列表' : '展開作品列表'}
+            >
+              {projectPanelOpen ? '◀' : '▶'}
+            </button>
+          </div>
+          <div className="app-header-center">
+            <h1>🎨 繪本有聲書創作工坊</h1>
+            <p>建立角色 → 描述場景 → 一鍵生成故事、配音、插圖</p>
+          </div>
+          <div className="app-header-right">
+            {savedStatus === 'saving' && <span className="save-indicator saving">儲存中...</span>}
+            {savedStatus === 'saved' && <span className="save-indicator saved">✓ 已儲存</span>}
+            {currentProjectId && projectName && (
+              <span className="current-project-name" title={projectName}>{projectName}</span>
+            )}
+          </div>
         </header>
 
         <main className="app-main">
+          {/* Project drawer */}
+          {projectPanelOpen && (
+            <ProjectPanel
+              currentProjectId={currentProjectId}
+              projectName={projectName}
+              onProjectLoad={handleProjectLoad}
+              onProjectCreated={handleProjectCreated}
+              onProjectNameChange={name => setProjectName(name)}
+            />
+          )}
+
           <CharacterPanel characters={characters} onChange={setCharacters} />
 
           <div className="right-panel">

@@ -42,3 +42,23 @@ export const CHARACTER_COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
   '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F',
 ]
+
+export interface ProjectMeta {
+  id: string
+  name: string
+  created_at: string
+  updated_at: string
+  scene_count: number
+}
+
+export interface ProjectDetail extends ProjectMeta {
+  scenes: Array<{
+    id: string
+    idx: number
+    description: string
+    style: string
+    script: ScriptResponse
+    lines: ScriptLine[]
+    image: string
+  }>
+}
