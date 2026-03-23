@@ -1008,6 +1008,77 @@ body {
 }
 .export-menu button:hover { background: #f0f4ff; color: #667eea; }
 
+/* ── Scene Navigation Strip ──────────────────── */
+.scene-nav-strip {
+  display: flex;
+  gap: 8px;
+  padding: 10px 4px;
+  overflow-x: auto;
+  margin-bottom: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #444 transparent;
+}
+.scene-nav-strip::-webkit-scrollbar { height: 4px; }
+.scene-nav-strip::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
+
+.scene-nav-chip {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8faff;
+  color: #555;
+  cursor: pointer;
+  font-size: 0.72rem;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  width: 80px;
+  text-align: center;
+}
+.scene-nav-chip:hover {
+  border-color: #667eea;
+  background: #f0f4ff;
+  box-shadow: 0 2px 8px rgba(102,126,234,0.15);
+}
+
+.scene-nav-thumb {
+  width: 64px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #dde;
+  display: block;
+}
+.scene-nav-placeholder {
+  width: 64px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  background: #eef0ff;
+  border-radius: 6px;
+  border: 1px solid #dde;
+}
+.scene-nav-num {
+  font-weight: 700;
+  color: #667eea;
+  white-space: nowrap;
+  font-size: 0.72rem;
+}
+.scene-nav-desc {
+  color: #888;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  text-align: center;
+  font-size: 0.68rem;
+}
+
 /* ── Playbook bar ─────────────────────────────── */
 .playbook-bar {
   display: flex; align-items: center; gap: 12px;

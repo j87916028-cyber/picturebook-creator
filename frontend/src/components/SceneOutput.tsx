@@ -2,6 +2,13 @@ import { useRef, useState, useCallback, useEffect } from 'react'
 import { Scene, Character } from '../types'
 import PlaybackModal from './PlaybackModal'
 
+// Resolve image src: use data URI if base64 blob, else bare URL
+function resolveImgSrc(image: string): string {
+  if (!image) return ''
+  if (image.startsWith('data:') || image.startsWith('http') || image.startsWith('/')) return image
+  return `data:image/jpeg;base64,${image}`
+}
+
 const STYLES = ['溫馨童趣', '奇幻冒險', '搞笑幽默', '感動溫情', '懸疑神秘']
 
 const EMOTION_LABELS: Record<string, string> = {
@@ -461,10 +468,15 @@ export default function SceneOutput({
   onSceneRegen,
 }: Props) {
   const [showPlayback, setShowPlayback] = useState(false)
+  const sceneRefs = useRef<(HTMLDivElement | null)[]>([])
 
   if (scenes.length === 0) return null
 
   const hasAudio = scenes.some(s => s.lines.some(l => l.audio_base64))
+
+  const scrollToScene = (index: number) => {
+    sceneRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
     <div className="scene-output-panel">
@@ -477,6 +489,32 @@ export default function SceneOutput({
         </div>
       )}
 
+      {/* Scene navigation strip — only shown when there are 2+ scenes */}
+      {scenes.length > 1 && (
+        <div className="scene-nav-strip">
+          {scenes.map((scene, i) => (
+            <button
+              key={scene.id}
+              className="scene-nav-chip"
+              onClick={() => scrollToScene(i)}
+              title={scene.description}
+            >
+              {scene.image ? (
+                <img
+                  className="scene-nav-thumb"
+                  src={resolveImgSrc(scene.image)}
+                  alt={`第${i + 1}幕`}
+                />
+              ) : (
+                <span className="scene-nav-placeholder">🎭</span>
+              )}
+              <span className="scene-nav-num">第 {i + 1} 幕</span>
+              <span className="scene-nav-desc">{scene.description}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {showPlayback && (
         <PlaybackModal
           scenes={scenes}
@@ -486,19 +524,20 @@ export default function SceneOutput({
       )}
 
       {scenes.map((scene, i) => (
-        <SceneCard
-          key={scene.id}
-          scene={scene}
-          sceneIndex={i}
-          totalScenes={scenes.length}
-          characters={characters}
-          onSceneDelete={onSceneDelete}
-          onSceneMove={onSceneMove}
-          onLineTextChange={onLineTextChange}
-          onLineVoiceRegen={onLineVoiceRegen}
-          onImageRegen={onImageRegen}
-          onSceneRegen={onSceneRegen}
-        />
+        <div key={scene.id} ref={el => { sceneRefs.current[i] = el }}>
+          <SceneCard
+            scene={scene}
+            sceneIndex={i}
+            totalScenes={scenes.length}
+            characters={characters}
+            onSceneDelete={onSceneDelete}
+            onSceneMove={onSceneMove}
+            onLineTextChange={onLineTextChange}
+            onLineVoiceRegen={onLineVoiceRegen}
+            onImageRegen={onImageRegen}
+            onSceneRegen={onSceneRegen}
+          />
+        </div>
       ))}
     </div>
   )
