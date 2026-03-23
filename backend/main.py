@@ -2,6 +2,7 @@ import io
 import os
 import re
 import json
+import uuid
 import random
 import base64
 import glob as _glob
@@ -577,6 +578,15 @@ def _db_required():
         raise HTTPException(status_code=503, detail="資料庫未連線，專案功能暫時無法使用")
 
 
+def _validate_uuid(value: str) -> str:
+    """Raise HTTP 400 if *value* is not a valid UUID; return it unchanged."""
+    try:
+        uuid.UUID(value)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="無效的專案 ID 格式")
+    return value
+
+
 # ── GET /api/projects ─────────────────────────────────────────
 @app.get("/api/projects")
 async def list_projects():
@@ -625,6 +635,7 @@ async def create_project(req: CreateProjectRequest):
 @app.get("/api/projects/{project_id}")
 async def get_project(project_id: str):
     _db_required()
+    _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
         proj = await conn.fetchrow(
             "SELECT id, name, created_at, updated_at FROM projects WHERE id = $1",
@@ -660,6 +671,7 @@ async def get_project(project_id: str):
 @app.patch("/api/projects/{project_id}")
 async def rename_project(project_id: str, req: RenameProjectRequest):
     _db_required()
+    _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
         row = await conn.fetchrow(
             """
@@ -684,6 +696,7 @@ async def rename_project(project_id: str, req: RenameProjectRequest):
 @app.delete("/api/projects/{project_id}")
 async def delete_project(project_id: str):
     _db_required()
+    _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
         result = await conn.execute(
             "DELETE FROM projects WHERE id = $1", project_id
@@ -697,6 +710,7 @@ async def delete_project(project_id: str):
 @app.put("/api/projects/{project_id}/scenes")
 async def save_scenes(project_id: str, req: SaveScenesRequest):
     _db_required()
+    _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
         proj = await conn.fetchrow("SELECT id FROM projects WHERE id = $1", project_id)
         if proj is None:
@@ -1098,6 +1112,7 @@ def _export_mp3_zip(project_name: str, scenes: list) -> bytes:
 @app.get("/api/projects/{project_id}/export")
 async def export_project(project_id: str, format: str = "pdf"):
     _db_required()
+    _validate_uuid(project_id)
 
     # Load project from DB
     async with _db_pool.acquire() as conn:
