@@ -881,7 +881,7 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
     chapters = []
 
     for i, scene in enumerate(scenes):
-        desc = scene.get("description", "")
+        desc = html.escape(scene.get("description", ""))
         lines = scene.get("lines", [])
         image_data = scene.get("image", "")
 
@@ -906,13 +906,14 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
             except Exception as e:
                 logger.warning("EPUB image embed failed: %s", e)
         elif image_data:
-            img_html = f'<img src="{image_data}" class="scene-image" alt="第{i+1}幕插圖"/>'
+            safe_src = html.escape(image_data, quote=True)
+            img_html = f'<img src="{safe_src}" class="scene-image" alt="第{i+1}幕插圖"/>'
 
-        # Build dialogue HTML
+        # Build dialogue HTML — escape user-supplied text to prevent XSS in XHTML
         dialogue_rows = ""
         for line in lines:
-            char_name = line.get("character_name", "")
-            text = line.get("text", "")
+            char_name = html.escape(line.get("character_name", ""))
+            text = html.escape(line.get("text", ""))
             dialogue_rows += f'<tr><td class="char-name">{char_name}</td><td class="dialogue-text">{text}</td></tr>'
 
         dialogue_html = ""
@@ -933,10 +934,10 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
                         content=audio_bytes,
                     )
                     book.add_item(audio_item)
-                    char_name = line.get("character_name", "")
+                    safe_char = html.escape(line.get("character_name", ""))
                     audio_items_html += (
                         f'<audio controls src="../audio/scene{i}_line{j}.mp3">'
-                        f'<p>{char_name}</p></audio>'
+                        f'<p>{safe_char}</p></audio>'
                     )
                 except Exception as e:
                     logger.warning("EPUB audio embed failed: %s", e)
