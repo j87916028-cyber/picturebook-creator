@@ -1,6 +1,18 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Scene, Character } from '../types'
 
+const EMOTION_LABELS: Record<string, string> = {
+  happy:     '😄 開心',
+  sad:       '😢 難過',
+  angry:     '😠 生氣',
+  surprised: '😲 驚訝',
+  fearful:   '😨 害怕',
+  disgusted: '🤢 厭惡',
+  neutral:   '',   // don't show neutral in playback — it's the default
+}
+
+const SPEED_OPTIONS = [0.75, 1.0, 1.25, 1.5, 2.0]
+
 interface Props {
   scenes: Scene[]
   characters: Character[]
@@ -27,6 +39,7 @@ export default function PlaybackModal({ scenes, characters, onClose }: Props) {
   const playlist = buildPlaylist(scenes)
   const [cursor, setCursor] = useState(0)         // index into playlist
   const [playing, setPlaying] = useState(true)
+  const [speed, setSpeed] = useState(1.0)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
 
@@ -51,17 +64,23 @@ export default function PlaybackModal({ scenes, characters, onClose }: Props) {
     })
   }, [])
 
-  // Play audio when cursor or playing changes
+  // Play audio when cursor changes; apply current speed
   useEffect(() => {
     if (!currentLine?.audio_base64) return
     const src = `data:audio/${currentLine.audio_format || 'mp3'};base64,${currentLine.audio_base64}`
     if (audioRef.current) {
       audioRef.current.src = src
+      audioRef.current.playbackRate = speed
       if (playing) {
         audioRef.current.play().catch(() => {})
       }
     }
   }, [cursor]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Apply speed change to live audio immediately
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = speed
+  }, [speed])
 
   // Auto-advance when audio ends
   const handleEnded = useCallback(() => {
@@ -136,8 +155,8 @@ export default function PlaybackModal({ scenes, characters, onClose }: Props) {
           )}
           <p className="playback-line-text">{currentLine?.text ?? ''}</p>
           <div className="playback-emotion-badge">
-            {currentLine?.emotion && currentLine.emotion !== 'neutral' && (
-              <span>{currentLine.emotion}</span>
+            {currentLine?.emotion && EMOTION_LABELS[currentLine.emotion] && (
+              <span>{EMOTION_LABELS[currentLine.emotion]}</span>
             )}
           </div>
         </div>
@@ -173,6 +192,23 @@ export default function PlaybackModal({ scenes, characters, onClose }: Props) {
             <div className="playback-progress-fill" style={{ width: `${pct}%` }} />
           </div>
           <span className="playback-progress-label">{lineProgress}</span>
+        </div>
+
+        {/* Speed control */}
+        <div className="playback-speed-row">
+          <span className="playback-speed-label">播放速度</span>
+          <div className="playback-speed-btns">
+            {SPEED_OPTIONS.map(s => (
+              <button
+                key={s}
+                className={`playback-speed-btn ${speed === s ? 'active' : ''}`}
+                onClick={() => setSpeed(s)}
+                title={`${s}x 速度`}
+              >
+                {s === 1.0 ? '1×' : `${s}×`}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
