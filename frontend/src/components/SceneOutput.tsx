@@ -1,20 +1,51 @@
 import { useRef, useState, useCallback } from 'react'
 import { Scene, Character } from '../types'
 
+const STYLES = ['溫馨童趣', '奇幻冒險', '搞笑幽默', '感動溫情', '懸疑神秘']
+
 interface Props {
   scenes: Scene[]
   characters: Character[]
+  onSceneDelete: (sceneId: string) => void
+  onLineTextChange: (sceneId: string, lineIndex: number, newText: string) => void
+  onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
+  onImageRegen: (sceneId: string) => Promise<void>
+  onSceneRegen: (sceneId: string, newDescription: string, style: string) => Promise<void>
 }
 
 interface SceneCardProps {
   scene: Scene
   sceneIndex: number
   characters: Character[]
+  onSceneDelete: (sceneId: string) => void
+  onLineTextChange: (sceneId: string, lineIndex: number, newText: string) => void
+  onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
+  onImageRegen: (sceneId: string) => Promise<void>
+  onSceneRegen: (sceneId: string, newDescription: string, style: string) => Promise<void>
 }
 
-function SceneCard({ scene, sceneIndex, characters }: SceneCardProps) {
+function SceneCard({
+  scene,
+  sceneIndex,
+  characters,
+  onSceneDelete,
+  onLineTextChange,
+  onLineVoiceRegen,
+  onImageRegen,
+  onSceneRegen,
+}: SceneCardProps) {
   const [playingIndex, setPlayingIndex] = useState<number | null>(null)
   const audioRefs = useRef<(HTMLAudioElement | null)[]>([])
+
+  // Edit state
+  const [editingLineIndex, setEditingLineIndex] = useState<number | null>(null)
+  const [editLineText, setEditLineText] = useState('')
+  const [regenVoiceIndex, setRegenVoiceIndex] = useState<number | null>(null)
+  const [regenImage, setRegenImage] = useState(false)
+  const [showRegenForm, setShowRegenForm] = useState(false)
+  const [regenDesc, setRegenDesc] = useState(scene.description)
+  const [regenStyle, setRegenStyle] = useState(scene.style)
+  const [regenLoading, setRegenLoading] = useState(false)
 
   const getCharacter = (id: string) => characters.find(c => c.id === id)
 
@@ -47,6 +78,58 @@ function SceneCard({ scene, sceneIndex, characters }: SceneCardProps) {
 
   const isGenerating = scene.lines.length === 0
 
+  const handleDeleteScene = () => {
+    if (window.confirm(`確定要刪除第 ${sceneIndex + 1} 幕嗎？此動作無法復原。`)) {
+      onSceneDelete(scene.id)
+    }
+  }
+
+  const handleStartEditLine = (index: number, text: string) => {
+    setEditingLineIndex(index)
+    setEditLineText(text)
+  }
+
+  const handleConfirmEditLine = (index: number) => {
+    if (editLineText.trim()) {
+      onLineTextChange(scene.id, index, editLineText.trim())
+    }
+    setEditingLineIndex(null)
+  }
+
+  const handleCancelEditLine = () => {
+    setEditingLineIndex(null)
+    setEditLineText('')
+  }
+
+  const handleVoiceRegen = async (index: number) => {
+    setRegenVoiceIndex(index)
+    try {
+      await onLineVoiceRegen(scene.id, index)
+    } finally {
+      setRegenVoiceIndex(null)
+    }
+  }
+
+  const handleImageRegen = async () => {
+    setRegenImage(true)
+    try {
+      await onImageRegen(scene.id)
+    } finally {
+      setRegenImage(false)
+    }
+  }
+
+  const handleSceneRegenSubmit = async () => {
+    if (!regenDesc.trim()) return
+    setRegenLoading(true)
+    try {
+      await onSceneRegen(scene.id, regenDesc.trim(), regenStyle)
+      setShowRegenForm(false)
+    } finally {
+      setRegenLoading(false)
+    }
+  }
+
   return (
     <div className="scene-card">
       <div className="scene-card-header">
@@ -54,13 +137,92 @@ function SceneCard({ scene, sceneIndex, characters }: SceneCardProps) {
         <span className="scene-card-desc">{scene.description}</span>
       </div>
 
+      {/* Action buttons row */}
+      <div className="scene-card-actions">
+        {scene.script.scene_prompt && (
+          <button
+            className="btn-scene-action"
+            onClick={handleImageRegen}
+            disabled={regenImage || isGenerating}
+            title="重新生成插圖"
+          >
+            {regenImage ? <><span className="spinner-sm" /> 生成中...</> : '🔄 重新生成插圖'}
+          </button>
+        )}
+        <button
+          className="btn-scene-action"
+          onClick={() => {
+            setRegenDesc(scene.description)
+            setRegenStyle(scene.style)
+            setShowRegenForm(v => !v)
+          }}
+          disabled={regenLoading || isGenerating}
+          title="重新生成此幕"
+        >
+          ✏️ 重新生成此幕
+        </button>
+        <button
+          className="btn-scene-action btn-scene-delete"
+          onClick={handleDeleteScene}
+          disabled={regenLoading}
+          title="刪除此幕"
+        >
+          🗑️ 刪除此幕
+        </button>
+      </div>
+
+      {/* Re-generate scene form */}
+      {showRegenForm && (
+        <div className="regen-scene-form">
+          <label className="regen-scene-label">場景描述</label>
+          <textarea
+            className="line-edit-textarea"
+            value={regenDesc}
+            onChange={e => setRegenDesc(e.target.value.slice(0, 500))}
+            rows={3}
+            maxLength={500}
+            placeholder="描述新場景內容..."
+          />
+          <div className="style-row" style={{ marginTop: '8px' }}>
+            <label style={{ fontSize: '0.8rem', color: '#888', whiteSpace: 'nowrap' }}>故事風格</label>
+            <div className="style-buttons">
+              {STYLES.map(s => (
+                <button
+                  key={s}
+                  className={`style-btn ${regenStyle === s ? 'active' : ''}`}
+                  onClick={() => setRegenStyle(s)}
+                  type="button"
+                >{s}</button>
+              ))}
+            </div>
+          </div>
+          <div className="line-edit-btns" style={{ marginTop: '10px' }}>
+            <button
+              className="btn-scene-action"
+              onClick={handleSceneRegenSubmit}
+              disabled={regenLoading || !regenDesc.trim()}
+            >
+              {regenLoading ? <><span className="spinner-sm" /> 生成中...</> : '✓ 確認重新生成'}
+            </button>
+            <button
+              className="btn-ghost"
+              onClick={() => setShowRegenForm(false)}
+              disabled={regenLoading}
+              style={{ fontSize: '0.8rem', padding: '5px 12px' }}
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 場景插圖 */}
       <div className="scene-card-image-wrap">
         {scene.image ? (
           <img src={scene.image} alt={`第${sceneIndex + 1}幕插圖`} className="scene-image" />
         ) : (
           <div className="image-loading">
-            {isGenerating ? '劇本生成中...' : '插圖生成中...'}
+            {isGenerating ? '劇本生成中...' : regenImage ? '重新生成插圖中...' : '插圖生成中...'}
           </div>
         )}
       </div>
@@ -82,6 +244,8 @@ function SceneCard({ scene, sceneIndex, characters }: SceneCardProps) {
               const char = getCharacter(line.character_id)
               const color = char?.color || '#888'
               const isPlaying = playingIndex === i
+              const isEditingThis = editingLineIndex === i
+              const isRegenVoice = regenVoiceIndex === i
 
               return (
                 <div
@@ -95,7 +259,44 @@ function SceneCard({ scene, sceneIndex, characters }: SceneCardProps) {
                     <span className="emotion-badge">{line.emotion}</span>
                   </div>
                   <div className="dialogue-content">
-                    <p className="dialogue-text">{line.text}</p>
+                    {isEditingThis ? (
+                      <div className="line-edit-area">
+                        <textarea
+                          className="line-edit-textarea"
+                          value={editLineText}
+                          onChange={e => setEditLineText(e.target.value)}
+                          rows={2}
+                          autoFocus
+                        />
+                        <div className="line-edit-btns">
+                          <button
+                            className="btn-scene-action"
+                            onClick={() => handleConfirmEditLine(i)}
+                            disabled={!editLineText.trim()}
+                          >
+                            ✓ 確認
+                          </button>
+                          <button
+                            className="btn-ghost"
+                            onClick={handleCancelEditLine}
+                            style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+                          >
+                            ✗ 取消
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="dialogue-text-row">
+                        <p className="dialogue-text">{line.text}</p>
+                        <button
+                          className="btn-edit-line"
+                          onClick={() => handleStartEditLine(i, line.text)}
+                          title="編輯台詞"
+                        >
+                          ✏️
+                        </button>
+                      </div>
+                    )}
                     <div className="dialogue-controls">
                       {line.audio_base64 ? (
                         <>
@@ -112,7 +313,21 @@ function SceneCard({ scene, sceneIndex, characters }: SceneCardProps) {
                           </button>
                         </>
                       ) : (
-                        <span className="audio-loading">音訊生成中...</span>
+                        <span className="audio-loading">
+                          {isRegenVoice ? '配音生成中...' : '音訊生成中...'}
+                        </span>
+                      )}
+                      {line.text && (
+                        <button
+                          className="btn-regen-voice"
+                          onClick={() => handleVoiceRegen(i)}
+                          disabled={isRegenVoice || isEditingThis}
+                          title="重新配音"
+                        >
+                          {isRegenVoice
+                            ? <><span className="spinner-sm" /> 配音中...</>
+                            : '🎤 重新配音'}
+                        </button>
                       )}
                     </div>
                   </div>
@@ -126,13 +341,31 @@ function SceneCard({ scene, sceneIndex, characters }: SceneCardProps) {
   )
 }
 
-export default function SceneOutput({ scenes, characters }: Props) {
+export default function SceneOutput({
+  scenes,
+  characters,
+  onSceneDelete,
+  onLineTextChange,
+  onLineVoiceRegen,
+  onImageRegen,
+  onSceneRegen,
+}: Props) {
   if (scenes.length === 0) return null
 
   return (
     <div className="scene-output-panel">
       {scenes.map((scene, i) => (
-        <SceneCard key={scene.id} scene={scene} sceneIndex={i} characters={characters} />
+        <SceneCard
+          key={scene.id}
+          scene={scene}
+          sceneIndex={i}
+          characters={characters}
+          onSceneDelete={onSceneDelete}
+          onLineTextChange={onLineTextChange}
+          onLineVoiceRegen={onLineVoiceRegen}
+          onImageRegen={onImageRegen}
+          onSceneRegen={onSceneRegen}
+        />
       ))}
     </div>
   )

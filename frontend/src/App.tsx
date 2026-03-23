@@ -236,6 +236,163 @@ export default function App() {
     }
   }
 
+  // ── Edit callbacks ────────────────────────────────────────────
+
+  // Delete a scene
+  const handleSceneDelete = (sceneId: string) => {
+    setScenes(prev => {
+      const next = prev.filter(s => s.id !== sceneId)
+      if (currentProjectId) autoSave(currentProjectId, next)
+      return next
+    })
+  }
+
+  // Update a single line's text (inline edit)
+  const handleLineTextChange = (sceneId: string, lineIndex: number, newText: string) => {
+    setScenes(prev => {
+      const next = prev.map(s => {
+        if (s.id !== sceneId) return s
+        const lines = [...s.lines]
+        lines[lineIndex] = { ...lines[lineIndex], text: newText, audio_base64: undefined, audio_format: undefined }
+        return { ...s, lines }
+      })
+      if (currentProjectId) autoSave(currentProjectId, next)
+      return next
+    })
+  }
+
+  // Re-generate voice for a single line
+  const handleLineVoiceRegen = async (sceneId: string, lineIndex: number) => {
+    const scene = scenes.find(s => s.id === sceneId)
+    if (!scene) return
+    const line = scene.lines[lineIndex]
+    // Mark as loading (clear audio)
+    setScenes(prev => prev.map(s => {
+      if (s.id !== sceneId) return s
+      const lines = [...s.lines]
+      lines[lineIndex] = { ...lines[lineIndex], audio_base64: undefined, audio_format: undefined }
+      return { ...s, lines }
+    }))
+    try {
+      const res = await fetch('/api/generate-voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: line.text, voice_id: line.voice_id }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      setScenes(prev => {
+        const next = prev.map(s => {
+          if (s.id !== sceneId) return s
+          const lines = [...s.lines]
+          lines[lineIndex] = { ...lines[lineIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+          return { ...s, lines }
+        })
+        if (currentProjectId) autoSave(currentProjectId, next)
+        return next
+      })
+    } catch {}
+  }
+
+  // Re-generate scene image
+  const handleImageRegen = async (sceneId: string) => {
+    const scene = scenes.find(s => s.id === sceneId)
+    if (!scene || !scene.script.scene_prompt) return
+    // Clear image to show loading
+    setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: '' } : s))
+    try {
+      const res = await fetch('/api/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: scene.script.scene_prompt }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      setScenes(prev => {
+        const next = prev.map(s => s.id === sceneId ? { ...s, image: data.url } : s)
+        if (currentProjectId) autoSave(currentProjectId, next)
+        return next
+      })
+    } catch {}
+  }
+
+  // Re-generate entire scene
+  const handleSceneRegen = async (sceneId: string, newDescription: string, style: string) => {
+    setScenes(prev => prev.map(s =>
+      s.id === sceneId ? { ...s, description: newDescription, style, lines: [], image: '', script: { lines: [], scene_prompt: '', sfx_description: '' } } : s
+    ))
+
+    const scene = scenes.find(s => s.id === sceneId)
+    if (!scene) return
+
+    // Build story context from scenes before this one
+    const sceneIndex = scenes.findIndex(s => s.id === sceneId)
+    const prevScenes = scenes.slice(Math.max(0, sceneIndex - 3), sceneIndex)
+    const storyContext = prevScenes.length > 0
+      ? prevScenes.map((s, i) => {
+          const dialogue = s.lines.map(l => `${l.character_name}：「${l.text}」`).join(' ')
+          return `第${sceneIndex - prevScenes.length + i + 1}幕（${s.description}）：${dialogue}`
+        }).join('\n')
+      : undefined
+
+    try {
+      const scriptRes = await fetch('/api/generate-script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scene_description: newDescription,
+          characters: droppedCharacters.length > 0 ? droppedCharacters : characters,
+          style,
+          story_context: storyContext,
+        }),
+      })
+      if (!scriptRes.ok) return
+      const script = await scriptRes.json()
+
+      setScenes(prev => prev.map(s =>
+        s.id === sceneId ? { ...s, script, lines: script.lines.map((l: ScriptLine) => ({ ...l })) } : s
+      ))
+
+      // Parallel: image + voices
+      const imageP = fetch('/api/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: script.scene_prompt }),
+      }).then(async r => {
+        if (!r.ok) return
+        const d = await r.json()
+        setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: d.url } : s))
+      }).catch(() => {})
+
+      const voicePs = script.lines.map(async (line: ScriptLine, index: number) => {
+        try {
+          const res = await fetch('/api/generate-voice', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: line.text, voice_id: line.voice_id }),
+          })
+          if (!res.ok) return
+          const data = await res.json()
+          setScenes(prev => {
+            const next = prev.map(s => {
+              if (s.id !== sceneId) return s
+              const lines = [...s.lines] as ScriptLine[]
+              lines[index] = { ...lines[index], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+              return { ...s, lines }
+            })
+            return next
+          })
+        } catch {}
+      })
+
+      await Promise.all([imageP, ...voicePs])
+      setScenes(prev => {
+        if (currentProjectId) autoSave(currentProjectId, prev)
+        return prev
+      })
+    } catch {}
+  }
+
   const handleProjectLoad = (proj: ProjectDetail) => {
     loadProjectData(proj)
   }
@@ -308,7 +465,15 @@ export default function App() {
               </div>
             )}
 
-            <SceneOutput scenes={scenes} characters={characters} />
+            <SceneOutput
+              scenes={scenes}
+              characters={characters}
+              onSceneDelete={handleSceneDelete}
+              onLineTextChange={handleLineTextChange}
+              onLineVoiceRegen={handleLineVoiceRegen}
+              onImageRegen={handleImageRegen}
+              onSceneRegen={handleSceneRegen}
+            />
           </div>
         </main>
       </div>
