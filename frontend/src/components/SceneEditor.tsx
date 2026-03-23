@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { Character } from '../types'
 
@@ -9,6 +9,7 @@ interface Props {
   isLoading: boolean
   sceneCount: number
   onReset: () => void
+  storyContext?: string   // context from previous scenes for suggestions
 }
 
 const STYLES = ['溫馨童趣', '奇幻冒險', '搞笑幽默', '感動溫情', '懸疑神秘']
@@ -20,6 +21,7 @@ export default function SceneEditor({
   isLoading,
   sceneCount,
   onReset,
+  storyContext,
 }: Props) {
   const [description, setDescription] = useState('')
   const [style, setStyle] = useState('溫馨童趣')
@@ -27,10 +29,52 @@ export default function SceneEditor({
   const [audioLoading, setAudioLoading] = useState(false)
   const [inputError, setInputError] = useState<string | null>(null)
 
+  // Suggestion state
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [suggestLoading, setSuggestLoading] = useState(false)
+  const [suggestError, setSuggestError] = useState(false)
+
   const imageInputRef = useRef<HTMLInputElement>(null)
   const audioInputRef = useRef<HTMLInputElement>(null)
 
   const { setNodeRef, isOver } = useDroppable({ id: 'scene-drop-zone' })
+
+  const fetchSuggestions = useCallback(async () => {
+    if (!storyContext || droppedCharacters.length === 0 || suggestLoading) return
+    setSuggestLoading(true)
+    setSuggestError(false)
+    try {
+      const res = await fetch('/api/suggest-next-scene', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          characters: droppedCharacters,
+          story_context: storyContext,
+          style,
+        }),
+      })
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setSuggestions(data.suggestions ?? [])
+    } catch {
+      setSuggestError(true)
+      setSuggestions([])
+    } finally {
+      setSuggestLoading(false)
+    }
+  }, [storyContext, droppedCharacters, style, suggestLoading])
+
+  // Auto-fetch when we have context (new scene needed)
+  useEffect(() => {
+    if (sceneCount > 0 && storyContext && droppedCharacters.length > 0 && suggestions.length === 0 && !suggestLoading) {
+      fetchSuggestions()
+    }
+  }, [sceneCount, storyContext]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear suggestions when description is filled manually
+  const handleDescChange = (val: string) => {
+    setDescription(val.slice(0, 500))
+  }
 
   async function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -86,7 +130,7 @@ export default function SceneEditor({
           className="scene-input"
           placeholder="描述場景...&#10;例：在一片大森林裡，小兔子迷路了，遇見了一隻友善的狐狸"
           value={description}
-          onChange={e => setDescription(e.target.value.slice(0, 500))}
+          onChange={e => handleDescChange(e.target.value)}
           rows={3}
           maxLength={500}
         />
@@ -95,7 +139,6 @@ export default function SceneEditor({
             {description.length} / 500
           </p>
           <div className="scene-input-actions">
-            {/* 隱藏的圖片 input */}
             <input
               ref={imageInputRef}
               type="file"
@@ -103,7 +146,6 @@ export default function SceneEditor({
               style={{ display: 'none' }}
               onChange={handleImageFile}
             />
-            {/* 隱藏的音訊 input */}
             <input
               ref={audioInputRef}
               type="file"
@@ -135,6 +177,43 @@ export default function SceneEditor({
         </div>
         {inputError && (
           <div className="error-box" style={{ marginTop: '-8px' }}>{inputError}</div>
+        )}
+
+        {/* ✨ 下一幕靈感建議（只在已有幕次時顯示） */}
+        {sceneCount > 0 && (
+          <div className="suggest-section">
+            <div className="suggest-header">
+              <span className="suggest-title">✨ 下一幕靈感</span>
+              <button
+                className="btn-suggest-refresh"
+                onClick={fetchSuggestions}
+                disabled={suggestLoading || droppedCharacters.length === 0}
+                title="換一批建議"
+              >
+                {suggestLoading ? <span className="spinner-sm" /> : '🔄'}
+              </button>
+            </div>
+            {suggestLoading && (
+              <div className="suggest-loading">靈感生成中...</div>
+            )}
+            {!suggestLoading && suggestError && (
+              <div className="suggest-error">建議生成失敗，<button className="link-btn" onClick={fetchSuggestions}>重試</button></div>
+            )}
+            {!suggestLoading && suggestions.length > 0 && (
+              <div className="suggest-chips">
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    className={`suggest-chip ${description === s ? 'active' : ''}`}
+                    onClick={() => setDescription(s)}
+                    title="點擊填入此描述"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {/* 風格選擇 */}

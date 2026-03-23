@@ -574,6 +574,14 @@ export default function App() {
               isLoading={isLoading}
               sceneCount={scenes.length}
               onReset={handleReset}
+              storyContext={scenes.length > 0
+                ? scenes.slice(-3).map((s, i) => {
+                    const idx = scenes.length - Math.min(scenes.length, 3) + i + 1
+                    const dialogue = s.lines.map(l => `${l.character_name}：「${l.text}」`).join(' ')
+                    return `第${idx}幕（${s.description}）：${dialogue}`
+                  }).join('\n')
+                : undefined
+              }
             />
 
             {error && <div className="error-box">⚠️ {error}</div>}

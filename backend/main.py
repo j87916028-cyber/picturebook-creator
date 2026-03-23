@@ -345,6 +345,61 @@ async def generate_title(req: GenerateTitleRequest):
         logger.warning("generate-title failed: %s", e)
         raise HTTPException(status_code=502, detail="書名生成失敗")
 
+# ── 端點：下一幕靈感建議 ──────────────────────────────────────
+class SuggestNextSceneRequest(BaseModel):
+    characters: Annotated[List[Character], Field(min_length=1, max_length=6)]
+    story_context: str = Field(..., min_length=1, max_length=3000)
+    style: Optional[str] = Field("溫馨童趣", max_length=20)
+
+@app.post("/api/suggest-next-scene")
+async def suggest_next_scene(req: SuggestNextSceneRequest):
+    if not MINIMAX_API_KEY:
+        raise HTTPException(status_code=503, detail="服務未設定")
+    char_names = "、".join(c.name for c in req.characters)
+    prompt = f"""你是台灣繪本故事作家。根據以下故事脈絡，為下一幕提供 3 個不同方向的場景描述建議。
+
+角色：{char_names}
+風格：{req.style}
+前情脈絡：
+{req.story_context}
+
+請提供 3 個簡短的「下一幕場景描述」，每個約 20-50 字，方向各異（例如：衝突、驚喜、溫馨、冒險等）。
+
+嚴格回傳 JSON 格式，不要任何說明：
+{{"suggestions": ["描述1", "描述2", "描述3"]}}
+
+注意：
+- 使用台灣繁體中文
+- 每個描述要能自然銜接前情
+- 簡潔生動，適合兒童繪本"""
+    try:
+        resp = await _http_client.post(
+            f"{MINIMAX_BASE}/chat/completions",
+            headers=MINIMAX_HEADERS,
+            json={
+                "model": "MiniMax-M2.7",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 1.0,
+                "max_tokens": 300,
+            },
+            timeout=30,
+        )
+        resp.raise_for_status()
+        raw = resp.json()["choices"][0]["message"]["content"]
+        raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+        # Extract JSON
+        m = re.search(r'\{.*\}', raw, re.DOTALL)
+        if not m:
+            raise ValueError("no JSON found")
+        data = json.loads(m.group(0))
+        suggestions = [s.strip() for s in data.get("suggestions", []) if isinstance(s, str) and s.strip()]
+        if len(suggestions) < 1:
+            raise ValueError("empty suggestions")
+        return {"suggestions": suggestions[:3]}
+    except Exception as e:
+        logger.warning("suggest-next-scene failed: %s", e)
+        raise HTTPException(status_code=502, detail="靈感生成失敗")
+
 # ── 端點：生成劇本 ────────────────────────────────────────────
 @app.post("/api/generate-script", response_model=ScriptResponse)
 async def generate_script(req: GenerateScriptRequest):
