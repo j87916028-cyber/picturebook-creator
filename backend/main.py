@@ -7,6 +7,7 @@ import base64
 import httpx
 import logging
 import urllib.parse
+from contextlib import asynccontextmanager
 import edge_tts
 
 logging.basicConfig(level=logging.INFO)
@@ -19,7 +20,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-app = FastAPI(title="Picturebook Creator API")
+# ── Shared HTTP client (reuses connection pool across all requests) ──
+_http_client: httpx.AsyncClient | None = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _http_client
+    _http_client = httpx.AsyncClient()
+    logger.info("Shared httpx.AsyncClient created")
+    yield
+    await _http_client.aclose()
+    logger.info("Shared httpx.AsyncClient closed")
+
+app = FastAPI(title="Picturebook Creator API", lifespan=lifespan)
 
 # CORS origins configurable via env; fallback to localhost dev origins
 _cors_origins_env = os.getenv("CORS_ORIGINS", "")
@@ -206,16 +219,16 @@ async def generate_script(req: GenerateScriptRequest):
         prompt += f"\n前情提要（請確保本幕故事自然銜接前情，劇情持續發展，不重複前幕內容）：\n{req.story_context}\n"
 
     try:
-        async with httpx.AsyncClient(timeout=90) as client:
-            resp = await client.post(
-                f"{MINIMAX_BASE}/chat/completions",
-                headers=MINIMAX_HEADERS,
-                json={
-                    "model": "MiniMax-M2.7",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.8,
-                },
-            )
+        resp = await _http_client.post(
+            f"{MINIMAX_BASE}/chat/completions",
+            headers=MINIMAX_HEADERS,
+            json={
+                "model": "MiniMax-M2.7",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.8,
+            },
+            timeout=90,
+        )
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="請求逾時，請稍後重試")
     except httpx.RequestError:
@@ -271,20 +284,20 @@ async def generate_voice(req: GenerateVoiceRequest):
     # ── 優先：Groq Orpheus ────────────────────────────────────
     if GROQ_API_KEY:
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(
-                    GROQ_TTS_URL,
-                    headers={
-                        "Authorization": f"Bearer {GROQ_API_KEY}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": "canopylabs/orpheus-v1-english",
-                        "input": req.text,
-                        "voice": groq_voice,
-                        "response_format": "wav",
-                    },
-                )
+            resp = await _http_client.post(
+                GROQ_TTS_URL,
+                headers={
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "canopylabs/orpheus-v1-english",
+                    "input": req.text,
+                    "voice": groq_voice,
+                    "response_format": "wav",
+                },
+                timeout=30,
+            )
             if resp.status_code == 200 and resp.content:
                 audio_b64 = base64.b64encode(resp.content).decode("utf-8")
                 return {"audio_base64": audio_b64, "format": "wav"}
@@ -321,12 +334,12 @@ async def generate_image(req: GenerateImageRequest):
             "Content-Type": "application/json",
         }
         try:
-            async with httpx.AsyncClient(timeout=60) as client:
-                resp = await client.post(
-                    HF_INFERENCE_URL,
-                    headers=hf_headers,
-                    json={"inputs": full_prompt},
-                )
+            resp = await _http_client.post(
+                HF_INFERENCE_URL,
+                headers=hf_headers,
+                json={"inputs": full_prompt},
+                timeout=60,
+            )
             if resp.status_code == 200 and resp.content:
                 b64 = base64.b64encode(resp.content).decode("utf-8")
                 mime = resp.headers.get("content-type", "image/jpeg").split(";")[0]
@@ -392,15 +405,15 @@ async def recognize_image(file: UploadFile = File(...)):
     }
 
     try:
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(
-                GROQ_CHAT_URL,
-                headers={
-                    "Authorization": f"Bearer {GROQ_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-            )
+        resp = await _http_client.post(
+            GROQ_CHAT_URL,
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=60,
+        )
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="圖片辨識逾時，請稍後重試")
     except httpx.RequestError as e:
@@ -451,17 +464,17 @@ async def transcribe_audio(file: UploadFile = File(...)):
     filename = file.filename or "audio.webm"
 
     try:
-        async with httpx.AsyncClient(timeout=120) as client:
-            resp = await client.post(
-                GROQ_TRANSCRIBE_URL,
-                headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
-                files={"file": (filename, data, content_type)},
-                data={
-                    "model": "whisper-large-v3-turbo",
-                    "language": "zh",
-                    "response_format": "json",
-                },
-            )
+        resp = await _http_client.post(
+            GROQ_TRANSCRIBE_URL,
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+            files={"file": (filename, data, content_type)},
+            data={
+                "model": "whisper-large-v3-turbo",
+                "language": "zh",
+                "response_format": "json",
+            },
+            timeout=120,
+        )
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="語音辨識逾時，請稍後重試")
     except httpx.RequestError as e:
