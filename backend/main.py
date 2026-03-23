@@ -121,6 +121,21 @@ GROQ_TTS_URL = "https://api.groq.com/openai/v1/audio/speech"
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
+# Initialise Gemini client once at startup (not per-request)
+_gemini_client = None
+_gemini_image_config = None
+if GEMINI_API_KEY:
+    try:
+        from google import genai as _genai
+        from google.genai import types as _gtypes
+        _gemini_client = _genai.Client(api_key=GEMINI_API_KEY)
+        _gemini_image_config = _gtypes.GenerateImagesConfig(
+            number_of_images=1, aspect_ratio="4:3", language="zh"
+        )
+        logger.info("Gemini client initialised")
+    except Exception as _e:
+        logger.warning("Gemini init failed: %s", _e)
+
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")
 HF_IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
 HF_INFERENCE_URL = f"https://api-inference.huggingface.co/models/{HF_IMAGE_MODEL}"
@@ -521,22 +536,15 @@ async def generate_voice(req: GenerateVoiceRequest):
 async def generate_image(req: GenerateImageRequest):
     full_prompt = f"{req.prompt}, {req.style} style, soft colors, child-friendly, high quality"
 
-    # ── 優先：Gemini Imagen 3（GEMINI_API_KEY）───────────────────
-    if GEMINI_API_KEY:
+    # ── 優先：Gemini Imagen 3（module-level client，避免每次重建）──
+    if _gemini_client and _gemini_image_config:
         try:
-            from google import genai as _genai
-            from google.genai import types as _gtypes
-            _gclient = _genai.Client(api_key=GEMINI_API_KEY)
-            result = await asyncio.get_event_loop().run_in_executor(
+            result = await asyncio.get_running_loop().run_in_executor(
                 None,
-                lambda: _gclient.models.generate_images(
+                lambda: _gemini_client.models.generate_images(
                     model="imagen-3.0-generate-002",
                     prompt=full_prompt,
-                    config=_gtypes.GenerateImagesConfig(
-                        number_of_images=1,
-                        aspect_ratio="4:3",
-                        language="zh",
-                    ),
+                    config=_gemini_image_config,
                 )
             )
             if result.generated_images:

@@ -222,10 +222,11 @@ export default function App() {
 
       await Promise.all([imagePromise, ...voicePromises])
 
-      // Auto-save after all generation completes
+      // Auto-save after all generation completes (read latest state via setter, then save outside)
       if (projId) {
         setScenes(prev => {
-          autoSave(projId!, prev)
+          // schedule save outside the pure updater
+          setTimeout(() => autoSave(projId!, prev), 0)
           return prev
         })
       }
@@ -271,25 +272,33 @@ export default function App() {
 
   // Delete a scene
   const handleSceneDelete = (sceneId: string) => {
-    setScenes(prev => {
-      const next = prev.filter(s => s.id !== sceneId)
-      if (currentProjectId) autoSave(currentProjectId, next)
-      return next
-    })
+    const next = scenes.filter(s => s.id !== sceneId)
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next)
+  }
+
+  // Move a scene up or down
+  const handleSceneMove = (sceneId: string, direction: 'up' | 'down') => {
+    const idx = scenes.findIndex(s => s.id === sceneId)
+    if (idx < 0) return
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (swapIdx < 0 || swapIdx >= scenes.length) return
+    const next = [...scenes]
+    ;[next[idx], next[swapIdx]] = [next[swapIdx], next[idx]]
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next)
   }
 
   // Update a single line's text (inline edit)
   const handleLineTextChange = (sceneId: string, lineIndex: number, newText: string) => {
-    setScenes(prev => {
-      const next = prev.map(s => {
-        if (s.id !== sceneId) return s
-        const lines = [...s.lines]
-        lines[lineIndex] = { ...lines[lineIndex], text: newText, audio_base64: undefined, audio_format: undefined }
-        return { ...s, lines }
-      })
-      if (currentProjectId) autoSave(currentProjectId, next)
-      return next
+    const next = scenes.map(s => {
+      if (s.id !== sceneId) return s
+      const lines = [...s.lines]
+      lines[lineIndex] = { ...lines[lineIndex], text: newText, audio_base64: undefined, audio_format: undefined }
+      return { ...s, lines }
     })
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next)
   }
 
   // Re-generate voice for a single line
@@ -312,6 +321,7 @@ export default function App() {
       })
       if (!res.ok) return
       const data = await res.json()
+      let saved: Scene[] | null = null
       setScenes(prev => {
         const next = prev.map(s => {
           if (s.id !== sceneId) return s
@@ -319,9 +329,10 @@ export default function App() {
           lines[lineIndex] = { ...lines[lineIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
           return { ...s, lines }
         })
-        if (currentProjectId) autoSave(currentProjectId, next)
+        saved = next
         return next
       })
+      if (saved && currentProjectId) autoSave(currentProjectId, saved)
     } catch {}
   }
 
@@ -339,11 +350,13 @@ export default function App() {
       })
       if (!res.ok) return
       const data = await res.json()
+      let saved: Scene[] | null = null
       setScenes(prev => {
         const next = prev.map(s => s.id === sceneId ? { ...s, image: data.url } : s)
-        if (currentProjectId) autoSave(currentProjectId, next)
+        saved = next
         return next
       })
+      if (saved && currentProjectId) autoSave(currentProjectId, saved)
     } catch {}
   }
 
@@ -418,7 +431,7 @@ export default function App() {
 
       await Promise.all([imageP, ...voicePs])
       setScenes(prev => {
-        if (currentProjectId) autoSave(currentProjectId, prev)
+        setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, prev) }, 0)
         return prev
       })
     } catch {}
@@ -542,6 +555,7 @@ export default function App() {
               scenes={scenes}
               characters={characters}
               onSceneDelete={handleSceneDelete}
+              onSceneMove={handleSceneMove}
               onLineTextChange={handleLineTextChange}
               onLineVoiceRegen={handleLineVoiceRegen}
               onImageRegen={handleImageRegen}

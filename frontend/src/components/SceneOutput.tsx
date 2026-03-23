@@ -8,6 +8,7 @@ interface Props {
   scenes: Scene[]
   characters: Character[]
   onSceneDelete: (sceneId: string) => void
+  onSceneMove: (sceneId: string, direction: 'up' | 'down') => void
   onLineTextChange: (sceneId: string, lineIndex: number, newText: string) => void
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onImageRegen: (sceneId: string) => Promise<void>
@@ -17,8 +18,10 @@ interface Props {
 interface SceneCardProps {
   scene: Scene
   sceneIndex: number
+  totalScenes: number
   characters: Character[]
   onSceneDelete: (sceneId: string) => void
+  onSceneMove: (sceneId: string, direction: 'up' | 'down') => void
   onLineTextChange: (sceneId: string, lineIndex: number, newText: string) => void
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onImageRegen: (sceneId: string) => Promise<void>
@@ -28,8 +31,10 @@ interface SceneCardProps {
 function SceneCard({
   scene,
   sceneIndex,
+  totalScenes,
   characters,
   onSceneDelete,
+  onSceneMove,
   onLineTextChange,
   onLineVoiceRegen,
   onImageRegen,
@@ -136,6 +141,20 @@ function SceneCard({
       <div className="scene-card-header">
         <span className="scene-card-title">第 {sceneIndex + 1} 幕</span>
         <span className="scene-card-desc">{scene.description}</span>
+        <div className="scene-move-btns">
+          <button
+            className="btn-scene-move"
+            onClick={() => onSceneMove(scene.id, 'up')}
+            disabled={sceneIndex === 0}
+            title="上移"
+          >↑</button>
+          <button
+            className="btn-scene-move"
+            onClick={() => onSceneMove(scene.id, 'down')}
+            disabled={sceneIndex === totalScenes - 1}
+            title="下移"
+          >↓</button>
+        </div>
       </div>
 
       {/* Action buttons row */}
@@ -346,6 +365,7 @@ export default function SceneOutput({
   scenes,
   characters,
   onSceneDelete,
+  onSceneMove,
   onLineTextChange,
   onLineVoiceRegen,
   onImageRegen,
@@ -381,8 +401,10 @@ export default function SceneOutput({
           key={scene.id}
           scene={scene}
           sceneIndex={i}
+          totalScenes={scenes.length}
           characters={characters}
           onSceneDelete={onSceneDelete}
+          onSceneMove={onSceneMove}
           onLineTextChange={onLineTextChange}
           onLineVoiceRegen={onLineVoiceRegen}
           onImageRegen={onImageRegen}
