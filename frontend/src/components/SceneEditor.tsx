@@ -136,9 +136,17 @@ export default function SceneEditor({
         {/* 場景描述 */}
         <textarea
           className="scene-input"
-          placeholder="描述場景...&#10;例：在一片大森林裡，小兔子迷路了，遇見了一隻友善的狐狸"
+          placeholder="描述場景...&#10;例：在一片大森林裡，小兔子迷路了，遇見了一隻友善的狐狸&#10;（Ctrl+Enter 快速生成）"
           value={description}
           onChange={e => handleDescChange(e.target.value)}
+          onKeyDown={e => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+              e.preventDefault()
+              if (!isLoading && droppedCharacters.length > 0 && description.trim()) {
+                onGenerate(description, style)
+              }
+            }
+          }}
           rows={3}
           maxLength={500}
         />

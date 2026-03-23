@@ -101,6 +101,32 @@ function SceneCard({
     if (scene.lines.length > 0) playLine(0)
   }
 
+  const handleDownloadImage = () => {
+    if (!scene.image) return
+    const filename = `第${sceneIndex + 1}幕插圖`
+    if (scene.image.startsWith('data:')) {
+      // data: URI — browser can download directly
+      const ext = scene.image.match(/^data:image\/(\w+)/)?.[1] ?? 'png'
+      const a = document.createElement('a')
+      a.href = scene.image
+      a.download = `${filename}.${ext}`
+      a.click()
+    } else {
+      // External URL — fetch then blob-download to force save-as instead of navigating
+      fetch(scene.image)
+        .then(r => r.blob())
+        .then(blob => {
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `${filename}.jpg`
+          a.click()
+          URL.revokeObjectURL(url)
+        })
+        .catch(() => {})
+    }
+  }
+
   const isGenerating = scene.lines.length === 0
 
   const handleDeleteScene = () => {
@@ -178,6 +204,15 @@ function SceneCard({
 
       {/* Action buttons row */}
       <div className="scene-card-actions">
+        {scene.image && (
+          <button
+            className="btn-scene-action btn-download-image"
+            onClick={handleDownloadImage}
+            title="下載插圖"
+          >
+            💾 下載插圖
+          </button>
+        )}
         {scene.script.scene_prompt && (
           <button
             className="btn-scene-action"
@@ -278,7 +313,12 @@ function SceneCard({
       {/* Lightbox overlay */}
       {expandedImage && scene.image && (
         <div className="image-lightbox-overlay" onClick={() => setExpandedImage(false)}>
-          <button className="lightbox-close" onClick={() => setExpandedImage(false)}>✕</button>
+          <button className="lightbox-close" onClick={() => setExpandedImage(false)} title="關閉 (Esc)">✕</button>
+          <button
+            className="lightbox-download"
+            onClick={e => { e.stopPropagation(); handleDownloadImage() }}
+            title="下載插圖"
+          >💾</button>
           <img
             src={scene.image}
             alt={`第${sceneIndex + 1}幕插圖（放大）`}
