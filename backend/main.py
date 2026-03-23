@@ -21,7 +21,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional, Annotated, Any, Dict
+from typing import List, Optional, Annotated, Any, Dict, Literal
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -583,7 +583,7 @@ class SceneIn(BaseModel):
     image: str = Field("", max_length=6_000_000)
 
 class SaveScenesRequest(BaseModel):
-    scenes: List[SceneIn]
+    scenes: Annotated[List[SceneIn], Field(max_length=100)]
 
 
 def _db_required():
@@ -1133,8 +1133,13 @@ def _export_mp3_zip(project_name: str, scenes: list) -> bytes:
 
 
 # ── GET /api/projects/{project_id}/export ────────────────────
+_EXPORT_FORMAT = Literal["pdf", "epub", "html", "mp3"]
+
 @app.get("/api/projects/{project_id}/export")
-async def export_project(project_id: str, format: str = "pdf"):
+async def export_project(
+    project_id: str,
+    format: _EXPORT_FORMAT = "pdf",
+):
     _db_required()
     _validate_uuid(project_id)
 
@@ -1165,25 +1170,22 @@ async def export_project(project_id: str, format: str = "pdf"):
             "image": row["image"],
         })
 
-    fmt = format.lower()
-    if fmt == "pdf":
+    if format == "pdf":
         data = _export_pdf(project_name, scenes)
         media_type = "application/pdf"
         filename = f"{project_name}.pdf"
-    elif fmt == "epub":
+    elif format == "epub":
         data = _export_epub(project_name, scenes)
         media_type = "application/epub+zip"
         filename = f"{project_name}.epub"
-    elif fmt == "html":
+    elif format == "html":
         data = _export_html_zip(project_name, scenes)
         media_type = "application/zip"
         filename = f"{project_name}_web.zip"
-    elif fmt == "mp3":
+    else:  # "mp3"
         data = _export_mp3_zip(project_name, scenes)
         media_type = "application/zip"
         filename = f"{project_name}_audio.zip"
-    else:
-        raise HTTPException(status_code=400, detail=f"不支援的匯出格式：{format}，請使用 pdf、epub、html 或 mp3")
 
     # URL-encode filename for Content-Disposition
     encoded_filename = urllib.parse.quote(filename)
