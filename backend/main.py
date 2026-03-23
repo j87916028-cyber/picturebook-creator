@@ -1,3 +1,4 @@
+import html
 import io
 import os
 import re
@@ -976,19 +977,23 @@ def _export_html_zip(project_name: str, scenes: list) -> bytes:
     # Build a self-contained index.html with all scenes
     scene_htmls = []
     for i, scene in enumerate(scenes):
-        desc = scene.get("description", "")
+        desc = html.escape(scene.get("description", ""))
         lines = scene.get("lines", [])
         image_data = scene.get("image", "")
 
+        # image_data is either a data: URI (safe, produced by the server) or an
+        # external URL stored in the DB.  Escape it for the HTML attribute context
+        # to prevent attribute-breakout injection.
         if image_data:
-            img_tag = f'<img class="scene-img" src="{image_data}" alt="第{i+1}幕插圖"/>'
+            safe_src = html.escape(image_data, quote=True)
+            img_tag = f'<img class="scene-img" src="{safe_src}" alt="第{i+1}幕插圖"/>'
         else:
             img_tag = '<div class="scene-img-placeholder">【插圖待生成】</div>'
 
         line_divs = ""
         for j, line in enumerate(lines):
-            char_name = line.get("character_name", "")
-            text = line.get("text", "")
+            char_name = html.escape(line.get("character_name", ""))
+            text = html.escape(line.get("text", ""))
             audio_b64 = line.get("audio_base64")
             audio_fmt = line.get("audio_format", "mp3")
             if audio_b64:
@@ -1017,12 +1022,13 @@ def _export_html_zip(project_name: str, scenes: list) -> bytes:
 
     scenes_joined = "\n".join(scene_htmls)
 
-    html = f"""<!DOCTYPE html>
+    escaped_project_name = html.escape(project_name)
+    html_doc = f"""<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>{project_name}</title>
+  <title>{escaped_project_name}</title>
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
     body {{ font-family: 'Microsoft JhengHei', 'Noto Sans TC', sans-serif; background: #f0f4ff; color: #333; }}
@@ -1046,7 +1052,7 @@ def _export_html_zip(project_name: str, scenes: list) -> bytes:
 </head>
 <body>
   <header>
-    <h1>{project_name}</h1>
+    <h1>{escaped_project_name}</h1>
     <p>繪本有聲書互動版</p>
   </header>
   <main>
@@ -1064,7 +1070,7 @@ def _export_html_zip(project_name: str, scenes: list) -> bytes:
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("index.html", html.encode("utf-8"))
+        zf.writestr("index.html", html_doc.encode("utf-8"))
     return buf.getvalue()
 
 
