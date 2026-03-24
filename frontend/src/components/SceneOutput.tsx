@@ -70,7 +70,7 @@ interface Props {
   onLineTextChange: (sceneId: string, lineIndex: number, newText: string) => void
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
-  onImageRegen: (sceneId: string) => Promise<void>
+  onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
   onSceneRegen: (sceneId: string, newDescription: string, style: string) => Promise<void>
   onBatchRegenVoice: () => void
   batchRegenStatus: { done: number; total: number } | null
@@ -87,7 +87,7 @@ interface SceneCardProps {
   onLineTextChange: (sceneId: string, lineIndex: number, newText: string) => void
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
-  onImageRegen: (sceneId: string) => Promise<void>
+  onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
   onSceneRegen: (sceneId: string, newDescription: string, style: string) => Promise<void>
   onPlayFromScene: (sceneIndex: number) => void
 }
@@ -129,7 +129,14 @@ function SceneCard({
   const [regenVoiceIndex, setRegenVoiceIndex] = useState<number | null>(null)
   const [emotionRegenIndex, setEmotionRegenIndex] = useState<number | null>(null)
   const [regenImage, setRegenImage] = useState(false)
+  const [showPromptEdit, setShowPromptEdit] = useState(false)
+  const [editedPrompt, setEditedPrompt] = useState(scene.script.scene_prompt || '')
   const [showRegenForm, setShowRegenForm] = useState(false)
+
+  // Keep editedPrompt in sync when scene_prompt changes (e.g. after full scene regen)
+  useEffect(() => {
+    setEditedPrompt(scene.script.scene_prompt || '')
+  }, [scene.script.scene_prompt])
   const [regenDesc, setRegenDesc] = useState(scene.description)
   const [regenStyle, setRegenStyle] = useState(scene.style)
   const [regenLoading, setRegenLoading] = useState(false)
@@ -251,10 +258,11 @@ function SceneCard({
     }
   }
 
-  const handleImageRegen = async () => {
+  const handleImageRegen = async (customPrompt?: string) => {
     setRegenImage(true)
     try {
-      await onImageRegen(scene.id)
+      await onImageRegen(scene.id, customPrompt)
+      if (customPrompt) setShowPromptEdit(false)
     } finally {
       setRegenImage(false)
     }
@@ -324,14 +332,24 @@ function SceneCard({
           </button>
         )}
         {scene.script.scene_prompt && (
-          <button
-            className="btn-scene-action"
-            onClick={handleImageRegen}
-            disabled={regenImage || isGenerating}
-            title="重新生成插圖"
-          >
-            {regenImage ? <><span className="spinner-sm" /> 生成中...</> : '🔄 重新生成插圖'}
-          </button>
+          <>
+            <button
+              className="btn-scene-action"
+              onClick={() => handleImageRegen()}
+              disabled={regenImage || isGenerating}
+              title="用原始提示詞重新生成插圖"
+            >
+              {regenImage && !showPromptEdit ? <><span className="spinner-sm" /> 生成中...</> : '🔄 重新生成插圖'}
+            </button>
+            <button
+              className={`btn-scene-action${showPromptEdit ? ' active' : ''}`}
+              onClick={() => setShowPromptEdit(v => !v)}
+              disabled={regenImage || isGenerating}
+              title="檢視並編輯插圖提示詞"
+            >
+              ✏️ 編輯提示詞
+            </button>
+          </>
         )}
         <button
           className="btn-scene-action"
@@ -362,6 +380,41 @@ function SceneCard({
           🗑️ 刪除此幕
         </button>
       </div>
+
+      {/* Image prompt editor */}
+      {showPromptEdit && (
+        <div className="prompt-edit-panel">
+          <div className="prompt-edit-header">
+            <span className="prompt-edit-title">🎨 插圖提示詞</span>
+            <span className="prompt-edit-hint">可加入風格描述，如「水彩畫風」、「宮崎駿風格」、「黑白線稿」</span>
+          </div>
+          <textarea
+            className="prompt-edit-textarea"
+            value={editedPrompt}
+            onChange={e => setEditedPrompt(e.target.value.slice(0, 1000))}
+            rows={4}
+            maxLength={1000}
+            placeholder="描述插圖內容與風格..."
+          />
+          <div className="prompt-edit-actions">
+            <button
+              className="btn-scene-action"
+              onClick={() => handleImageRegen(editedPrompt.trim() || undefined)}
+              disabled={regenImage || !editedPrompt.trim()}
+            >
+              {regenImage ? <><span className="spinner-sm" /> 生成中...</> : '🎨 用此提示詞生成'}
+            </button>
+            <button
+              className="btn-ghost"
+              onClick={() => { setShowPromptEdit(false); setEditedPrompt(scene.script.scene_prompt || '') }}
+              style={{ fontSize: '0.8rem', padding: '5px 12px' }}
+            >
+              取消
+            </button>
+            <span className="prompt-char-count">{editedPrompt.length} / 1000</span>
+          </div>
+        </div>
+      )}
 
       {/* Re-generate scene form */}
       {showRegenForm && (

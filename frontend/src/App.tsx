@@ -433,23 +433,25 @@ export default function App() {
     } catch {}
   }
 
-  // Re-generate scene image
-  const handleImageRegen = async (sceneId: string) => {
+  // Re-generate scene image (optionally with a custom prompt)
+  const handleImageRegen = async (sceneId: string, customPrompt?: string) => {
     const scene = scenes.find(s => s.id === sceneId)
-    if (!scene || !scene.script.scene_prompt) return
-    // Clear image to show loading
+    const prompt = customPrompt ?? scene?.script.scene_prompt
+    if (!scene || !prompt) return
     setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: '' } : s))
     try {
       const res = await fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: scene.script.scene_prompt }),
+        body: JSON.stringify({ prompt }),
       })
       if (!res.ok) { setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: 'error' } : s)); return }
       const data = await res.json()
       let saved: Scene[] | null = null
       setScenes(prev => {
-        const next = prev.map(s => s.id === sceneId ? { ...s, image: data.url } : s)
+        const next = prev.map(s => s.id === sceneId
+          ? { ...s, image: data.url, script: { ...s.script, scene_prompt: prompt } }
+          : s)
         saved = next
         return next
       })

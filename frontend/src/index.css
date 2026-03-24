@@ -946,6 +946,11 @@ body {
   opacity: 0.5;
   cursor: not-allowed;
 }
+.btn-scene-action.active {
+  background: #fff8e1;
+  border-color: #f6d860;
+  color: #b7830a;
+}
 
 .btn-scene-delete {
   border-color: #ffcdd2;
@@ -1041,6 +1046,59 @@ body {
 .btn-regen-voice-failed:hover:not(:disabled) {
   background: #feebcb;
   border-color: #c05621;
+}
+
+/* ── Image prompt editor ─────────────────────── */
+.prompt-edit-panel {
+  background: #fffbf0;
+  border: 1.5px solid #f6d860;
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.prompt-edit-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+.prompt-edit-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #b7830a;
+}
+.prompt-edit-hint {
+  font-size: 0.72rem;
+  color: #b7a060;
+}
+.prompt-edit-textarea {
+  width: 100%;
+  border: 1.5px solid #e8d080;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  resize: vertical;
+  background: #fff;
+  color: #333;
+  box-sizing: border-box;
+}
+.prompt-edit-textarea:focus {
+  outline: none;
+  border-color: #d4a017;
+}
+.prompt-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.prompt-char-count {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: #b7a060;
 }
 
 /* ── Re-generate scene form ──────────────────── */
