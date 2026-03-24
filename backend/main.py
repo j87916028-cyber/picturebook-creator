@@ -414,11 +414,53 @@ class SuggestNextSceneRequest(BaseModel):
     story_context: str = Field(..., min_length=1, max_length=3000)
     style: Optional[str] = Field("溫馨童趣", max_length=20)
 
+def _is_chinese_text(s: str) -> bool:
+    """Return True if the string is predominantly Chinese (>40% CJK characters)."""
+    if not s:
+        return False
+    cjk = sum(1 for c in s if '\u4e00' <= c <= '\u9fff')
+    return cjk / len(s) >= 0.4
+
+def _parse_suggestions(raw: str) -> list[str]:
+    """Extract 3 Chinese scene suggestions from a raw LLM response string."""
+    # Strip think blocks (MiniMax-M2.7 wraps output in <think>)
+    stripped = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+    # If stripping left nothing, the real answer is INSIDE the think block — search there
+    search_text = stripped if stripped else raw
+
+    suggestions: list[str] = []
+
+    # 1. Find ALL JSON objects containing "suggestions" key; take the last one
+    #    (models often put final answer at end of think block)
+    all_json = re.findall(r'\{[^{}]*"suggestions"[^{}]*\}', search_text, re.DOTALL)
+    for candidate in reversed(all_json):
+        try:
+            data = json.loads(candidate)
+            items = [s.strip() for s in data.get("suggestions", []) if isinstance(s, str) and s.strip()]
+            items = [s for s in items if _is_chinese_text(s)]
+            if items:
+                suggestions = items
+                break
+        except json.JSONDecodeError:
+            pass
+
+    # 2. Numbered / bulleted lines — only accept Chinese-heavy lines
+    if not suggestions:
+        lines = re.findall(r'(?:^|\n)\s*(?:\d+[.、。）)]\s*)(.{10,80})', search_text)
+        suggestions = [l.strip().strip('「」') for l in lines if _is_chinese_text(l.strip())]
+
+    # 3. Last-resort: split on sentence endings / newlines
+    if not suggestions:
+        chunks = re.split(r'[。！\n]{1,2}', search_text)
+        suggestions = [c.strip() for c in chunks if len(c.strip()) >= 10 and _is_chinese_text(c.strip())][:3]
+
+    return suggestions[:3]
+
 @app.post("/api/suggest-next-scene")
 async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
     if not _rl_suggest.is_allowed(_client_ip(request)):
         raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
-    if not MINIMAX_API_KEY:
+    if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
     char_names = "、".join(c.name for c in req.characters)
     prompt = f"""你是台灣繪本故事作家。根據以下故事脈絡，為下一幕提供 3 個不同方向的場景描述建議。
@@ -430,27 +472,36 @@ async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
 
 請提供 3 個簡短的「下一幕場景描述」，每個約 20-50 字，方向各異（例如：衝突、驚喜、溫馨、冒險等）。
 
-直接輸出 JSON，不要 <think> 標籤，不要任何說明：
+直接輸出 JSON，格式如下，不要任何多餘說明：
 {{"suggestions": ["描述1", "描述2", "描述3"]}}
 
 注意：
 - 使用台灣繁體中文
 - 每個描述要能自然銜接前情
 - 簡潔生動，適合兒童繪本"""
-    def _is_chinese_text(s: str) -> bool:
-        """Return True if the string is predominantly Chinese (>40% CJK characters)."""
-        if not s:
-            return False
-        cjk = sum(1 for c in s if '\u4e00' <= c <= '\u9fff')
-        return cjk / len(s) >= 0.4
 
-    try:
-        # Use MiniMax-Text-01 (non-thinking model) to avoid <think> block contamination
+    async def _call_groq() -> list[str]:
+        resp = await _http_client.post(
+            GROQ_CHAT_URL,
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": "llama-3.1-8b-instant",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.8,
+                "max_tokens": 400,
+            },
+            timeout=30,
+        )
+        resp.raise_for_status()
+        raw = resp.json()["choices"][0]["message"].get("content", "")
+        return _parse_suggestions(str(raw))
+
+    async def _call_minimax() -> list[str]:
         resp = await _http_client.post(
             f"{MINIMAX_BASE}/chat/completions",
             headers=MINIMAX_HEADERS,
             json={
-                "model": "MiniMax-Text-01",
+                "model": "MiniMax-M2.7",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.8,
                 "max_tokens": 400,
@@ -464,42 +515,33 @@ async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
             raw = " ".join(b.get("text", "") for b in raw_content if b.get("type") == "text").strip()
         else:
             raw = str(raw_content)
+        return _parse_suggestions(raw)
 
-        # Strip any think blocks just in case
-        search_text = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip() or raw
-        logger.info("suggest preview: %s", search_text[:200])
+    last_error: Exception | None = None
+    # Try Groq first (faster, higher rate limits, no think-block issues)
+    if GROQ_API_KEY:
+        try:
+            suggestions = await _call_groq()
+            if suggestions:
+                logger.info("suggest via Groq: %s", suggestions)
+                return {"suggestions": suggestions}
+        except Exception as e:
+            logger.warning("suggest Groq failed: %s", e)
+            last_error = e
 
-        suggestions: list[str] = []
+    # Fall back to MiniMax
+    if MINIMAX_API_KEY:
+        try:
+            suggestions = await _call_minimax()
+            if suggestions:
+                logger.info("suggest via MiniMax: %s", suggestions)
+                return {"suggestions": suggestions}
+        except Exception as e:
+            logger.warning("suggest MiniMax failed: %s", e)
+            last_error = e
 
-        # 1. Try JSON
-        m = re.search(r'\{[^{}]*"suggestions"[^{}]*\}', search_text, re.DOTALL)
-        if not m:
-            m = re.search(r'\{.*\}', search_text, re.DOTALL)
-        if m:
-            try:
-                data = json.loads(m.group(0))
-                candidates = [s.strip() for s in data.get("suggestions", []) if isinstance(s, str) and s.strip()]
-                suggestions = [s for s in candidates if _is_chinese_text(s)]
-            except json.JSONDecodeError:
-                pass
-
-        # 2. Numbered / bulleted lines — only accept Chinese-heavy lines
-        if not suggestions:
-            lines = re.findall(r'(?:^|\n)\s*(?:\d+[.、。）)]\s*)(.{10,80})', search_text)
-            suggestions = [l.strip().strip('「」') for l in lines if _is_chinese_text(l.strip())]
-
-        # 3. Last-resort: split by Chinese sentence endings and take first 3 meaningful chunks
-        if not suggestions:
-            chunks = re.split(r'[。！\n]{1,2}', search_text)
-            suggestions = [c.strip() for c in chunks if len(c.strip()) >= 10 and _is_chinese_text(c.strip())][:3]
-
-        if not suggestions:
-            raise ValueError(f"could not parse suggestions, search_text={search_text[:300]!r}")
-
-        return {"suggestions": suggestions[:3]}
-    except Exception as e:
-        logger.warning("suggest-next-scene failed: %s", e)
-        raise HTTPException(status_code=502, detail="靈感生成失敗")
+    logger.warning("suggest-next-scene all providers failed: %s", last_error)
+    raise HTTPException(status_code=502, detail="靈感生成失敗")
 
 # ── 端點：生成劇本 ────────────────────────────────────────────
 @app.post("/api/generate-script", response_model=ScriptResponse)
