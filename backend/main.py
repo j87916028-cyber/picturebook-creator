@@ -468,6 +468,19 @@ async def voice_preview(voice_id: str):
         cached = _voice_preview_cache[voice_id]
         return {"audio_base64": base64.b64encode(cached).decode(), "format": "mp3"}
     sample_text = _VOICE_SAMPLE.get(voice_id, "大家好！我是故事裡的角色，很高興認識你。")
+
+    # ── 1. 科大訊飛（與主要 TTS 端點一致，若已設定優先使用）────────
+    if XFYUN_APP_ID and XFYUN_API_KEY and XFYUN_API_SECRET:
+        try:
+            audio = await _generate_voice_xfyun(sample_text, voice_id, "happy")
+            if audio:
+                _voice_preview_cache[voice_id] = audio
+                return {"audio_base64": base64.b64encode(audio).decode(), "format": "mp3"}
+            logger.warning("iFlytek preview returned empty audio for %s", voice_id)
+        except Exception as e:
+            logger.warning("iFlytek preview failed for %s: %s — falling back to Edge TTS", voice_id, e)
+
+    # ── 2. Microsoft Edge TTS（備用）──────────────────────────────
     edge_voice = VOICE_TO_EDGE.get(voice_id, "zh-TW-HsiaoYuNeural")
     prosody = _emotion_prosody_params("happy", voice_id)
     try:
