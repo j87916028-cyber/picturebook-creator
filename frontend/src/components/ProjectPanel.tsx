@@ -133,6 +133,12 @@ export default function ProjectPanel({
             onClick={() => handleLoad(p.id)}
             title={p.name}
           >
+            <div className="project-cover-thumb">
+              {p.cover_image
+                ? <img src={p.cover_image} alt={p.name} className="project-cover-img" />
+                : <span className="project-cover-placeholder">📖</span>
+              }
+            </div>
             <div className="project-item-body">
               {editingId === p.id ? (
                 <input
