@@ -266,8 +266,8 @@ VOICE_TO_EDGE = {
     "cn-natural-male":        "zh-CN-YunxiNeural",      # 最自然男聲
     "cn-story-male":          "zh-CN-YunyangNeural",    # 新聞/說書男聲
     "cn-child-girl":          "zh-CN-XiaoyiNeural",     # 活潑小女孩（孩童感最強）
-    "cn-girl-clear":          "zh-CN-XiaohanNeural",    # 清亮年輕女孩
-    "cn-girl-soft":           "zh-CN-XiaoqiuNeural",    # 柔和女孩
+    "cn-girl-clear":          "zh-CN-YunxiaNeural",     # 清亮女孩
+    "cn-girl-soft":           "zh-CN-XiaoxiaoNeural",   # 柔和女孩（語速稍慢、音調偏低）
     # ── 台灣腔 zh-TW ───────────────────────────────────────
     "female-yujie":           "zh-TW-HsiaoChenNeural", # 御姐音
     "female-chengshu":        "zh-TW-HsiaoChenNeural", # 成熟女聲
@@ -860,8 +860,8 @@ _VOICE_PITCH: dict[str, str] = {
     "cn-natural-male":        "+0Hz",    # YunxiNeural：標準
     "cn-story-male":          "-5Hz",    # YunyangNeural：稍低沉有磁性
     "cn-child-girl":          "+20Hz",   # XiaoyiNeural：偏高，強化孩童感
-    "cn-girl-clear":          "+15Hz",   # XiaohanNeural：稍高
-    "cn-girl-soft":           "+10Hz",   # XiaoqiuNeural：微高
+    "cn-girl-clear":          "+10Hz",   # YunxiaNeural：稍高
+    "cn-girl-soft":           "-8Hz",    # XiaoxiaoNeural：偏低，溫柔安靜感
     "female-yujie":           "+0Hz",    # 御姐音：標準
     "female-chengshu":        "-5Hz",    # 成熟女聲：稍低
     "male-qn-qingse":         "+10Hz",   # 青澀男聲：偏高（年輕感）
