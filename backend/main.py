@@ -215,24 +215,25 @@ POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", "")
 #   是 Microsoft 中文 TTS 品質最高的聲音，語調更自然、更接近真人。
 VOICES = [
     # ── 精選高品質（zh-CN，語調最自然） ───────────────────
-    {"id": "cn-natural-female",      "label": "自然女聲 ★",  "emoji": "🌟"},
-    {"id": "cn-natural-male",        "label": "自然男聲 ★",  "emoji": "⭐"},
-    {"id": "cn-story-male",          "label": "說書聲音 ★",  "emoji": "📻"},
+    {"id": "cn-natural-female",  "label": "自然女聲 ★",  "emoji": "🌟", "group": "精選推薦"},
+    {"id": "cn-natural-male",    "label": "自然男聲 ★",  "emoji": "⭐", "group": "精選推薦"},
+    {"id": "cn-story-male",      "label": "說書聲音 ★",  "emoji": "📻", "group": "精選推薦"},
     # ── 孩童聲（zh-CN，真實兒童感） ────────────────────────
-    {"id": "cn-child-girl",          "label": "活潑小女孩",  "emoji": "👧"},
-    {"id": "cn-girl-clear",          "label": "清亮女孩",    "emoji": "🎀"},
-    {"id": "cn-girl-soft",           "label": "成熟女聲",    "emoji": "👩‍💼"},
-    # ── 台灣腔（zh-TW） ────────────────────────────────────
-    {"id": "female-yujie",           "label": "御姐音",      "emoji": "👩"},
-    {"id": "male-qn-qingse",         "label": "青澀男聲",    "emoji": "👦"},
-    {"id": "male-qn-jingying",       "label": "精英男聲",    "emoji": "🧑‍💼"},
-    {"id": "male-qn-badao",          "label": "霸道男聲",    "emoji": "👨"},
-    {"id": "presenter_male",         "label": "播報男聲",    "emoji": "🎙️"},
-    {"id": "audiobook_male_2",       "label": "說書男聲",    "emoji": "📖"},
-    {"id": "audiobook_female_2",     "label": "說書女聲",    "emoji": "📚"},
-    {"id": "cute_boy",               "label": "可愛男孩",    "emoji": "🐣"},
-    {"id": "elderly_man",            "label": "老爺爺音",    "emoji": "👴"},
-    {"id": "elderly_woman",          "label": "老奶奶音",    "emoji": "👵"},
+    {"id": "cn-child-girl",      "label": "活潑小女孩",  "emoji": "👧", "group": "孩童聲音"},
+    {"id": "cn-girl-clear",      "label": "清亮女孩",    "emoji": "🎀", "group": "孩童聲音"},
+    {"id": "cute_boy",           "label": "可愛男孩",    "emoji": "🐣", "group": "孩童聲音"},
+    # ── 女聲 ───────────────────────────────────────────────
+    {"id": "cn-girl-soft",       "label": "成熟女聲",    "emoji": "👩‍💼", "group": "女聲"},
+    {"id": "female-yujie",       "label": "御姐音",      "emoji": "👩",  "group": "女聲"},
+    {"id": "audiobook_female_2", "label": "說書女聲",    "emoji": "📚",  "group": "女聲"},
+    {"id": "elderly_woman",      "label": "老奶奶音",    "emoji": "👵",  "group": "女聲"},
+    # ── 男聲 ───────────────────────────────────────────────
+    {"id": "male-qn-qingse",     "label": "青澀男聲",    "emoji": "👦",  "group": "男聲"},
+    {"id": "male-qn-jingying",   "label": "精英男聲",    "emoji": "🧑‍💼", "group": "男聲"},
+    {"id": "male-qn-badao",      "label": "霸道男聲",    "emoji": "👨",  "group": "男聲"},
+    {"id": "presenter_male",     "label": "播報男聲",    "emoji": "🎙️", "group": "男聲"},
+    {"id": "audiobook_male_2",   "label": "說書男聲",    "emoji": "📖",  "group": "男聲"},
+    {"id": "elderly_man",        "label": "老爺爺音",    "emoji": "👴",  "group": "男聲"},
 ]
 
 VALID_VOICE_IDS = {v["id"] for v in VOICES}

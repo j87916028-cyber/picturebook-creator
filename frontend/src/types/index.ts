@@ -2,6 +2,7 @@ export interface Voice {
   id: string
   label: string
   emoji: string
+  group?: string
 }
 
 export interface Character {
