@@ -43,6 +43,7 @@ interface SceneCardProps {
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onImageRegen: (sceneId: string) => Promise<void>
   onSceneRegen: (sceneId: string, newDescription: string, style: string) => Promise<void>
+  onPlayFromScene: (sceneIndex: number) => void
 }
 
 function SceneCard({
@@ -56,6 +57,7 @@ function SceneCard({
   onLineVoiceRegen,
   onImageRegen,
   onSceneRegen,
+  onPlayFromScene,
 }: SceneCardProps) {
   const [playingIndex, setPlayingIndex] = useState<number | null>(null)
   const audioRefs = useRef<(HTMLAudioElement | null)[]>([])
@@ -192,24 +194,37 @@ function SceneCard({
     }
   }
 
+  const hasAudio = scene.lines.some(l => l.audio_base64)
+
   return (
     <div className="scene-card">
       <div className="scene-card-header">
         <span className="scene-card-title">第 {sceneIndex + 1} 幕</span>
         <span className="scene-card-desc">{scene.description}</span>
-        <div className="scene-move-btns">
-          <button
-            className="btn-scene-move"
-            onClick={() => onSceneMove(scene.id, 'up')}
-            disabled={sceneIndex === 0}
-            title="上移"
-          >↑</button>
-          <button
-            className="btn-scene-move"
-            onClick={() => onSceneMove(scene.id, 'down')}
-            disabled={sceneIndex === totalScenes - 1}
-            title="下移"
-          >↓</button>
+        <div className="scene-header-right">
+          {hasAudio && (
+            <button
+              className="btn-play-from-scene"
+              onClick={() => onPlayFromScene(sceneIndex)}
+              title="從此幕開始播放"
+            >
+              ▶ 從此幕
+            </button>
+          )}
+          <div className="scene-move-btns">
+            <button
+              className="btn-scene-move"
+              onClick={() => onSceneMove(scene.id, 'up')}
+              disabled={sceneIndex === 0}
+              title="上移"
+            >↑</button>
+            <button
+              className="btn-scene-move"
+              onClick={() => onSceneMove(scene.id, 'down')}
+              disabled={sceneIndex === totalScenes - 1}
+              title="下移"
+            >↓</button>
+          </div>
         </div>
       </div>
 
@@ -468,6 +483,7 @@ export default function SceneOutput({
   onSceneRegen,
 }: Props) {
   const [showPlayback, setShowPlayback] = useState(false)
+  const [playbackStartScene, setPlaybackStartScene] = useState(0)
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([])
 
   if (scenes.length === 0) return null
@@ -478,14 +494,19 @@ export default function SceneOutput({
     sceneRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  const handlePlayFromScene = (sceneIndex: number) => {
+    setPlaybackStartScene(sceneIndex)
+    setShowPlayback(true)
+  }
+
   return (
     <div className="scene-output-panel">
       {hasAudio && (
         <div className="playbook-bar">
-          <button className="btn-playbook" onClick={() => setShowPlayback(true)}>
+          <button className="btn-playbook" onClick={() => { setPlaybackStartScene(0); setShowPlayback(true) }}>
             🎬 播放全書
           </button>
-          <span className="playbook-hint">全螢幕朗讀模式</span>
+          <span className="playbook-hint">全螢幕朗讀模式・各幕可單獨播放 ▶</span>
         </div>
       )}
 
@@ -520,6 +541,7 @@ export default function SceneOutput({
           scenes={scenes}
           characters={characters}
           onClose={() => setShowPlayback(false)}
+          initialSceneIdx={playbackStartScene}
         />
       )}
 
@@ -536,6 +558,7 @@ export default function SceneOutput({
             onLineVoiceRegen={onLineVoiceRegen}
             onImageRegen={onImageRegen}
             onSceneRegen={onSceneRegen}
+            onPlayFromScene={handlePlayFromScene}
           />
         </div>
       ))}

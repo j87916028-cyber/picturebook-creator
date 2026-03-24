@@ -677,9 +677,29 @@ body {
   border-bottom: 1px solid #eee;
   padding-bottom: 10px;
 }
-.scene-move-btns {
-  margin-left: auto; display: flex; gap: 4px; flex-shrink: 0;
+.scene-header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
+.scene-move-btns {
+  display: flex; gap: 4px; flex-shrink: 0;
+}
+.btn-play-from-scene {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+.btn-play-from-scene:hover { opacity: 0.85; }
 .btn-scene-move {
   background: none; border: 1.5px solid #ddd; border-radius: 6px;
   width: 26px; height: 24px; font-size: 0.75rem;

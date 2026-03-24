@@ -17,6 +17,7 @@ interface Props {
   scenes: Scene[]
   characters: Character[]
   onClose: () => void
+  initialSceneIdx?: number   // open modal starting at this scene (0-based)
 }
 
 // Flatten all (sceneIdx, lineIdx) pairs that have audio
@@ -35,9 +36,17 @@ function buildPlaylist(scenes: Scene[]): PlayItem[] {
   return items
 }
 
-export default function PlaybackModal({ scenes, characters, onClose }: Props) {
+export default function PlaybackModal({ scenes, characters, onClose, initialSceneIdx = 0 }: Props) {
   const playlist = buildPlaylist(scenes)
-  const [cursor, setCursor] = useState(0)         // index into playlist
+
+  // Find the first playlist entry at or after the requested scene
+  const startCursor = (() => {
+    if (initialSceneIdx <= 0) return 0
+    const idx = playlist.findIndex(p => p.sceneIdx >= initialSceneIdx)
+    return idx >= 0 ? idx : 0
+  })()
+
+  const [cursor, setCursor] = useState(startCursor)  // index into playlist
   const [playing, setPlaying] = useState(true)
   const [speed, setSpeed] = useState(1.0)
   const audioRef = useRef<HTMLAudioElement | null>(null)
