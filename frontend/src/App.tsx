@@ -493,6 +493,19 @@ export default function App() {
   }, [scenes, currentProjectId, characters, autoSave])
 
   // Delete a single dialogue line (with 5-second undo window)
+  const handleLineMove = (sceneId: string, lineIndex: number, direction: 'up' | 'down') => {
+    const next = scenes.map(s => {
+      if (s.id !== sceneId) return s
+      const lines = [...s.lines]
+      const target = direction === 'up' ? lineIndex - 1 : lineIndex + 1
+      if (target < 0 || target >= lines.length) return s
+      ;[lines[lineIndex], lines[target]] = [lines[target], lines[lineIndex]]
+      return { ...s, lines }
+    })
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
+  }
+
   const handleLineDelete = (sceneId: string, lineIndex: number) => {
     const scene = scenes.find(s => s.id === sceneId)
     if (!scene) return
@@ -1094,6 +1107,7 @@ export default function App() {
               onScenesReorder={handleScenesReorder}
               onSceneDuplicate={handleSceneDuplicate}
               onLineEditConfirm={handleLineEditConfirm}
+              onLineMove={handleLineMove}
               onLineDelete={handleLineDelete}
               onLineAdd={handleLineAdd}
               onLineVoiceRegen={handleLineVoiceRegen}

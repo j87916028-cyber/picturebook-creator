@@ -1161,6 +1161,29 @@ body {
 .dialogue-text-row:hover .btn-delete-line:not(:disabled) { opacity: 0.45; }
 .btn-delete-line:hover:not(:disabled) { opacity: 1; }
 
+.line-move-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.dialogue-text-row:hover .line-move-btns { opacity: 1; }
+.btn-move-line {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.55rem;
+  padding: 0 3px;
+  line-height: 1.4;
+  color: #888;
+  transition: color 0.12s, border-color 0.12s;
+}
+.btn-move-line:hover:not(:disabled) { color: #4a3aff; border-color: #4a3aff; }
+.btn-move-line:disabled { cursor: not-allowed; opacity: 0.25; }
+
 .btn-add-line {
   display: block;
   width: 100%;

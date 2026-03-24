@@ -67,6 +67,7 @@ interface Props {
   onSceneMove: (sceneId: string, direction: 'up' | 'down') => void
   onScenesReorder: (orderedIds: string[]) => void
   onSceneDuplicate: (sceneId: string) => void
+  onLineMove: (sceneId: string, lineIndex: number, direction: 'up' | 'down') => void
   onLineEditConfirm: (sceneId: string, lineIndex: number, newText: string) => Promise<void>
   onLineDelete: (sceneId: string, lineIndex: number) => void
   onLineAdd: (sceneId: string, characterId: string, text: string) => Promise<void>
@@ -86,6 +87,7 @@ interface SceneCardProps {
   onSceneDelete: (sceneId: string) => void
   onSceneMove: (sceneId: string, direction: 'up' | 'down') => void
   onSceneDuplicate: (sceneId: string) => void
+  onLineMove: (sceneId: string, lineIndex: number, direction: 'up' | 'down') => void
   onLineEditConfirm: (sceneId: string, lineIndex: number, newText: string) => Promise<void>
   onLineDelete: (sceneId: string, lineIndex: number) => void
   onLineAdd: (sceneId: string, characterId: string, text: string) => Promise<void>
@@ -104,6 +106,7 @@ function SceneCard({
   onSceneDelete,
   onSceneMove,
   onSceneDuplicate,
+  onLineMove,
   onLineEditConfirm,
   onLineDelete,
   onLineAdd,
@@ -641,6 +644,20 @@ function SceneCard({
                     ) : (
                       <div className="dialogue-text-row">
                         <p className="dialogue-text">{line.text}</p>
+                        <div className="line-move-btns">
+                          <button
+                            className="btn-move-line"
+                            onClick={() => onLineMove(scene.id, i, 'up')}
+                            disabled={i === 0}
+                            title="上移此行"
+                          >▲</button>
+                          <button
+                            className="btn-move-line"
+                            onClick={() => onLineMove(scene.id, i, 'down')}
+                            disabled={i === scene.lines.length - 1}
+                            title="下移此行"
+                          >▼</button>
+                        </div>
                         <button
                           className="btn-edit-line"
                           onClick={() => handleStartEditLine(i, line.text)}
@@ -798,6 +815,7 @@ export default function SceneOutput({
   onSceneMove,
   onScenesReorder,
   onSceneDuplicate,
+  onLineMove,
   onLineEditConfirm,
   onLineDelete,
   onLineAdd,
@@ -919,6 +937,7 @@ export default function SceneOutput({
             onSceneDelete={onSceneDelete}
             onSceneMove={onSceneMove}
             onSceneDuplicate={onSceneDuplicate}
+            onLineMove={onLineMove}
             onLineEditConfirm={onLineEditConfirm}
             onLineDelete={onLineDelete}
             onLineAdd={onLineAdd}
