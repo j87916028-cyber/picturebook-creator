@@ -439,22 +439,42 @@ async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
             json={
                 "model": "MiniMax-M2.7",
                 "messages": [{"role": "user", "content": prompt}],
-                "temperature": 1.0,
-                "max_tokens": 300,
+                "temperature": 0.8,
+                "max_tokens": 400,
             },
             timeout=30,
         )
         resp.raise_for_status()
-        raw = resp.json()["choices"][0]["message"]["content"]
+        message = resp.json()["choices"][0]["message"]
+        # M2.7 thinking mode: content may be a list of blocks
+        if isinstance(message["content"], list):
+            raw = " ".join(
+                block.get("text", "") for block in message["content"]
+                if block.get("type") == "text"
+            )
+        else:
+            raw = message["content"]
         raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
-        # Extract JSON
+        logger.info("suggest-next-scene raw: %s", raw[:300])
+
+        # Try JSON extraction first
+        suggestions: list[str] = []
         m = re.search(r'\{.*\}', raw, re.DOTALL)
-        if not m:
-            raise ValueError("no JSON found")
-        data = json.loads(m.group(0))
-        suggestions = [s.strip() for s in data.get("suggestions", []) if isinstance(s, str) and s.strip()]
-        if len(suggestions) < 1:
-            raise ValueError("empty suggestions")
+        if m:
+            try:
+                data = json.loads(m.group(0))
+                suggestions = [s.strip() for s in data.get("suggestions", []) if isinstance(s, str) and s.strip()]
+            except json.JSONDecodeError:
+                pass
+
+        # Fallback: extract numbered / bulleted lines as suggestions
+        if not suggestions:
+            lines = re.findall(r'(?:^|\n)\s*(?:\d+[.、。]|[-•*])\s*(.+)', raw)
+            suggestions = [l.strip().strip('「」') for l in lines if l.strip()]
+
+        if not suggestions:
+            raise ValueError(f"could not parse suggestions from: {raw[:200]!r}")
+
         return {"suggestions": suggestions[:3]}
     except Exception as e:
         logger.warning("suggest-next-scene failed: %s", e)
