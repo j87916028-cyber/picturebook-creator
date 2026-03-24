@@ -52,6 +52,7 @@ interface FormState {
   visual_description: string
   voice_id: string
   emoji: string
+  color: string
 }
 
 function VoicePicker({
@@ -205,6 +206,30 @@ function CharacterForm({
         />
       </div>
       <div className="form-row">
+        <label>角色顏色</label>
+        <div className="color-picker-wrap">
+          <div className="color-swatches">
+            {CHARACTER_COLORS.map(c => (
+              <button
+                key={c}
+                type="button"
+                className={`color-swatch${form.color === c ? ' selected' : ''}`}
+                style={{ background: c }}
+                onClick={() => setForm(f => ({ ...f, color: c }))}
+                title={c}
+              />
+            ))}
+          </div>
+          <input
+            type="color"
+            className="color-custom-input"
+            value={form.color}
+            onChange={e => setForm(f => ({ ...f, color: e.target.value }))}
+            title="自訂顏色"
+          />
+        </div>
+      </div>
+      <div className="form-row">
         <label>選擇聲音 <span style={{ fontSize: '0.72rem', color: '#aaa' }}>（▶ 試聽）</span></label>
         <VoicePicker
           voices={voices}
@@ -243,7 +268,7 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
       personality: form.personality.trim() || '開朗活潑',
       visual_description: form.visual_description.trim() || undefined,
       voice_id: form.voice_id,
-      color: CHARACTER_COLORS[characters.length % CHARACTER_COLORS.length],
+      color: form.color,
       emoji: form.emoji,
     }
     onChange([...characters, newChar])
@@ -253,7 +278,7 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
   const handleEditSave = (id: string, form: FormState) => {
     onChange(characters.map(c =>
       c.id === id
-        ? { ...c, name: form.name.trim(), personality: form.personality.trim() || '開朗活潑', visual_description: form.visual_description.trim() || undefined, voice_id: form.voice_id, emoji: form.emoji }
+        ? { ...c, name: form.name.trim(), personality: form.personality.trim() || '開朗活潑', visual_description: form.visual_description.trim() || undefined, voice_id: form.voice_id, emoji: form.emoji, color: form.color }
         : c
     ))
     setEditingId(null)
@@ -282,7 +307,7 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
             />
             {editingId === c.id && (
               <CharacterForm
-                initial={{ name: c.name, personality: c.personality, visual_description: c.visual_description ?? '', voice_id: c.voice_id, emoji: c.emoji }}
+                initial={{ name: c.name, personality: c.personality, visual_description: c.visual_description ?? '', voice_id: c.voice_id, emoji: c.emoji, color: c.color }}
                 voices={voices}
                 submitLabel="儲存變更"
                 onSubmit={form => handleEditSave(c.id, form)}
@@ -298,7 +323,7 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
 
       {showAddForm ? (
         <CharacterForm
-          initial={{ name: '', personality: '', visual_description: '', voice_id: DEFAULT_VOICES[0].id, emoji: EMOJI_GROUPS[0].emojis[0] }}
+          initial={{ name: '', personality: '', visual_description: '', voice_id: DEFAULT_VOICES[0].id, emoji: EMOJI_GROUPS[0].emojis[0], color: CHARACTER_COLORS[characters.length % CHARACTER_COLORS.length] }}
           voices={voices}
           submitLabel="新增角色"
           onSubmit={handleAdd}
