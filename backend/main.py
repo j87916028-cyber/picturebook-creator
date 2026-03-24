@@ -401,7 +401,7 @@ class GenerateScriptRequest(BaseModel):
     scene_description: str = Field(..., min_length=1, max_length=500)
     characters: Annotated[List[Character], Field(min_length=1, max_length=6)]
     style: Optional[str] = Field("溫馨童趣", max_length=20)
-    story_context: Optional[str] = Field(None, max_length=3000)
+    story_context: Optional[str] = Field(None, max_length=5000)
 
 class GenerateLine(BaseModel):
     character_id: str
@@ -596,7 +596,7 @@ async def generate_title(req: GenerateTitleRequest, request: Request):
 # ── 端點：下一幕靈感建議 ──────────────────────────────────────
 class SuggestNextSceneRequest(BaseModel):
     characters: Annotated[List[Character], Field(min_length=1, max_length=6)]
-    story_context: str = Field(..., min_length=1, max_length=3000)
+    story_context: str = Field(..., min_length=1, max_length=5000)
     style: Optional[str] = Field("溫馨童趣", max_length=20)
 
 def _is_chinese_text(s: str) -> bool:

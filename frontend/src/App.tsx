@@ -6,6 +6,27 @@ import SceneEditor from './components/SceneEditor'
 import SceneOutput from './components/SceneOutput'
 import ProjectPanel from './components/ProjectPanel'
 
+/**
+ * Build a compact story context from all scenes up to (but not including) endIndex.
+ * Each scene contributes: scene number, description, and first + last dialogue line.
+ * This keeps every scene in context for long stories while staying under the
+ * backend's 5000-char limit (~200 chars × 25 scenes = ~5000 chars worst case).
+ */
+function buildStoryContext(scenes: Scene[], endIndex?: number): string | undefined {
+  const relevant = endIndex !== undefined ? scenes.slice(0, endIndex) : scenes
+  if (relevant.length === 0) return undefined
+  return relevant.map((s, i) => {
+    const lines = s.lines.filter(l => l.text)
+    const first = lines[0]
+    const last = lines.length > 1 ? lines[lines.length - 1] : null
+    const snippets = [first, last]
+      .filter((l): l is NonNullable<typeof l> => l != null)
+      .map(l => `${l.character_name}：「${l.text}」`)
+      .join('…')
+    return `第${i + 1}幕（${s.description}）：${snippets || '（生成中）'}`
+  }).join('\n')
+}
+
 export default function App() {
   const [characters, setCharacters] = useState<Character[]>([])
   const [droppedCharacters, setDroppedCharacters] = useState<Character[]>([])
@@ -181,15 +202,8 @@ export default function App() {
     abortControllerRef.current = controller
     const { signal } = controller
 
-    // Build story context from previous scenes (last 3 max)
-    const prevScenes = scenes.slice(-3)
-    const storyContext = prevScenes.length > 0
-      ? prevScenes.map((s, i) => {
-          const idx = scenes.length - prevScenes.length + i + 1
-          const dialogue = s.lines.map(l => `${l.character_name}：「${l.text}」`).join(' ')
-          return `第${idx}幕（${s.description}）：${dialogue}`
-        }).join('\n')
-      : undefined
+    // Build story context from ALL previous scenes (compact summary per scene)
+    const storyContext = buildStoryContext(scenes)
 
     const newSceneId = `scene-${Date.now()}`
     const placeholderScene: Scene = {
@@ -515,15 +529,9 @@ export default function App() {
       s.id === sceneId ? { ...s, description: newDescription, style, lines: [], image: '', script: { lines: [], scene_prompt: '', sfx_description: '' } } : s
     ))
 
-    // Build story context from scenes before this one (uses pre-update `scenes`)
+    // Build story context from ALL scenes before this one (compact summary per scene)
     const sceneIndex = scenes.findIndex(s => s.id === sceneId)
-    const prevScenes = scenes.slice(Math.max(0, sceneIndex - 3), sceneIndex)
-    const storyContext = prevScenes.length > 0
-      ? prevScenes.map((s, i) => {
-          const dialogue = s.lines.map(l => `${l.character_name}：「${l.text}」`).join(' ')
-          return `第${sceneIndex - prevScenes.length + i + 1}幕（${s.description}）：${dialogue}`
-        }).join('\n')
-      : undefined
+    const storyContext = buildStoryContext(scenes, sceneIndex)
 
     try {
       const scriptRes = await fetch('/api/generate-script', {
@@ -730,14 +738,7 @@ export default function App() {
               genStatus={genStatus}
               sceneCount={scenes.length}
               onReset={handleReset}
-              storyContext={scenes.length > 0
-                ? scenes.slice(-3).map((s, i) => {
-                    const idx = scenes.length - Math.min(scenes.length, 3) + i + 1
-                    const dialogue = s.lines.map(l => `${l.character_name}：「${l.text}」`).join(' ')
-                    return `第${idx}幕（${s.description}）：${dialogue}`
-                  }).join('\n')
-                : undefined
-              }
+              storyContext={buildStoryContext(scenes)}
             />
 
             {error && <div className="error-box">⚠️ {error}</div>}
