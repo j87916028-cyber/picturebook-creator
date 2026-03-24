@@ -1795,11 +1795,14 @@ def _find_cjk_font() -> str | None:
     return None
 
 
-def _export_pdf(project_name: str, scenes: list) -> bytes:
+def _export_pdf(project_name: str, scenes: list, char_color_map: dict | None = None) -> bytes:
     try:
         from fpdf import FPDF
     except ImportError:
         raise HTTPException(status_code=501, detail="fpdf2 未安裝，PDF 匯出不可用")
+
+    if char_color_map is None:
+        char_color_map = {}
 
     font_path = _find_cjk_font()
 
@@ -1894,12 +1897,23 @@ def _export_pdf(project_name: str, scenes: list) -> bytes:
             pdf.cell(0, 8, "對白", new_x="LMARGIN", new_y="NEXT")
             current_y = pdf.get_y()
 
-        set_font_safe(10)
         for line in lines:
-            char_name = line.get("character_name", "")
+            raw_char_name = line.get("character_name", "")
             text = line.get("text", "")
+            # Resolve per-character colour (empty string → no colour override)
+            color_hex = _safe_css_color(char_color_map.get(raw_char_name, ""), fallback="")
+            char_rgb = _hex_to_rgb(color_hex) if color_hex else None
+
             pdf.set_xy(10, current_y)
-            pdf.multi_cell(190, 7, f"{char_name}：{text}")
+            # Render char name in bold + character colour, then text in regular black
+            set_font_safe(10, "B")
+            if char_rgb:
+                pdf.set_text_color(*char_rgb)
+            pdf.write(7, f"{raw_char_name}：")
+            pdf.set_text_color(0, 0, 0)
+            set_font_safe(10)
+            pdf.write(7, text)
+            pdf.ln(9)
             current_y = pdf.get_y() + 2
 
     return pdf.output()
@@ -2043,6 +2057,23 @@ _SAFE_CSS_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{3,8}$')
 def _safe_css_color(color: str, fallback: str = "#667eea") -> str:
     """Validate a CSS hex color; return fallback if it doesn't look safe."""
     return color if _SAFE_CSS_COLOR_RE.match(color or "") else fallback
+
+
+def _hex_to_rgb(hex_color: str) -> tuple[int, int, int] | None:
+    """Convert a #RRGGBB or #RGB hex string to an (r, g, b) int tuple.
+
+    Returns None for any malformed input so callers can gracefully skip
+    colour application rather than crashing the export.
+    """
+    h = hex_color.lstrip("#")
+    if len(h) == 3:
+        h = h[0] * 2 + h[1] * 2 + h[2] * 2
+    if len(h) != 6:
+        return None
+    try:
+        return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    except ValueError:
+        return None
 
 
 def _export_html_zip(project_name: str, scenes: list, char_color_map: dict | None = None) -> bytes:
@@ -2384,7 +2415,7 @@ async def export_project(
     # the async event loop (PDF rendering / EPUB serialisation can take >1 s)
     loop = asyncio.get_running_loop()
     if format == "pdf":
-        data = await loop.run_in_executor(None, _export_pdf, project_name, scenes)
+        data = await loop.run_in_executor(None, _export_pdf, project_name, scenes, char_color_map)
         media_type = "application/pdf"
         filename = f"{project_name}.pdf"
     elif format == "epub":
