@@ -145,6 +145,12 @@ ALTER TABLE projects
   ADD COLUMN IF NOT EXISTS characters JSONB NOT NULL DEFAULT '[]';
 """
 
+# Migration: add cover_image column (small thumbnail) to projects
+_ALTER_PROJECTS_COVER = """
+ALTER TABLE projects
+  ADD COLUMN IF NOT EXISTS cover_image TEXT;
+"""
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _http_client, _db_pool
@@ -158,6 +164,7 @@ async def lifespan(app: FastAPI):
                 await conn.execute(_CREATE_PROJECTS)
                 await conn.execute(_CREATE_SCENES)
                 await conn.execute(_ALTER_PROJECTS_CHARS)
+                await conn.execute(_ALTER_PROJECTS_COVER)
             logger.info("PostgreSQL pool created and schema applied")
         except Exception as exc:
             logger.warning("Failed to connect to PostgreSQL: %s — DB features disabled", exc)
@@ -1681,10 +1688,8 @@ async def list_projects():
         rows = await conn.fetch(
             """
             SELECT p.id, p.name, p.created_at, p.updated_at,
-                   COUNT(s.id)::int AS scene_count,
-                   (SELECT CASE WHEN image LIKE 'http%' THEN image ELSE NULL END
-                    FROM scenes WHERE project_id = p.id ORDER BY idx LIMIT 1
-                   ) AS cover_image
+                   p.cover_image,
+                   COUNT(s.id)::int AS scene_count
             FROM projects p
             LEFT JOIN scenes s ON s.project_id = p.id
             GROUP BY p.id
@@ -1851,15 +1856,28 @@ async def save_scenes(project_id: str, req: SaveScenesRequest):
                         for scene in req.scenes
                     ],
                 )
+            # Compute a small cover thumbnail from the first scene that has an image.
+            # Pillow is CPU-bound, so run it in a thread-pool executor.
+            cover_thumb: str | None = None
+            first_image = next(
+                (s.image for s in req.scenes if s.image and s.image != "error"), None
+            )
+            if first_image:
+                cover_thumb = await asyncio.get_running_loop().run_in_executor(
+                    None, _make_cover_thumbnail, first_image
+                )
+
             await conn.execute(
                 """
                 UPDATE projects
                 SET updated_at = NOW(),
-                    characters = $1::jsonb
+                    characters = $1::jsonb,
+                    cover_image = $3
                 WHERE id = $2
                 """,
                 json.dumps([c.model_dump() for c in req.characters], ensure_ascii=False),
                 project_id,
+                cover_thumb,
             )
     return {"ok": True}
 
@@ -2143,6 +2161,32 @@ _SAFE_CSS_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{3,8}$')
 def _safe_css_color(color: str, fallback: str = "#667eea") -> str:
     """Validate a CSS hex color; return fallback if it doesn't look safe."""
     return color if _SAFE_CSS_COLOR_RE.match(color or "") else fallback
+
+
+def _make_cover_thumbnail(image_data: str, width: int = 240, height: int = 180) -> str | None:
+    """Resize a scene image to a small JPEG thumbnail for the project list.
+
+    Accepts either a data URI (``data:image/...;base64,...``) or a plain
+    base64 string. Returns a data URI string, or None on any failure.
+    """
+    if not image_data or image_data == "error":
+        return None
+    try:
+        from PIL import Image  # type: ignore
+        # Decode base64 payload
+        if image_data.startswith("data:"):
+            header, b64 = image_data.split(",", 1)
+            raw = base64.b64decode(b64)
+        else:
+            raw = base64.b64decode(image_data)
+        img = Image.open(io.BytesIO(raw)).convert("RGB")
+        img.thumbnail((width, height), Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=70, optimize=True)
+        thumb_b64 = base64.b64encode(buf.getvalue()).decode()
+        return f"data:image/jpeg;base64,{thumb_b64}"
+    except Exception:
+        return None
 
 
 def _hex_to_rgb(hex_color: str) -> tuple[int, int, int] | None:
