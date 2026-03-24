@@ -1905,11 +1905,14 @@ def _export_pdf(project_name: str, scenes: list) -> bytes:
     return pdf.output()
 
 
-def _export_epub(project_name: str, scenes: list) -> bytes:
+def _export_epub(project_name: str, scenes: list, char_color_map: dict | None = None) -> bytes:
     try:
         from ebooklib import epub
     except ImportError:
         raise HTTPException(status_code=501, detail="ebooklib 未安裝，EPUB 匯出不可用")
+
+    if char_color_map is None:
+        char_color_map = {}
 
     book = epub.EpubBook()
     book.set_title(project_name)
@@ -1922,7 +1925,7 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
 .scene-desc { font-style: italic; color: #666; margin: 0.8em 0; font-size: 0.95em; }
 .dialogue-table { width: 100%; border-collapse: collapse; margin: 1em 0; }
 .dialogue-table td { padding: 8px 12px; vertical-align: top; }
-.char-name { font-weight: bold; color: #764ba2; white-space: nowrap; width: 6em; }
+.char-name { font-weight: bold; white-space: nowrap; width: 6em; }
 .dialogue-text { color: #333; }
 .scene-image { max-width: 100%; border-radius: 8px; margin: 1em auto; display: block; }
 """
@@ -1960,12 +1963,21 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
             safe_src = html.escape(image_data, quote=True)
             img_html = f'<img src="{safe_src}" class="scene-image" alt="第{i+1}幕插圖"/>'
 
-        # Build dialogue HTML — escape user-supplied text to prevent XSS in XHTML
+        # Build dialogue HTML — escape user-supplied text to prevent XSS in XHTML.
+        # Apply per-character accent colour via inline style (CSS custom properties
+        # are not reliable across all EPUB readers, so we use direct color values).
         dialogue_rows = ""
         for line in lines:
-            char_name = html.escape(line.get("character_name", ""))
+            raw_char_name = line.get("character_name", "")
+            char_name = html.escape(raw_char_name)
             text = html.escape(line.get("text", ""))
-            dialogue_rows += f'<tr><td class="char-name">{char_name}</td><td class="dialogue-text">{text}</td></tr>'
+            char_color = _safe_css_color(char_color_map.get(raw_char_name, ""))
+            dialogue_rows += (
+                f'<tr>'
+                f'<td class="char-name" style="color:{char_color}">{char_name}</td>'
+                f'<td class="dialogue-text">{text}</td>'
+                f'</tr>'
+            )
 
         dialogue_html = ""
         if dialogue_rows:
@@ -2376,7 +2388,7 @@ async def export_project(
         media_type = "application/pdf"
         filename = f"{project_name}.pdf"
     elif format == "epub":
-        data = await loop.run_in_executor(None, _export_epub, project_name, scenes)
+        data = await loop.run_in_executor(None, _export_epub, project_name, scenes, char_color_map)
         media_type = "application/epub+zip"
         filename = f"{project_name}.epub"
     elif format == "html":
