@@ -973,6 +973,27 @@ async def get_project(project_id: str):
     }
 
 
+# ── PUT /api/projects/{project_id}/characters ────────────────
+class SaveCharactersRequest(BaseModel):
+    characters: List[CharacterIn] = Field(default_factory=list, max_length=20)
+
+@app.put("/api/projects/{project_id}/characters")
+async def save_project_characters(project_id: str, req: SaveCharactersRequest):
+    """Persist just the characters list for a project (lightweight, no scene touch)."""
+    _db_required()
+    _validate_uuid(project_id)
+    async with _db_pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT id FROM projects WHERE id = $1", project_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail="專案不存在")
+        await conn.execute(
+            "UPDATE projects SET characters = $1::jsonb, updated_at = NOW() WHERE id = $2",
+            json.dumps([c.model_dump() for c in req.characters], ensure_ascii=False),
+            project_id,
+        )
+    return {"ok": True}
+
+
 # ── PATCH /api/projects/{project_id} ─────────────────────────
 @app.patch("/api/projects/{project_id}")
 async def rename_project(project_id: str, req: RenameProjectRequest):

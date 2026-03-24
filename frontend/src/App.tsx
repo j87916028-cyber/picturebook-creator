@@ -67,6 +67,22 @@ export default function App() {
     setPlanWarning(null)
   }
 
+  // ── Save characters immediately (lightweight, no scene data) ──
+  const charSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const saveCharacters = useCallback((projectId: string, chars: Character[]) => {
+    if (!projectId) return
+    if (charSaveTimerRef.current) clearTimeout(charSaveTimerRef.current)
+    charSaveTimerRef.current = setTimeout(async () => {
+      try {
+        await fetch(`/api/projects/${projectId}/characters`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ characters: chars }),
+        })
+      } catch {}
+    }, 400)
+  }, [])
+
   // ── Auto-save scenes + characters after generation completes ──
   const autoSave = useCallback(async (projectId: string, currentScenes: Scene[], currentCharacters?: Character[]) => {
     if (!projectId || currentScenes.length === 0) return
@@ -134,6 +150,8 @@ export default function App() {
           projId = proj.id
           setCurrentProjectId(proj.id)
           setProjectName(proj.name)
+          // Immediately persist characters that were created before the project existed
+          if (characters.length > 0) saveCharacters(proj.id, characters)
         }
       } catch {}
     }
@@ -588,6 +606,7 @@ export default function App() {
                 })))
               }
               setCharacters(updated)
+              if (currentProjectId) saveCharacters(currentProjectId, updated)
             }}
           />
 
