@@ -65,10 +65,30 @@ class _RateLimiter:
 
 
 def _client_ip(request: Request) -> str:
-    """Best-effort client IP: respects X-Forwarded-For from trusted proxies."""
-    forwarded = request.headers.get("X-Forwarded-For")
+    """Return the real client IP for per-IP rate limiting.
+
+    Nginx sets ``X-Real-IP: $remote_addr`` — the actual TCP connection IP
+    from Nginx's perspective.  This cannot be injected by the client, so it
+    is the authoritative source.
+
+    Avoid reading the *first* entry of ``X-Forwarded-For``: Nginx uses
+    ``proxy_add_x_forwarded_for`` which *appends* the real IP to any
+    client-supplied header.  A caller can therefore spoof the first entry
+    (e.g. ``X-Forwarded-For: 1.2.3.4``) to make every request appear to
+    come from a different IP and bypass per-IP rate limiting entirely.
+
+    Fallback chain:
+        1. X-Real-IP (preferred — set exclusively by our Nginx proxy)
+        2. Last entry of X-Forwarded-For (also appended by Nginx, not spoofable)
+        3. request.client.host (only present when running without a proxy)
+    """
+    real_ip = request.headers.get("X-Real-IP", "").strip()
+    if real_ip:
+        return real_ip
+    forwarded = request.headers.get("X-Forwarded-For", "")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        # The rightmost entry is appended by our trusted Nginx; never by the client.
+        return forwarded.split(",")[-1].strip()
     return request.client.host if request.client else "unknown"
 
 
