@@ -9,6 +9,7 @@ export interface Character {
   id: string
   name: string
   personality: string
+  visual_description?: string
   voice_id: string
   color: string
   emoji: string

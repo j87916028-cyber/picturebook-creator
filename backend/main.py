@@ -385,6 +385,7 @@ class Character(BaseModel):
     id: str = Field(..., max_length=64)
     name: str = Field(..., min_length=1, max_length=30)
     personality: str = Field(..., max_length=100)
+    visual_description: Optional[str] = Field(None, max_length=200)
     voice_id: str = Field(..., max_length=64)
     color: str = Field(..., max_length=20)
     emoji: str = Field(..., max_length=10)
@@ -736,7 +737,9 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
         raise HTTPException(status_code=503, detail="服務未正確設定，請聯絡管理員")
 
     character_desc = "\n".join([
-        f"- {c.name}（ID: {c.id}，個性：{c.personality}，聲音類型：{c.voice_id}）"
+        f"- {c.name}（ID: {c.id}，個性：{c.personality}"
+        + (f"，外形：{c.visual_description}" if c.visual_description else "")
+        + f"，聲音類型：{c.voice_id}）"
         for c in req.characters
     ])
 
@@ -758,7 +761,7 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
       "emotion": "happy|sad|surprised|angry|neutral 其中一個"
     }}
   ],
-  "scene_prompt": "用英文描述這個場景的畫面，適合用來生成繪本插圖，風格為watercolor children's book illustration",
+  "scene_prompt": "用英文描述這個場景的畫面（含角色外形描述），適合用來生成繪本插圖，風格為watercolor children's book illustration",
   "sfx_description": "建議的背景音效描述（例如：森林鳥鳴聲、輕柔鋼琴音樂）"
 }}
 
@@ -1531,6 +1534,7 @@ class CharacterIn(BaseModel):
     id: str = Field("", max_length=64)
     name: str = Field("", max_length=30)
     personality: str = Field("", max_length=100)
+    visual_description: str = Field("", max_length=200)
     voice_id: str = Field("", max_length=64)
     color: str = Field("", max_length=20)
     emoji: str = Field("", max_length=10)

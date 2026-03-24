@@ -32,6 +32,9 @@ export default function CharacterCard({ character, onDelete, onEdit, isDragging 
         <div className="card-info">
           <div className="card-name" style={{ color: character.color }}>{character.name}</div>
           <div className="card-personality">{character.personality}</div>
+          {character.visual_description && (
+            <div className="card-visual-desc" title="外形描述">👗 {character.visual_description}</div>
+          )}
         </div>
       </div>
       <div className="card-actions">

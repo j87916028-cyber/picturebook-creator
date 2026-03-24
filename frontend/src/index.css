@@ -131,6 +131,10 @@ body {
 .card-info { flex: 1; }
 .card-name { font-weight: 700; font-size: 0.95rem; }
 .card-personality { font-size: 0.75rem; color: #888; margin-top: 2px; }
+.card-visual-desc {
+  font-size: 0.7rem; color: #a878e0; margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;
+}
 .card-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .card-edit {
   background: none; border: none; cursor: pointer;

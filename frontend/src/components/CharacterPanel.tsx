@@ -31,6 +31,7 @@ const EMOJIS = ['🐰', '🦊', '🐻', '🐼', '🦁', '🐸', '🦄', '🐧', 
 interface FormState {
   name: string
   personality: string
+  visual_description: string
   voice_id: string
   emoji: string
 }
@@ -160,6 +161,18 @@ function CharacterForm({
         />
       </div>
       <div className="form-row">
+        <label>
+          外形描述
+          <span style={{ fontSize: '0.7rem', color: '#aaa', marginLeft: 4 }}>（影響插圖一致性）</span>
+        </label>
+        <input
+          value={form.visual_description}
+          onChange={e => setForm(f => ({ ...f, visual_description: e.target.value.slice(0, 200) }))}
+          placeholder="例：白色小兔，穿粉紅圍裙，有長耳朵"
+          maxLength={200}
+        />
+      </div>
+      <div className="form-row">
         <label>選擇聲音 <span style={{ fontSize: '0.72rem', color: '#aaa' }}>（▶ 試聽）</span></label>
         <VoicePicker
           voices={voices}
@@ -196,6 +209,7 @@ export default function CharacterPanel({ characters, onChange }: Props) {
       id: `char_${Date.now()}`,
       name: form.name.trim(),
       personality: form.personality.trim() || '開朗活潑',
+      visual_description: form.visual_description.trim() || undefined,
       voice_id: form.voice_id,
       color: CHARACTER_COLORS[characters.length % CHARACTER_COLORS.length],
       emoji: form.emoji,
@@ -207,7 +221,7 @@ export default function CharacterPanel({ characters, onChange }: Props) {
   const handleEditSave = (id: string, form: FormState) => {
     onChange(characters.map(c =>
       c.id === id
-        ? { ...c, name: form.name.trim(), personality: form.personality.trim() || '開朗活潑', voice_id: form.voice_id, emoji: form.emoji }
+        ? { ...c, name: form.name.trim(), personality: form.personality.trim() || '開朗活潑', visual_description: form.visual_description.trim() || undefined, voice_id: form.voice_id, emoji: form.emoji }
         : c
     ))
     setEditingId(null)
@@ -235,7 +249,7 @@ export default function CharacterPanel({ characters, onChange }: Props) {
             />
             {editingId === c.id && (
               <CharacterForm
-                initial={{ name: c.name, personality: c.personality, voice_id: c.voice_id, emoji: c.emoji }}
+                initial={{ name: c.name, personality: c.personality, visual_description: c.visual_description ?? '', voice_id: c.voice_id, emoji: c.emoji }}
                 voices={voices}
                 submitLabel="儲存變更"
                 onSubmit={form => handleEditSave(c.id, form)}
@@ -251,7 +265,7 @@ export default function CharacterPanel({ characters, onChange }: Props) {
 
       {showAddForm ? (
         <CharacterForm
-          initial={{ name: '', personality: '', voice_id: DEFAULT_VOICES[0].id, emoji: EMOJIS[0] }}
+          initial={{ name: '', personality: '', visual_description: '', voice_id: DEFAULT_VOICES[0].id, emoji: EMOJIS[0] }}
           voices={voices}
           submitLabel="新增角色"
           onSubmit={handleAdd}
