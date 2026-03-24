@@ -180,6 +180,15 @@ body {
 }
 .form-row input:focus, .form-row select:focus { border-color: #667eea; }
 
+.emoji-picker-wrap { display: flex; flex-direction: column; gap: 6px; }
+.emoji-tab-row { display: flex; gap: 4px; flex-wrap: wrap; }
+.emoji-tab-btn {
+  background: #f0f0f8; border: 1px solid #ddd; border-radius: 20px;
+  font-size: 0.78rem; padding: 3px 10px; cursor: pointer;
+  color: #555; transition: all 0.15s;
+}
+.emoji-tab-btn:hover { background: #e0e0f0; }
+.emoji-tab-btn.active { background: #667eea; color: white; border-color: #667eea; font-weight: 600; }
 .emoji-picker { display: flex; flex-wrap: wrap; gap: 4px; }
 .emoji-btn {
   background: none; border: 2px solid transparent;

@@ -26,7 +26,24 @@ const DEFAULT_VOICES: Voice[] = [
   { id: 'elderly_man',        label: '老爺爺音',    emoji: '👴', group: '男聲' },
 ]
 
-const EMOJIS = ['🐰', '🦊', '🐻', '🐼', '🦁', '🐸', '🦄', '🐧', '🐶', '🐱', '🐮', '🐷']
+const EMOJI_GROUPS = [
+  {
+    label: '🐾 動物',
+    emojis: ['🐰', '🦊', '🐻', '🐼', '🦁', '🐸', '🦄', '🐧', '🐶', '🐱',
+             '🐮', '🐷', '🐭', '🐹', '🐨', '🦝', '🦔', '🐺', '🦅', '🐢',
+             '🦋', '🐬', '🐘', '🦒', '🦓'],
+  },
+  {
+    label: '👥 人物',
+    emojis: ['👦', '👧', '🧒', '👨', '👩', '🧑', '👴', '👵', '🧓',
+             '👨‍🍳', '👩‍🍳', '🧙', '🧝', '🧚', '🧜', '🧞', '🕵️'],
+  },
+  {
+    label: '✨ 奇幻',
+    emojis: ['🐉', '👾', '🤖', '👻', '🎃', '🦸', '🦹', '🧸', '🪄',
+             '⭐', '🌟', '🌈', '☁️', '🔮', '💎', '🏰'],
+  },
+]
 
 interface FormState {
   name: string
@@ -125,19 +142,33 @@ function CharacterForm({
   onCancel: () => void
 }) {
   const [form, setForm] = useState<FormState>(initial)
+  const [emojiTab, setEmojiTab] = useState(0)
 
   return (
     <div className="add-form">
       <div className="form-row">
         <label>選擇表情</label>
-        <div className="emoji-picker">
-          {EMOJIS.map(e => (
-            <button
-              key={e}
-              className={`emoji-btn ${form.emoji === e ? 'selected' : ''}`}
-              onClick={() => setForm(f => ({ ...f, emoji: e }))}
-            >{e}</button>
-          ))}
+        <div className="emoji-picker-wrap">
+          <div className="emoji-tab-row">
+            {EMOJI_GROUPS.map((g, gi) => (
+              <button
+                key={gi}
+                className={`emoji-tab-btn${emojiTab === gi ? ' active' : ''}`}
+                onClick={() => setEmojiTab(gi)}
+                type="button"
+              >{g.label}</button>
+            ))}
+          </div>
+          <div className="emoji-picker">
+            {EMOJI_GROUPS[emojiTab].emojis.map(e => (
+              <button
+                key={e}
+                className={`emoji-btn ${form.emoji === e ? 'selected' : ''}`}
+                onClick={() => setForm(f => ({ ...f, emoji: e }))}
+                type="button"
+              >{e}</button>
+            ))}
+          </div>
         </div>
       </div>
       <div className="form-row">
@@ -265,7 +296,7 @@ export default function CharacterPanel({ characters, onChange }: Props) {
 
       {showAddForm ? (
         <CharacterForm
-          initial={{ name: '', personality: '', visual_description: '', voice_id: DEFAULT_VOICES[0].id, emoji: EMOJIS[0] }}
+          initial={{ name: '', personality: '', visual_description: '', voice_id: DEFAULT_VOICES[0].id, emoji: EMOJI_GROUPS[0].emojis[0] }}
           voices={voices}
           submitLabel="新增角色"
           onSubmit={handleAdd}
