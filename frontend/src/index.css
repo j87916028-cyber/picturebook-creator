@@ -1555,6 +1555,29 @@ body {
   box-shadow: 0 4px 18px rgba(102,126,234,0.45);
 }
 .playback-btn-main:hover { opacity: 0.88; background: linear-gradient(135deg, #667eea, #764ba2); }
+/* Scene-jump buttons — slightly smaller than play/pause */
+.playback-btn-scene { width: 40px; height: 40px; font-size: 1rem; opacity: 0.8; }
+.playback-btn-scene:hover:not(:disabled) { opacity: 1; background: rgba(255,255,255,0.22); }
+/* Scene number chips for direct jump */
+.playback-scene-chips {
+  display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+  margin-top: -4px;
+}
+.playback-scene-chip {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.6);
+  border-radius: 50%; width: 32px; height: 32px;
+  font-size: 0.8rem; font-weight: 700;
+  cursor: pointer; transition: all 0.15s;
+}
+.playback-scene-chip:hover:not(:disabled) { background: rgba(255,255,255,0.2); color: white; }
+.playback-scene-chip.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-color: transparent; color: white;
+  box-shadow: 0 2px 8px rgba(102,126,234,0.5);
+}
+.playback-scene-chip.no-audio { opacity: 0.3; cursor: default; }
 .playback-progress-wrap {
   width: 100%; max-width: 480px; display: flex; flex-direction: column;
   align-items: center; gap: 6px;

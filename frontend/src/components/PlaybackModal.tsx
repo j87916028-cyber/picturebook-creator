@@ -66,6 +66,12 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
     setPlaying(true)
   }, [playlist.length])
 
+  // Jump to the first audio line of a given scene (absolute index)
+  const goToScene = useCallback((targetSceneIdx: number) => {
+    const idx = playlist.findIndex(p => p.sceneIdx === targetSceneIdx)
+    if (idx >= 0) goTo(idx)
+  }, [playlist, goTo])
+
   const togglePlay = useCallback(() => {
     setPlaying(p => {
       if (p) audioRef.current?.pause()
@@ -112,11 +118,13 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
       if (e.key === 'Escape') onClose()
       else if (e.key === ' ' || e.key === 'k') { e.preventDefault(); togglePlay() }
       else if (e.key === 'ArrowRight' || e.key === 'l') goTo(cursor + 1)
-      else if (e.key === 'ArrowLeft' || e.key === 'j') goTo(cursor - 1)
+      else if (e.key === 'ArrowLeft'  || e.key === 'j') goTo(cursor - 1)
+      else if (e.key === 'PageDown') { e.preventDefault(); if (current) goToScene(current.sceneIdx + 1) }
+      else if (e.key === 'PageUp')   { e.preventDefault(); if (current) goToScene(current.sceneIdx - 1) }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [cursor, togglePlay, goTo, onClose])
+  }, [cursor, togglePlay, goTo, goToScene, onClose])
 
   if (playlist.length === 0) {
     return (
@@ -193,11 +201,18 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
         {/* Controls */}
         <div className="playback-controls">
           <button
+            className="playback-btn playback-btn-scene"
+            onClick={() => current && goToScene(current.sceneIdx - 1)}
+            disabled={!current || current.sceneIdx === 0}
+            title="上一幕 (PageUp)"
+          >⏮</button>
+
+          <button
             className="playback-btn"
             onClick={() => goTo(cursor - 1)}
             disabled={cursor === 0}
             title="上一句 (←)"
-          >⏮</button>
+          >◀</button>
 
           <button
             className="playback-btn playback-btn-main"
@@ -212,8 +227,36 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
             onClick={() => goTo(cursor + 1)}
             disabled={cursor === playlist.length - 1}
             title="下一句 (→)"
+          >▶</button>
+
+          <button
+            className="playback-btn playback-btn-scene"
+            onClick={() => current && goToScene(current.sceneIdx + 1)}
+            disabled={!current || current.sceneIdx >= scenes.length - 1}
+            title="下一幕 (PageDown)"
           >⏭</button>
         </div>
+
+        {/* Scene selector chips — jump to any scene instantly */}
+        {scenes.length > 1 && (
+          <div className="playback-scene-chips">
+            {scenes.map((_, si) => {
+              const hasAudio = playlist.some(p => p.sceneIdx === si)
+              const isCurrentScene = current?.sceneIdx === si
+              return (
+                <button
+                  key={si}
+                  className={`playback-scene-chip${isCurrentScene ? ' active' : ''}${!hasAudio ? ' no-audio' : ''}`}
+                  onClick={() => { if (hasAudio) goToScene(si) }}
+                  disabled={!hasAudio}
+                  title={hasAudio ? `跳至第 ${si + 1} 幕` : `第 ${si + 1} 幕（無音訊）`}
+                >
+                  {si + 1}
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         {/* Progress bar */}
         <div className="playback-progress-wrap">
