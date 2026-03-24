@@ -3,6 +3,7 @@ import io
 import os
 import re
 import json
+import math
 import time
 import uuid
 import asyncio
@@ -185,8 +186,9 @@ if GEMINI_API_KEY:
         from google import genai as _genai
         from google.genai import types as _gtypes
         _gemini_client = _genai.Client(api_key=GEMINI_API_KEY)
-        _gemini_image_config = _gtypes.GenerateImagesConfig(
-            number_of_images=1, aspect_ratio="4:3", language="zh"
+        # Use GenerateContentConfig for gemini image generation (Imagen requires paid billing)
+        _gemini_image_config = _gtypes.GenerateContentConfig(
+            response_modalities=["IMAGE", "TEXT"],
         )
         logger.info("Gemini client initialised")
     except Exception as _e:
@@ -194,7 +196,10 @@ if GEMINI_API_KEY:
 
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")
 HF_IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
-HF_INFERENCE_URL = f"https://api-inference.huggingface.co/models/{HF_IMAGE_MODEL}"
+# HuggingFace moved from api-inference.huggingface.co (410 Gone) to router.huggingface.co
+HF_INFERENCE_URL = f"https://router.huggingface.co/hf-inference/models/{HF_IMAGE_MODEL}"
+
+POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", "")
 
 # ── 可用聲音清單 ─────────────────────────────────────────────
 VOICES = [
@@ -744,31 +749,172 @@ async def generate_voice(req: GenerateVoiceRequest, request: Request):
 
     raise HTTPException(status_code=502, detail="語音生成失敗，請稍後重試")
 
-# ── 端點：生成場景圖片（Gemini Imagen → HuggingFace → Pollinations）─
+# ── 本機備用：使用 Pillow 生成場景感插圖（無需外部 API）──────────────
+def _generate_scene_image_pillow(prompt: str, width: int = 800, height: int = 600) -> str:
+    """
+    Procedurally generate a simple watercolor-style scene illustration.
+    Used as the last-resort fallback when all external image APIs are unavailable.
+    Returns a base64-encoded PNG data URI.
+    """
+    try:
+        from PIL import Image, ImageDraw, ImageFilter, ImageFont  # type: ignore
+    except ImportError:
+        raise RuntimeError("Pillow not installed")
+
+    p = prompt.lower()
+    rng = random.Random(hash(prompt) & 0xFFFFFF)
+
+    # ── colour palette selection ──────────────────────────────────────
+    if any(w in p for w in ['night', 'moon', '夜', '晚', '星', 'star']):
+        sky_top, sky_bot  = (15, 10, 55), (50, 35, 100)
+        ground_col        = (30, 70, 45)
+        accent_col        = (200, 220, 255)
+        is_night          = True
+    elif any(w in p for w in ['sea', 'ocean', 'beach', '海', '沙灘', 'wave']):
+        sky_top, sky_bot  = (100, 185, 255), (195, 230, 255)
+        ground_col        = (230, 215, 155)
+        accent_col        = (80, 160, 220)
+        is_night          = False
+    elif any(w in p for w in ['city', 'town', 'street', '城市', '街道', '房子']):
+        sky_top, sky_bot  = (140, 195, 240), (210, 235, 255)
+        ground_col        = (160, 155, 150)
+        accent_col        = (220, 200, 130)
+        is_night          = False
+    elif any(w in p for w in ['mountain', 'snow', '山', '雪', '冰']):
+        sky_top, sky_bot  = (160, 210, 255), (220, 240, 255)
+        ground_col        = (200, 220, 195)
+        accent_col        = (255, 255, 255)
+        is_night          = False
+    else:  # default: sunny meadow / forest
+        sky_top, sky_bot  = (110, 190, 255), (200, 235, 255)
+        ground_col        = (75, 155, 75)
+        accent_col        = (255, 240, 100)
+        is_night          = False
+
+    img  = Image.new('RGB', (width, height))
+    draw = ImageDraw.Draw(img)
+
+    horizon = int(height * 0.62)
+
+    # ── sky gradient ──────────────────────────────────────────────────
+    for y in range(horizon):
+        t = y / max(horizon, 1)
+        r = int(sky_top[0] + (sky_bot[0] - sky_top[0]) * t)
+        g = int(sky_top[1] + (sky_bot[1] - sky_top[1]) * t)
+        b = int(sky_top[2] + (sky_bot[2] - sky_top[2]) * t)
+        draw.line([(0, y), (width, y)], fill=(r, g, b))
+
+    # ── ground ────────────────────────────────────────────────────────
+    for y in range(horizon, height):
+        t  = (y - horizon) / max(height - horizon, 1)
+        dr = int(ground_col[0] * (1 - t * 0.35))
+        dg = int(ground_col[1] * (1 - t * 0.3))
+        db = int(ground_col[2] * (1 - t * 0.25))
+        draw.line([(0, y), (width, y)], fill=(dr, dg, db))
+
+    # ── sun / moon ────────────────────────────────────────────────────
+    if is_night:
+        draw.ellipse([width-110, 25, width-45, 90], fill=(240, 235, 200))
+        draw.ellipse([width-100, 20, width-38, 82], fill=sky_top)   # crescent
+    else:
+        draw.ellipse([width-115, 20, width-45, 90], fill=(255, 225, 50))
+        for r_off in range(12, 28, 5):
+            draw.ellipse([width-115-r_off, 20-r_off, width-45+r_off, 90+r_off],
+                         outline=(255, 240, 120, 80))
+
+    # ── clouds / stars ────────────────────────────────────────────────
+    if is_night:
+        for _ in range(50):
+            sx, sy = rng.randint(0, width), rng.randint(0, horizon - 20)
+            sr     = rng.choice([1, 1, 2])
+            draw.ellipse([sx-sr, sy-sr, sx+sr, sy+sr], fill=(255, 255, 230))
+    else:
+        for cx, cy in [(130, 70), (320, 45), (540, 65), (720, 50)]:
+            cx += rng.randint(-20, 20)
+            for dx, dy, cr in [(-28, 0, 28), (0, -18, 35), (28, 0, 27), (12, 12, 22)]:
+                draw.ellipse([cx+dx-cr, cy+dy-cr, cx+dx+cr, cy+dy+cr],
+                             fill=(255, 255, 255))
+
+    # ── scene-specific elements ───────────────────────────────────────
+    if any(w in p for w in ['forest', 'tree', '森林', '樹', '林', 'jungle']):
+        tree_xs = list(range(-20, width + 40, rng.randint(60, 90)))
+        rng.shuffle(tree_xs)
+        for tx in tree_xs:
+            th   = rng.randint(100, 190)
+            col1 = (rng.randint(25, 55), rng.randint(110, 145), rng.randint(40, 70))
+            col2 = tuple(min(255, c + 25) for c in col1)
+            # trunk
+            draw.rectangle([tx-7, horizon-8, tx+7, horizon+25], fill=(110, 75, 40))
+            # layered canopy
+            for lyr in range(3):
+                lw = 60 - lyr * 14
+                ly = horizon - th + lyr * 42
+                col = col1 if lyr % 2 == 0 else col2
+                draw.polygon([(tx, ly-42), (tx-lw, ly+28), (tx+lw, ly+28)], fill=col)
+
+    elif any(w in p for w in ['sea', 'ocean', '海', 'wave', 'water', '水']):
+        for row in range(4):
+            wy   = horizon + 5 + row * 22
+            alpha = max(60, 150 - row * 25)
+            for wx in range(0, width, 45):
+                draw.arc([wx, wy-10, wx+45, wy+10], 0, 180,
+                         fill=(65, 155, 215), width=3)
+
+    elif any(w in p for w in ['city', '城市', '街道', '房子', 'building']):
+        for bx in range(0, width, rng.randint(70, 110)):
+            bh  = rng.randint(80, 200)
+            bw  = rng.randint(55, 85)
+            bcol = (rng.randint(170, 210), rng.randint(155, 185), rng.randint(145, 175))
+            draw.rectangle([bx, horizon-bh, bx+bw, horizon], fill=bcol)
+            # windows
+            for wy in range(horizon-bh+15, horizon-10, 22):
+                for wx in range(bx+8, bx+bw-8, 18):
+                    wc = (255, 240, 150) if rng.random() > 0.35 else (120, 150, 180)
+                    draw.rectangle([wx, wy, wx+10, wy+14], fill=wc)
+
+    else:  # meadow — flowers & grass
+        for fx in range(20, width, rng.randint(30, 60)):
+            fy   = rng.randint(horizon-5, horizon+30)
+            fc   = rng.choice([(255,80,80),(255,170,0),(200,50,200),(80,180,255)])
+            draw.ellipse([fx-7, fy-20, fx+7, fy-6], fill=(80, 160, 70))
+            draw.ellipse([fx-8, fy-33, fx+8, fy-20], fill=fc)
+
+    # ── soft watercolor blur ──────────────────────────────────────────
+    img = img.filter(ImageFilter.GaussianBlur(radius=1.8))
+
+    # ── encode ────────────────────────────────────────────────────────
+    buf = io.BytesIO()
+    img.save(buf, format='JPEG', quality=85, optimize=True)
+    return base64.b64encode(buf.getvalue()).decode('utf-8')
+
+
+# ── 端點：生成場景圖片（Gemini Flash → HuggingFace → Pollinations → Pillow）─
 @app.post("/api/generate-image")
 async def generate_image(req: GenerateImageRequest, request: Request):
     if not _rl_image.is_allowed(_client_ip(request)):
         raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     full_prompt = f"{req.prompt}, {req.style} style, soft colors, child-friendly, high quality"
 
-    # ── 優先：Gemini Imagen 3（module-level client，避免每次重建）──
+    # ── 優先：Gemini Flash Image（generateContent 模式，需開通 billing）────
     if _gemini_client and _gemini_image_config:
         try:
             result = await asyncio.get_running_loop().run_in_executor(
                 None,
-                lambda: _gemini_client.models.generate_images(
-                    model="imagen-3.0-generate-002",
-                    prompt=full_prompt,
+                lambda: _gemini_client.models.generate_content(
+                    model="gemini-2.5-flash-image",
+                    contents=full_prompt,
                     config=_gemini_image_config,
                 )
             )
-            if result.generated_images:
-                img_bytes = result.generated_images[0].image.image_bytes
-                b64 = base64.b64encode(img_bytes).decode("utf-8")
-                logger.info("Gemini Imagen success")
-                return {"url": f"data:image/png;base64,{b64}"}
+            if result.candidates:
+                for part in result.candidates[0].content.parts:
+                    if hasattr(part, "inline_data") and part.inline_data:
+                        b64 = base64.b64encode(part.inline_data.data).decode("utf-8")
+                        mime = part.inline_data.mime_type or "image/png"
+                        logger.info("Gemini Flash Image success")
+                        return {"url": f"data:{mime};base64,{b64}"}
         except Exception as e:
-            logger.warning("Gemini Imagen exception: %s", e)
+            logger.warning("Gemini Flash Image exception: %s", e)
 
     # ── 次要：HuggingFace Inference API（HUGGINGFACE_API_KEY）────
     if HUGGINGFACE_API_KEY:
@@ -788,17 +934,20 @@ async def generate_image(req: GenerateImageRequest, request: Request):
             logger.warning("HF image exception: %s", e)
 
     # ── 備用：Pollinations.ai → fetch 回來轉成 base64 ─────────────
-    # 不直接回傳外部 URL：瀏覽器無法保證能載入（CORS / 超時 / 服務不穩定），
-    # 且存入 DB 後重新載入會再次依賴外部服務。fetch 後回傳 base64 才能永久可用。
+    # gen.pollinations.ai/image/{prompt} 需要 API key（免費方案可申請）
+    # 設定 POLLINATIONS_API_KEY 環境變數即可啟用
     encoded = urllib.parse.quote(full_prompt)
     seed = random.randint(1, 99999)
     image_url = (
-        f"https://image.pollinations.ai/prompt/{encoded}"
+        f"https://gen.pollinations.ai/image/{encoded}"
         f"?width=1024&height=768&nologo=true&seed={seed}&model=flux"
     )
     logger.info("Fallback Pollinations fetch: %s", image_url[:200])
     try:
-        img_resp = await _http_client.get(image_url, timeout=90, follow_redirects=True)
+        headers: dict[str, str] = {}
+        if POLLINATIONS_API_KEY:
+            headers["Authorization"] = f"Bearer {POLLINATIONS_API_KEY}"
+        img_resp = await _http_client.get(image_url, headers=headers, timeout=90, follow_redirects=True)
         if img_resp.status_code == 200 and img_resp.content:
             mime = img_resp.headers.get("content-type", "image/jpeg").split(";")[0]
             if not mime.startswith("image/"):
@@ -809,6 +958,16 @@ async def generate_image(req: GenerateImageRequest, request: Request):
         logger.warning("Pollinations returned status %s", img_resp.status_code)
     except Exception as e:
         logger.warning("Pollinations fetch failed: %s", e)
+
+    # ── 最終備用：Pillow 本機生成場景插圖（無外部 API）────────────────
+    try:
+        b64 = await asyncio.get_running_loop().run_in_executor(
+            None, lambda: _generate_scene_image_pillow(req.prompt)
+        )
+        logger.info("Pillow fallback image generated for prompt: %s", req.prompt[:80])
+        return {"url": f"data:image/jpeg;base64,{b64}"}
+    except Exception as e:
+        logger.warning("Pillow image generation failed: %s", e)
 
     raise HTTPException(status_code=502, detail="插圖生成失敗，請點「重新生成插圖」再試一次")
 
