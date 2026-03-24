@@ -27,6 +27,29 @@ function buildStoryContext(scenes: Scene[], endIndex?: number): string | undefin
   }).join('\n')
 }
 
+/**
+ * Run `tasks` with at most `concurrency` running simultaneously.
+ * Calls `onProgress(done, total)` after each task completes.
+ */
+async function throttled<T>(
+  tasks: (() => Promise<T>)[],
+  concurrency: number,
+  onProgress?: (done: number, total: number) => void,
+): Promise<void> {
+  let nextIdx = 0
+  let done = 0
+  const total = tasks.length
+  const run = async () => {
+    while (nextIdx < total) {
+      const i = nextIdx++
+      await tasks[i]()
+      done++
+      onProgress?.(done, total)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, total) }, run))
+}
+
 export default function App() {
   const [characters, setCharacters] = useState<Character[]>([])
   const [droppedCharacters, setDroppedCharacters] = useState<Character[]>([])
@@ -489,8 +512,7 @@ export default function App() {
 
     setBatchRegenStatus({ done: 0, total: tasks.length })
 
-    let done = 0
-    await Promise.all(tasks.map(async task => {
+    const voiceTasks = tasks.map(task => async () => {
       try {
         const res = await fetch('/api/generate-voice', {
           method: 'POST',
@@ -506,9 +528,8 @@ export default function App() {
           return { ...s, lines }
         }))
       } catch {}
-      done += 1
-      setBatchRegenStatus({ done, total: tasks.length })
-    }))
+    })
+    await throttled(voiceTasks, 5, (done, total) => setBatchRegenStatus({ done, total }))
 
     // Save after all complete
     setScenes(prev => {
