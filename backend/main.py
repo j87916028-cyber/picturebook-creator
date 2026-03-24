@@ -425,7 +425,7 @@ async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
 
 請提供 3 個簡短的「下一幕場景描述」，每個約 20-50 字，方向各異（例如：衝突、驚喜、溫馨、冒險等）。
 
-嚴格回傳 JSON 格式，不要任何說明：
+直接輸出 JSON，不要 <think> 標籤，不要任何說明：
 {{"suggestions": ["描述1", "描述2", "描述3"]}}
 
 注意：
@@ -446,20 +446,25 @@ async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
         )
         resp.raise_for_status()
         message = resp.json()["choices"][0]["message"]
-        # M2.7 thinking mode: content may be a list of blocks
-        if isinstance(message["content"], list):
-            raw = " ".join(
-                block.get("text", "") for block in message["content"]
-                if block.get("type") == "text"
-            )
+        # M2.7 may return content as list of blocks
+        raw_content = message.get("content", "")
+        if isinstance(raw_content, list):
+            raw = " ".join(b.get("text", "") for b in raw_content if b.get("type") == "text").strip()
         else:
-            raw = message["content"]
-        raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
-        logger.info("suggest-next-scene raw: %s", raw[:300])
+            raw = str(raw_content)
 
-        # Try JSON extraction first
+        # Strip think blocks; if nothing remains, search inside the think block
+        # (M2.7 sometimes puts the entire answer inside <think> with an empty reply)
+        stripped = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+        search_text = stripped if stripped else raw
+        logger.info("suggest stripped=%d search=%d preview: %s", len(stripped), len(search_text), search_text[:200])
+
         suggestions: list[str] = []
-        m = re.search(r'\{.*\}', raw, re.DOTALL)
+
+        # 1. Try JSON
+        m = re.search(r'\{[^{}]*"suggestions"[^{}]*\}', search_text, re.DOTALL)
+        if not m:
+            m = re.search(r'\{.*\}', search_text, re.DOTALL)
         if m:
             try:
                 data = json.loads(m.group(0))
@@ -467,13 +472,18 @@ async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
             except json.JSONDecodeError:
                 pass
 
-        # Fallback: extract numbered / bulleted lines as suggestions
+        # 2. Numbered / bulleted lines
         if not suggestions:
-            lines = re.findall(r'(?:^|\n)\s*(?:\d+[.、。]|[-•*])\s*(.+)', raw)
+            lines = re.findall(r'(?:^|\n)\s*(?:\d+[.、。）)]\s*)(.{10,80})', search_text)
             suggestions = [l.strip().strip('「」') for l in lines if l.strip()]
 
+        # 3. Last-resort: split by Chinese sentence endings and take first 3 meaningful chunks
         if not suggestions:
-            raise ValueError(f"could not parse suggestions from: {raw[:200]!r}")
+            chunks = re.split(r'[。！\n]{1,2}', search_text)
+            suggestions = [c.strip() for c in chunks if len(c.strip()) >= 10][:3]
+
+        if not suggestions:
+            raise ValueError(f"could not parse suggestions, search_text={search_text[:300]!r}")
 
         return {"suggestions": suggestions[:3]}
     except Exception as e:
