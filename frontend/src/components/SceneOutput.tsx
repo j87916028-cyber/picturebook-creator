@@ -69,6 +69,7 @@ interface Props {
   onSceneDuplicate: (sceneId: string) => void
   onLineTextChange: (sceneId: string, lineIndex: number, newText: string) => void
   onLineDelete: (sceneId: string, lineIndex: number) => void
+  onLineAdd: (sceneId: string, characterId: string, text: string) => Promise<void>
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
   onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
@@ -87,6 +88,7 @@ interface SceneCardProps {
   onSceneDuplicate: (sceneId: string) => void
   onLineTextChange: (sceneId: string, lineIndex: number, newText: string) => void
   onLineDelete: (sceneId: string, lineIndex: number) => void
+  onLineAdd: (sceneId: string, characterId: string, text: string) => Promise<void>
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
   onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
@@ -104,6 +106,7 @@ function SceneCard({
   onSceneDuplicate,
   onLineTextChange,
   onLineDelete,
+  onLineAdd,
   onLineVoiceRegen,
   onLineEmotionChange,
   onImageRegen,
@@ -135,6 +138,10 @@ function SceneCard({
   const [showPromptEdit, setShowPromptEdit] = useState(false)
   const [editedPrompt, setEditedPrompt] = useState(scene.script.scene_prompt || '')
   const [showRegenForm, setShowRegenForm] = useState(false)
+  const [showAddLine, setShowAddLine] = useState(false)
+  const [addCharId, setAddCharId] = useState('')
+  const [addLineText, setAddLineText] = useState('')
+  const [addLineLoading, setAddLineLoading] = useState(false)
 
   // Keep editedPrompt in sync when scene_prompt changes (e.g. after full scene regen)
   useEffect(() => {
@@ -675,6 +682,71 @@ function SceneCard({
               )
             })}
           </div>
+
+          {/* Add new line */}
+          {showAddLine ? (
+            <div className="add-line-form">
+              <select
+                className="add-line-char-select"
+                value={addCharId}
+                onChange={e => setAddCharId(e.target.value)}
+                disabled={addLineLoading}
+              >
+                <option value="">選擇角色...</option>
+                {characters.map(c => (
+                  <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>
+                ))}
+              </select>
+              <textarea
+                className="line-edit-textarea"
+                value={addLineText}
+                onChange={e => setAddLineText(e.target.value.slice(0, 100))}
+                placeholder="輸入台詞（最多100字）"
+                rows={2}
+                disabled={addLineLoading}
+                autoFocus
+              />
+              <div className="line-edit-btns">
+                <button
+                  className="btn-scene-action"
+                  disabled={!addCharId || !addLineText.trim() || addLineLoading}
+                  onClick={async () => {
+                    setAddLineLoading(true)
+                    try {
+                      await onLineAdd(scene.id, addCharId, addLineText)
+                      setShowAddLine(false)
+                      setAddCharId('')
+                      setAddLineText('')
+                    } finally {
+                      setAddLineLoading(false)
+                    }
+                  }}
+                >
+                  {addLineLoading ? <><span className="spinner-sm" /> 配音生成中...</> : '✓ 新增台詞'}
+                </button>
+                <button
+                  className="btn-ghost"
+                  onClick={() => { setShowAddLine(false); setAddCharId(''); setAddLineText('') }}
+                  disabled={addLineLoading}
+                  style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              className="btn-add-line"
+              onClick={() => {
+                setAddCharId(scene.lines[0]?.character_id || '')
+                setShowAddLine(true)
+              }}
+              disabled={isGenerating}
+              title="在此幕末尾新增一行台詞"
+            >
+              ＋ 加入台詞
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -690,6 +762,7 @@ export default function SceneOutput({
   onSceneDuplicate,
   onLineTextChange,
   onLineDelete,
+  onLineAdd,
   onLineVoiceRegen,
   onLineEmotionChange,
   onImageRegen,
@@ -810,6 +883,7 @@ export default function SceneOutput({
             onSceneDuplicate={onSceneDuplicate}
             onLineTextChange={onLineTextChange}
             onLineDelete={onLineDelete}
+            onLineAdd={onLineAdd}
             onLineVoiceRegen={onLineVoiceRegen}
             onLineEmotionChange={onLineEmotionChange}
             onImageRegen={onImageRegen}

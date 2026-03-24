@@ -411,6 +411,48 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
+  // Append a new dialogue line and generate its voice
+  const handleLineAdd = async (sceneId: string, characterId: string, text: string) => {
+    const character = characters.find(c => c.id === characterId)
+    const scene = scenes.find(s => s.id === sceneId)
+    if (!character || !scene || !text.trim()) return
+
+    const newIndex = scene.lines.length
+    const newLine = {
+      character_name: character.name,
+      character_id: character.id,
+      voice_id: character.voice_id,
+      text: text.trim(),
+      emotion: 'neutral' as const,
+    }
+    setScenes(prev => prev.map(s =>
+      s.id === sceneId ? { ...s, lines: [...s.lines, newLine] } : s
+    ))
+    try {
+      const res = await fetch('/api/generate-voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: newLine.text, voice_id: newLine.voice_id, emotion: 'neutral' }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      let saved: Scene[] | null = null
+      setScenes(prev => {
+        const next = prev.map(s => {
+          if (s.id !== sceneId) return s
+          const lines = [...s.lines]
+          if (lines[newIndex]) {
+            lines[newIndex] = { ...lines[newIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+          }
+          return { ...s, lines }
+        })
+        saved = next
+        return next
+      })
+      if (saved && currentProjectId) autoSave(currentProjectId, saved, characters)
+    } catch {}
+  }
+
   // Re-generate voice for a single line
   const handleLineVoiceRegen = async (sceneId: string, lineIndex: number) => {
     const scene = scenes.find(s => s.id === sceneId)
@@ -792,6 +834,7 @@ export default function App() {
               onSceneDuplicate={handleSceneDuplicate}
               onLineTextChange={handleLineTextChange}
               onLineDelete={handleLineDelete}
+              onLineAdd={handleLineAdd}
               onLineVoiceRegen={handleLineVoiceRegen}
               onLineEmotionChange={handleLineEmotionChange}
               onImageRegen={handleImageRegen}

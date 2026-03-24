@@ -1029,6 +1029,46 @@ body {
 .dialogue-text-row:hover .btn-delete-line:not(:disabled) { opacity: 0.45; }
 .btn-delete-line:hover:not(:disabled) { opacity: 1; }
 
+.btn-add-line {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px 0;
+  background: none;
+  border: 2px dashed #c8c8e0;
+  border-radius: 10px;
+  color: #9a9ac0;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.btn-add-line:hover:not(:disabled) {
+  border-color: #667eea;
+  color: #667eea;
+  background: #f0f0ff;
+}
+.btn-add-line:disabled { cursor: not-allowed; opacity: 0.4; }
+
+.add-line-form {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #f8f8ff;
+  border: 1px solid #e0e0f0;
+  border-radius: 10px;
+}
+.add-line-char-select {
+  padding: 6px 10px;
+  border: 1px solid #d0d0e8;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: white;
+  color: #333;
+  cursor: pointer;
+}
+
 .line-edit-area {
   display: flex;
   flex-direction: column;
