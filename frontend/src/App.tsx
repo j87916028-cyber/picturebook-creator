@@ -71,6 +71,11 @@ export default function App() {
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingSaveRef = useRef<{ projectId: string; scenes: Scene[]; characters: Character[] } | null>(null)
 
+  // Undo-delete state: remembers the last deleted line for 5 seconds
+  type UndoState = { sceneId: string; lineIndex: number; line: ScriptLine }
+  const [undoState, setUndoState] = useState<UndoState | null>(null)
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Export state
   const [exportOpen, setExportOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -413,11 +418,32 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
-  // Delete a single dialogue line
+  // Delete a single dialogue line (with 5-second undo window)
   const handleLineDelete = (sceneId: string, lineIndex: number) => {
+    const scene = scenes.find(s => s.id === sceneId)
+    if (!scene) return
+    const deletedLine = scene.lines[lineIndex]
     const next = scenes.map(s => {
       if (s.id !== sceneId) return s
-      const lines = s.lines.filter((_, i) => i !== lineIndex)
+      return { ...s, lines: s.lines.filter((_, i) => i !== lineIndex) }
+    })
+    setScenes(next)
+    autoSave(currentProjectId!, next, characters)
+    // Arm the undo toast for 5 seconds
+    setUndoState({ sceneId, lineIndex, line: deletedLine })
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+    undoTimerRef.current = setTimeout(() => setUndoState(null), 5000)
+  }
+
+  const handleUndoDelete = () => {
+    if (!undoState) return
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+    const { sceneId, lineIndex, line } = undoState
+    setUndoState(null)
+    const next = scenes.map(s => {
+      if (s.id !== sceneId) return s
+      const lines = [...s.lines]
+      lines.splice(lineIndex, 0, line)   // re-insert at original position
       return { ...s, lines }
     })
     setScenes(next)
@@ -858,6 +884,15 @@ export default function App() {
           </div>
         </main>
       </div>
+
+      {/* Undo-delete toast */}
+      {undoState && (
+        <div className="undo-toast">
+          <span className="undo-toast-msg">🗑️ 台詞已刪除</span>
+          <button className="undo-toast-btn" onClick={handleUndoDelete}>復原</button>
+          <button className="undo-toast-dismiss" onClick={() => { if (undoTimerRef.current) clearTimeout(undoTimerRef.current); setUndoState(null) }} title="關閉">✕</button>
+        </div>
+      )}
     </DndContext>
   )
 }
