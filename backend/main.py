@@ -221,7 +221,7 @@ VOICES = [
     # ── 孩童聲（zh-CN，真實兒童感） ────────────────────────
     {"id": "cn-child-girl",          "label": "活潑小女孩",  "emoji": "👧"},
     {"id": "cn-girl-clear",          "label": "清亮女孩",    "emoji": "🎀"},
-    {"id": "cn-girl-soft",           "label": "柔和女孩",    "emoji": "🌸"},
+    {"id": "cn-girl-soft",           "label": "成熟女聲",    "emoji": "👩‍💼"},
     # ── 台灣腔（zh-TW） ────────────────────────────────────
     {"id": "female-yujie",           "label": "御姐音",      "emoji": "👩"},
     {"id": "male-qn-qingse",         "label": "青澀男聲",    "emoji": "👦"},
