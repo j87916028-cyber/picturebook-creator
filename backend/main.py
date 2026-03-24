@@ -346,7 +346,7 @@ async def voice_preview(voice_id: str):
     prosody = _emotion_prosody_params("happy")
     try:
         communicate = edge_tts.Communicate(
-            text=_text_with_breaks(sample_text),
+            text=_prepare_tts_text(sample_text),
             voice=edge_voice,
             rate=prosody["rate"],
             volume=prosody["volume"],
@@ -705,29 +705,17 @@ _EMOTION_PROSODY: dict[str, dict[str, str]] = {
     "neutral":   {"rate": "+0%",  "volume": "+0%"},
 }
 
-# 插入自然停頓的標點及對應暫停時間
-_PAUSE_MAP = [
-    ("。", "220ms"), ("！", "180ms"), ("？", "180ms"),
-    ("…", "250ms"),  ("、", "70ms"),  ("，", "90ms"),
-    ("!",  "180ms"), ("?",  "180ms"), (",",  "80ms"),
-]
 
+def _prepare_tts_text(text: str) -> str:
+    """Return text ready for edge-tts.
 
-def _text_with_breaks(text: str) -> str:
-    """HTML-escape user text and insert SSML <break> pauses after punctuation.
-
-    edge-tts embeds the returned string directly inside <prosody> without further
-    escaping, so XML elements like <break/> survive intact while user-supplied
-    angle brackets are safely escaped.
+    edge-tts 7.x internally applies xml.sax.saxutils.escape() before embedding
+    text into SSML.  We must therefore pass raw, unescaped text — any pre-escaping
+    we do would be double-escaped (e.g. & → &amp; → &amp;amp;), and any SSML tags
+    we inject (e.g. <break/>) would be escaped to &lt;break/&gt; and read aloud
+    as literal characters including "斜線" for the slash.
     """
-    safe = (text.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace('"', "&quot;"))
-    for punct, dur in _PAUSE_MAP:
-        safe = safe.replace(punct, f"{punct}<break time='{dur}'/>")
-    # Remove any trailing break so the sentence doesn't end with dead air
-    return re.sub(r'(\s*<break[^/]*/>\s*)+$', '', safe).strip()
+    return text.strip()
 
 
 def _emotion_prosody_params(emotion: Optional[str]) -> dict[str, str]:
@@ -759,7 +747,7 @@ async def generate_voice(req: GenerateVoiceRequest, request: Request):
                 req.voice_id, req.emotion, edge_voice, prosody["rate"], prosody["volume"])
     try:
         communicate = edge_tts.Communicate(
-            text=_text_with_breaks(req.text),
+            text=_prepare_tts_text(req.text),
             voice=edge_voice,
             rate=prosody["rate"],
             volume=prosody["volume"],
