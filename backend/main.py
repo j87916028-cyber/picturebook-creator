@@ -79,6 +79,7 @@ _rl_image   = _RateLimiter(max_calls=10,  window_secs=60)   # Image gen
 _rl_suggest = _RateLimiter(max_calls=15,  window_secs=60)   # Scene suggestions
 _rl_title   = _RateLimiter(max_calls=15,  window_secs=60)   # Title gen
 _rl_upload  = _RateLimiter(max_calls=20,  window_secs=60)   # Image/audio upload
+_rl_export  = _RateLimiter(max_calls=5,   window_secs=60)   # Export (CPU-heavy)
 
 # ── Optional asyncpg import (graceful if not installed) ──────────
 try:
@@ -2259,9 +2260,12 @@ _EXPORT_FORMAT = Literal["pdf", "epub", "html", "mp3"]
 
 @app.get("/api/projects/{project_id}/export")
 async def export_project(
+    request: Request,
     project_id: str,
     format: _EXPORT_FORMAT = "pdf",
 ):
+    if not _rl_export.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="匯出請求過於頻繁，請稍後再試")
     _db_required()
     _validate_uuid(project_id)
 
@@ -2292,20 +2296,23 @@ async def export_project(
             "image": row["image"],
         })
 
+    # Run CPU-bound export functions in a thread pool to avoid blocking
+    # the async event loop (PDF rendering / EPUB serialisation can take >1 s)
+    loop = asyncio.get_running_loop()
     if format == "pdf":
-        data = _export_pdf(project_name, scenes)
+        data = await loop.run_in_executor(None, _export_pdf, project_name, scenes)
         media_type = "application/pdf"
         filename = f"{project_name}.pdf"
     elif format == "epub":
-        data = _export_epub(project_name, scenes)
+        data = await loop.run_in_executor(None, _export_epub, project_name, scenes)
         media_type = "application/epub+zip"
         filename = f"{project_name}.epub"
     elif format == "html":
-        data = _export_html_zip(project_name, scenes)
+        data = await loop.run_in_executor(None, _export_html_zip, project_name, scenes)
         media_type = "application/zip"
         filename = f"{project_name}_web.zip"
     else:  # "mp3"
-        data = _export_mp3_zip(project_name, scenes)
+        data = await loop.run_in_executor(None, _export_mp3_zip, project_name, scenes)
         media_type = "application/zip"
         filename = f"{project_name}_audio.zip"
 

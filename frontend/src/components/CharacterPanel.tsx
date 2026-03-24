@@ -8,15 +8,15 @@ interface Props {
 }
 
 const DEFAULT_VOICES: Voice[] = [
-  { id: 'female-tianmei-jingpin', label: '甜美女聲', emoji: '👧' },
-  { id: 'female-shaonv', label: '少女音', emoji: '🧒' },
-  { id: 'female-yujie', label: '御姐音', emoji: '👩' },
-  { id: 'male-qn-qingse', label: '青澀男聲', emoji: '👦' },
-  { id: 'male-qn-badao', label: '霸道男聲', emoji: '👨' },
-  { id: 'audiobook_male_2', label: '說書男聲', emoji: '📖' },
-  { id: 'cute_boy', label: '可愛男孩', emoji: '🐣' },
-  { id: 'elderly_man', label: '老爺爺音', emoji: '👴' },
-  { id: 'elderly_woman', label: '老奶奶音', emoji: '👵' },
+  { id: 'cn-natural-female', label: '自然女聲 ★', emoji: '🌟' },
+  { id: 'cn-natural-male',   label: '自然男聲 ★', emoji: '⭐' },
+  { id: 'female-yujie',      label: '御姐音',      emoji: '👩' },
+  { id: 'male-qn-qingse',    label: '青澀男聲',    emoji: '👦' },
+  { id: 'male-qn-badao',     label: '霸道男聲',    emoji: '👨' },
+  { id: 'audiobook_male_2',  label: '說書男聲',    emoji: '📖' },
+  { id: 'cute_boy',          label: '可愛男孩',    emoji: '🐣' },
+  { id: 'elderly_man',       label: '老爺爺音',    emoji: '👴' },
+  { id: 'elderly_woman',     label: '老奶奶音',    emoji: '👵' },
 ]
 
 const EMOJIS = ['🐰', '🦊', '🐻', '🐼', '🦁', '🐸', '🦄', '🐧', '🐶', '🐱', '🐮', '🐷']
