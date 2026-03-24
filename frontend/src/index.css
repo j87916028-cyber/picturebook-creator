@@ -665,6 +665,9 @@ body {
 }
 .generate-row .btn-generate { flex: 1; }
 
+.btn-scene-duplicate { color: #5a67d8; }
+.btn-scene-duplicate:hover:not(:disabled) { background: #ebf4ff; border-color: #5a67d8; }
+
 .btn-cancel {
   background: none;
   border: 1.5px solid #ffb3b3;

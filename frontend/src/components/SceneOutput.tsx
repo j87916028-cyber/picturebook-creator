@@ -26,6 +26,7 @@ interface Props {
   characters: Character[]
   onSceneDelete: (sceneId: string) => void
   onSceneMove: (sceneId: string, direction: 'up' | 'down') => void
+  onSceneDuplicate: (sceneId: string) => void
   onLineTextChange: (sceneId: string, lineIndex: number, newText: string) => void
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onImageRegen: (sceneId: string) => Promise<void>
@@ -41,6 +42,7 @@ interface SceneCardProps {
   characters: Character[]
   onSceneDelete: (sceneId: string) => void
   onSceneMove: (sceneId: string, direction: 'up' | 'down') => void
+  onSceneDuplicate: (sceneId: string) => void
   onLineTextChange: (sceneId: string, lineIndex: number, newText: string) => void
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onImageRegen: (sceneId: string) => Promise<void>
@@ -55,6 +57,7 @@ function SceneCard({
   characters,
   onSceneDelete,
   onSceneMove,
+  onSceneDuplicate,
   onLineTextChange,
   onLineVoiceRegen,
   onImageRegen,
@@ -284,6 +287,14 @@ function SceneCard({
           title="重新生成此幕"
         >
           ✏️ 重新生成此幕
+        </button>
+        <button
+          className="btn-scene-action btn-scene-duplicate"
+          onClick={() => onSceneDuplicate(scene.id)}
+          disabled={isGenerating || regenLoading}
+          title="複製此幕（保留劇本、配音、插圖）"
+        >
+          📋 複製此幕
         </button>
         <button
           className="btn-scene-action btn-scene-delete"
@@ -526,6 +537,7 @@ export default function SceneOutput({
   characters,
   onSceneDelete,
   onSceneMove,
+  onSceneDuplicate,
   onLineTextChange,
   onLineVoiceRegen,
   onImageRegen,
@@ -626,6 +638,7 @@ export default function SceneOutput({
             characters={characters}
             onSceneDelete={onSceneDelete}
             onSceneMove={onSceneMove}
+            onSceneDuplicate={onSceneDuplicate}
             onLineTextChange={onLineTextChange}
             onLineVoiceRegen={onLineVoiceRegen}
             onImageRegen={onImageRegen}

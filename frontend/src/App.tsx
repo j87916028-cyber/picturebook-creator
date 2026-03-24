@@ -139,6 +139,20 @@ export default function App() {
     abortControllerRef.current?.abort()
   }
 
+  // Duplicate a scene: clone with new ID, insert immediately after the original
+  const handleSceneDuplicate = (sceneId: string) => {
+    const idx = scenes.findIndex(s => s.id === sceneId)
+    if (idx < 0) return
+    const original = scenes[idx]
+    const copy: Scene = {
+      ...original,
+      id: `scene-${Date.now()}`,
+    }
+    const next = [...scenes.slice(0, idx + 1), copy, ...scenes.slice(idx + 1)]
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
+  }
+
   const handleGenerate = async (description: string, style: string) => {
     if (!description.trim() || droppedCharacters.length === 0) return
 
@@ -696,6 +710,7 @@ export default function App() {
               characters={characters}
               onSceneDelete={handleSceneDelete}
               onSceneMove={handleSceneMove}
+              onSceneDuplicate={handleSceneDuplicate}
               onLineTextChange={handleLineTextChange}
               onLineVoiceRegen={handleLineVoiceRegen}
               onImageRegen={handleImageRegen}
