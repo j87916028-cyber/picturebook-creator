@@ -218,8 +218,6 @@ VOICES = [
     {"id": "cn-natural-male",        "label": "自然男聲 ★",  "emoji": "⭐"},
     {"id": "cn-story-male",          "label": "說書聲音 ★",  "emoji": "📻"},
     # ── 台灣腔（zh-TW） ────────────────────────────────────
-    {"id": "female-tianmei-jingpin", "label": "甜美女聲",    "emoji": "👧"},
-    {"id": "female-shaonv",          "label": "少女音",      "emoji": "🧒"},
     {"id": "female-yujie",           "label": "御姐音",      "emoji": "👩"},
     {"id": "female-chengshu",        "label": "成熟女聲",    "emoji": "👩‍💼"},
     {"id": "male-qn-qingse",         "label": "青澀男聲",    "emoji": "👦"},
@@ -240,8 +238,6 @@ VOICE_TO_GROQ = {
     "cn-natural-female":      "diana",
     "cn-natural-male":        "daniel",
     "cn-story-male":          "troy",
-    "female-tianmei-jingpin": "diana",
-    "female-shaonv":          "autumn",
     "female-yujie":           "diana",
     "female-chengshu":        "hannah",
     "male-qn-qingse":         "austin",
@@ -262,8 +258,6 @@ VOICE_TO_EDGE = {
     "cn-natural-male":        "zh-CN-YunxiNeural",      # 最自然男聲
     "cn-story-male":          "zh-CN-YunyangNeural",    # 新聞/說書男聲
     # ── 台灣腔 zh-TW ───────────────────────────────────────
-    "female-tianmei-jingpin": "zh-TW-HsiaoYuNeural",   # 甜美女聲
-    "female-shaonv":          "zh-TW-HsiaoYuNeural",   # 少女音
     "female-yujie":           "zh-TW-HsiaoChenNeural", # 御姐音
     "female-chengshu":        "zh-TW-HsiaoChenNeural", # 成熟女聲
     "male-qn-qingse":         "zh-TW-YunJheNeural",    # 青澀男聲
@@ -284,8 +278,6 @@ VOICE_TO_XFYUN: dict[str, str] = {
     "cn-natural-female":      "aisjiajia",    # ★ 嘉嘉 — 溫柔自然，品質最佳
     "cn-natural-male":        "aisxiaofeng",  # ★ 小風 — 標準自然男聲
     "cn-story-male":          "aisjinger",    # ★ 靜兒 → 備選；若未開通自動降回 xiaoyu
-    "female-tianmei-jingpin": "xiaoyan",      # 小燕 — 甜美女聲（免費）
-    "female-shaonv":          "xiaoyan",
     "female-yujie":           "xiaoyan",
     "female-chengshu":        "xiaoyan",
     "male-qn-qingse":         "xiaoyu",       # 小宇 — 年輕男聲（免費）
@@ -445,8 +437,6 @@ _VOICE_SAMPLE: dict[str, str] = {
     "cn-natural-female":      "嗨！大家好，我是你的故事角色，很高興認識你喔！今天我們要一起去冒險了！",
     "cn-natural-male":        "大家好，今天的故事就從這裡開始。準備好了嗎？讓我們一起出發吧！",
     "cn-story-male":          "話說從前，在一座茂密的大森林裡，住著一群快樂的小動物……",
-    "female-tianmei-jingpin": "嗨！大家好，我是你的故事角色，很高興認識你喔！",
-    "female-shaonv":          "嗨嗨！今天的冒險要開始囉，準備好了嗎？",
     "female-yujie":           "嗯，這個故事才剛開始，有趣的事還在後頭呢。",
     "female-chengshu":        "孩子們，今天的故事讓我們一起來聽聽看吧。",
     "male-qn-qingse":         "呃……我有點緊張，不過我會努力的！",
@@ -851,8 +841,6 @@ _VOICE_PITCH: dict[str, str] = {
     "cn-natural-female":      "+0Hz",    # XiaoxiaoNeural：標準（原聲最自然）
     "cn-natural-male":        "+0Hz",    # YunxiNeural：標準
     "cn-story-male":          "-5Hz",    # YunyangNeural：稍低沉有磁性
-    "female-tianmei-jingpin": "+20Hz",   # 甜美女聲：偏高
-    "female-shaonv":          "+15Hz",   # 少女音：稍高
     "female-yujie":           "+0Hz",    # 御姐音：標準
     "female-chengshu":        "-5Hz",    # 成熟女聲：稍低
     "male-qn-qingse":         "+10Hz",   # 青澀男聲：偏高（年輕感）
