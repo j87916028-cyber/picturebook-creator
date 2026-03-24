@@ -68,6 +68,8 @@ export default function App() {
   const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [projectPanelOpen, setProjectPanelOpen] = useState(true)
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingSaveRef = useRef<{ projectId: string; scenes: Scene[]; characters: Character[] } | null>(null)
 
   // Export state
   const [exportOpen, setExportOpen] = useState(false)
@@ -128,13 +130,17 @@ export default function App() {
     }, 400)
   }, [])
 
-  // ── Auto-save scenes + characters after generation completes ──
-  const autoSave = useCallback(async (projectId: string, currentScenes: Scene[], currentCharacters?: Character[]) => {
-    if (!projectId || currentScenes.length === 0) return
+  // ── Auto-save scenes + characters — debounced 1.5 s ──────────
+  // Rapid edits (e.g. typing, batch voice, quick deletes) are coalesced:
+  // only the *last* write within any 1.5 s window fires an API call.
+  const _flushSave = useCallback(async () => {
+    const data = pendingSaveRef.current
+    if (!data) return
+    pendingSaveRef.current = null
     setSavedStatus('saving')
     try {
       const body = {
-        scenes: currentScenes.map((s, idx) => ({
+        scenes: data.scenes.map((s, idx) => ({
           idx,
           description: s.description,
           style: s.style,
@@ -142,9 +148,9 @@ export default function App() {
           lines: s.lines,
           image: s.image,
         })),
-        characters: currentCharacters ?? [],
+        characters: data.characters,
       }
-      await fetch(`/api/projects/${projectId}/scenes`, {
+      await fetch(`/api/projects/${data.projectId}/scenes`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -156,6 +162,13 @@ export default function App() {
       setSavedStatus('idle')
     }
   }, [])
+
+  const autoSave = useCallback((projectId: string, currentScenes: Scene[], currentCharacters?: Character[]) => {
+    if (!projectId || currentScenes.length === 0) return
+    pendingSaveRef.current = { projectId, scenes: currentScenes, characters: currentCharacters ?? [] }
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = setTimeout(_flushSave, 1500)
+  }, [_flushSave])
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { over, active } = event
