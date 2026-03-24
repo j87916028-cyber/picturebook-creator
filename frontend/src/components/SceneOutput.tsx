@@ -30,6 +30,8 @@ interface Props {
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onImageRegen: (sceneId: string) => Promise<void>
   onSceneRegen: (sceneId: string, newDescription: string, style: string) => Promise<void>
+  onBatchRegenVoice: () => void
+  batchRegenStatus: { done: number; total: number } | null
 }
 
 interface SceneCardProps {
@@ -481,6 +483,8 @@ export default function SceneOutput({
   onLineVoiceRegen,
   onImageRegen,
   onSceneRegen,
+  onBatchRegenVoice,
+  batchRegenStatus,
 }: Props) {
   const [showPlayback, setShowPlayback] = useState(false)
   const [playbackStartScene, setPlaybackStartScene] = useState(0)
@@ -489,6 +493,9 @@ export default function SceneOutput({
   if (scenes.length === 0) return null
 
   const hasAudio = scenes.some(s => s.lines.some(l => l.audio_base64))
+  const missingAudioCount = scenes.reduce(
+    (n, s) => n + s.lines.filter(l => l.text && !l.audio_base64).length, 0
+  )
 
   const scrollToScene = (index: number) => {
     sceneRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -501,12 +508,30 @@ export default function SceneOutput({
 
   return (
     <div className="scene-output-panel">
-      {hasAudio && (
+      {(hasAudio || missingAudioCount > 0) && (
         <div className="playbook-bar">
-          <button className="btn-playbook" onClick={() => { setPlaybackStartScene(0); setShowPlayback(true) }}>
-            🎬 播放全書
-          </button>
-          <span className="playbook-hint">全螢幕朗讀模式・各幕可單獨播放 ▶</span>
+          {hasAudio && (
+            <button className="btn-playbook" onClick={() => { setPlaybackStartScene(0); setShowPlayback(true) }}>
+              🎬 播放全書
+            </button>
+          )}
+          {missingAudioCount > 0 && (
+            <button
+              className="btn-batch-regen"
+              onClick={onBatchRegenVoice}
+              disabled={batchRegenStatus !== null}
+              title={`補齊 ${missingAudioCount} 條缺失配音`}
+            >
+              {batchRegenStatus
+                ? `🎤 配音中 ${batchRegenStatus.done}/${batchRegenStatus.total}…`
+                : `🎤 補齊配音（${missingAudioCount}）`}
+            </button>
+          )}
+          <span className="playbook-hint">
+            {batchRegenStatus
+              ? `正在生成配音 ${batchRegenStatus.done}/${batchRegenStatus.total}`
+              : '全螢幕朗讀模式・各幕可單獨播放 ▶'}
+          </span>
         </div>
       )}
 

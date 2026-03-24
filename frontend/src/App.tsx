@@ -15,6 +15,7 @@ export default function App() {
   const [error, setError] = useState('')
   const [planWarning, setPlanWarning] = useState<'voice' | 'image' | null>(null)
   const voiceDoneRef = useRef(0)
+  const [batchRegenStatus, setBatchRegenStatus] = useState<{ done: number; total: number } | null>(null)
 
   // Project state
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
@@ -394,6 +395,51 @@ export default function App() {
     } catch {}
   }
 
+  // Batch-regenerate all lines that are missing audio (e.g. after a voice change)
+  const handleBatchRegenVoice = async () => {
+    // Collect every (sceneId, lineIndex) that has text but no audio
+    type Task = { sceneId: string; lineIndex: number; text: string; voice_id: string; emotion: string }
+    const tasks: Task[] = []
+    for (const scene of scenes) {
+      scene.lines.forEach((line, i) => {
+        if (line.text && !line.audio_base64) {
+          tasks.push({ sceneId: scene.id, lineIndex: i, text: line.text, voice_id: line.voice_id, emotion: line.emotion || 'neutral' })
+        }
+      })
+    }
+    if (tasks.length === 0) return
+
+    setBatchRegenStatus({ done: 0, total: tasks.length })
+
+    let done = 0
+    await Promise.all(tasks.map(async task => {
+      try {
+        const res = await fetch('/api/generate-voice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: task.text, voice_id: task.voice_id, emotion: task.emotion }),
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        setScenes(prev => prev.map(s => {
+          if (s.id !== task.sceneId) return s
+          const lines = [...s.lines]
+          lines[task.lineIndex] = { ...lines[task.lineIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+          return { ...s, lines }
+        }))
+      } catch {}
+      done += 1
+      setBatchRegenStatus({ done, total: tasks.length })
+    }))
+
+    // Save after all complete
+    setScenes(prev => {
+      setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, prev, characters) }, 0)
+      return prev
+    })
+    setTimeout(() => setBatchRegenStatus(null), 1500)
+  }
+
   // Re-generate entire scene
   const handleSceneRegen = async (sceneId: string, newDescription: string, style: string) => {
     // Snapshot the old scene BEFORE clearing — needed for rollback on failure.
@@ -648,6 +694,8 @@ export default function App() {
               onLineVoiceRegen={handleLineVoiceRegen}
               onImageRegen={handleImageRegen}
               onSceneRegen={handleSceneRegen}
+              onBatchRegenVoice={handleBatchRegenVoice}
+              batchRegenStatus={batchRegenStatus}
             />
           </div>
         </main>

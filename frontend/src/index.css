@@ -1113,6 +1113,14 @@ body {
   cursor: pointer; transition: opacity 0.15s; white-space: nowrap;
 }
 .btn-playbook:hover { opacity: 0.88; }
+.btn-batch-regen {
+  background: linear-gradient(135deg, #43e97b, #38f9d7);
+  color: #1a2a1a; border: none; border-radius: 8px;
+  padding: 9px 18px; font-size: 0.88rem; font-weight: 700;
+  cursor: pointer; transition: opacity 0.15s; white-space: nowrap;
+}
+.btn-batch-regen:hover:not(:disabled) { opacity: 0.88; }
+.btn-batch-regen:disabled { opacity: 0.65; cursor: default; }
 .playbook-hint { font-size: 0.8rem; color: #aab; }
 
 /* ── Playback Modal (full-screen) ─────────────── */
