@@ -1117,13 +1117,12 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 6px 8px;
+  gap: 2px;
+  padding: 4px 8px 6px;
   border: 1.5px solid #e2e8f0;
   border-radius: 10px;
   background: #f8faff;
   color: #555;
-  cursor: pointer;
   font-size: 0.72rem;
   transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
   width: 80px;
@@ -1133,6 +1132,35 @@ body {
   border-color: #667eea;
   background: #f0f4ff;
   box-shadow: 0 2px 8px rgba(102,126,234,0.15);
+}
+.scene-nav-chip.dragging {
+  opacity: 0.45;
+  box-shadow: 0 6px 20px rgba(102,126,234,0.35);
+  border-color: #667eea;
+}
+.scene-nav-drag-handle {
+  cursor: grab;
+  color: #bbb;
+  font-size: 0.9rem;
+  line-height: 1;
+  width: 100%;
+  text-align: center;
+  touch-action: none;
+  user-select: none;
+  padding-bottom: 2px;
+}
+.scene-nav-drag-handle:hover { color: #667eea; }
+.scene-nav-click-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  color: inherit;
 }
 
 .scene-nav-thumb {

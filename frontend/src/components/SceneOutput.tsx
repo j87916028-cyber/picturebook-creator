@@ -1,4 +1,11 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
+import {
+  DndContext, DragEndEvent, PointerSensor, useSensor, useSensors, closestCenter,
+} from '@dnd-kit/core'
+import {
+  SortableContext, useSortable, horizontalListSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { Scene, Character } from '../types'
 import PlaybackModal from './PlaybackModal'
 
@@ -21,11 +28,44 @@ const EMOTION_LABELS: Record<string, string> = {
   neutral:   '😐 平靜',
 }
 
+// Sortable nav chip — each chip in the scene navigation strip
+function SortableNavChip({
+  scene,
+  index,
+  onClick,
+}: {
+  scene: Scene
+  index: number
+  onClick: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: scene.id })
+  return (
+    <div
+      ref={setNodeRef}
+      className={`scene-nav-chip${isDragging ? ' dragging' : ''}`}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      {...attributes}
+    >
+      <span className="scene-nav-drag-handle" {...listeners} title="拖曳排序">⠿</span>
+      <button className="scene-nav-click-btn" onClick={onClick} title={scene.description}>
+        {scene.image && scene.image !== 'error' ? (
+          <img className="scene-nav-thumb" src={resolveImgSrc(scene.image)} alt={`第${index + 1}幕`} />
+        ) : (
+          <span className="scene-nav-placeholder">🎭</span>
+        )}
+        <span className="scene-nav-num">第 {index + 1} 幕</span>
+        <span className="scene-nav-desc">{scene.description}</span>
+      </button>
+    </div>
+  )
+}
+
 interface Props {
   scenes: Scene[]
   characters: Character[]
   onSceneDelete: (sceneId: string) => void
   onSceneMove: (sceneId: string, direction: 'up' | 'down') => void
+  onScenesReorder: (orderedIds: string[]) => void
   onSceneDuplicate: (sceneId: string) => void
   onLineTextChange: (sceneId: string, lineIndex: number, newText: string) => void
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
@@ -579,6 +619,7 @@ export default function SceneOutput({
   characters,
   onSceneDelete,
   onSceneMove,
+  onScenesReorder,
   onSceneDuplicate,
   onLineTextChange,
   onLineVoiceRegen,
@@ -591,6 +632,7 @@ export default function SceneOutput({
   const [showPlayback, setShowPlayback] = useState(false)
   const [playbackStartScene, setPlaybackStartScene] = useState(0)
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([])
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
   // Auto-scroll to newly added scene (length increase only, not on initial load)
   const prevSceneCountRef = useRef(scenes.length)
@@ -649,30 +691,34 @@ export default function SceneOutput({
         </div>
       )}
 
-      {/* Scene navigation strip — only shown when there are 2+ scenes */}
+      {/* Scene navigation strip — sortable, only shown when there are 2+ scenes */}
       {scenes.length > 1 && (
-        <div className="scene-nav-strip">
-          {scenes.map((scene, i) => (
-            <button
-              key={scene.id}
-              className="scene-nav-chip"
-              onClick={() => scrollToScene(i)}
-              title={scene.description}
-            >
-              {scene.image ? (
-                <img
-                  className="scene-nav-thumb"
-                  src={resolveImgSrc(scene.image)}
-                  alt={`第${i + 1}幕`}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={(event: DragEndEvent) => {
+            const { active, over } = event
+            if (over && active.id !== over.id) {
+              const ids = scenes.map(s => s.id)
+              const oldIndex = ids.indexOf(active.id as string)
+              const newIndex = ids.indexOf(over.id as string)
+              onScenesReorder(arrayMove(ids, oldIndex, newIndex))
+            }
+          }}
+        >
+          <SortableContext items={scenes.map(s => s.id)} strategy={horizontalListSortingStrategy}>
+            <div className="scene-nav-strip">
+              {scenes.map((scene, i) => (
+                <SortableNavChip
+                  key={scene.id}
+                  scene={scene}
+                  index={i}
+                  onClick={() => scrollToScene(i)}
                 />
-              ) : (
-                <span className="scene-nav-placeholder">🎭</span>
-              )}
-              <span className="scene-nav-num">第 {i + 1} 幕</span>
-              <span className="scene-nav-desc">{scene.description}</span>
-            </button>
-          ))}
-        </div>
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       {showPlayback && (

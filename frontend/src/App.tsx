@@ -331,6 +331,14 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
+  // Reorder scenes by new ID order (from drag-and-drop)
+  const handleScenesReorder = (orderedIds: string[]) => {
+    const idToScene = new Map(scenes.map(s => [s.id, s]))
+    const next = orderedIds.map(id => idToScene.get(id)!).filter(Boolean)
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
+  }
+
   // Move a scene up or down
   const handleSceneMove = (sceneId: string, direction: 'up' | 'down') => {
     const idx = scenes.findIndex(s => s.id === sceneId)
@@ -745,6 +753,7 @@ export default function App() {
               characters={characters}
               onSceneDelete={handleSceneDelete}
               onSceneMove={handleSceneMove}
+              onScenesReorder={handleScenesReorder}
               onSceneDuplicate={handleSceneDuplicate}
               onLineTextChange={handleLineTextChange}
               onLineVoiceRegen={handleLineVoiceRegen}
