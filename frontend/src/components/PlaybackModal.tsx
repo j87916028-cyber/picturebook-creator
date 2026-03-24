@@ -51,6 +51,7 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
   const [speed, setSpeed] = useState(1.0)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const activeLineRef = useRef<HTMLDivElement | null>(null)
 
   const current = playlist[cursor]
   const currentScene = current ? scenes[current.sceneIdx] : null
@@ -90,6 +91,11 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
   useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = speed
   }, [speed])
+
+  // Auto-scroll active transcript line into view
+  useEffect(() => {
+    activeLineRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [cursor])
 
   // Auto-advance when audio ends
   const handleEnded = useCallback(() => {
@@ -154,20 +160,34 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
           <div className="playback-scene-badge">{sceneProgress}</div>
         </div>
 
-        {/* Dialogue */}
-        <div className="playback-dialogue">
-          {currentChar && (
-            <div className="playback-char-label" style={{ color: currentChar.color }}>
-              <span className="playback-char-emoji">{currentChar.emoji}</span>
-              {currentLine?.character_name}
-            </div>
-          )}
-          <p className="playback-line-text">{currentLine?.text ?? ''}</p>
-          <div className="playback-emotion-badge">
-            {currentLine?.emotion && EMOTION_LABELS[currentLine.emotion] && (
-              <span>{EMOTION_LABELS[currentLine.emotion]}</span>
-            )}
-          </div>
+        {/* Karaoke transcript — all lines in current scene */}
+        <div className="playback-transcript">
+          {currentScene?.lines.map((line, i) => {
+            const char = characters.find(c => c.id === line.character_id)
+            const isActive = i === current?.lineIdx
+            const hasAudio = !!line.audio_base64
+            // Find this line's position in the global playlist for click-to-jump
+            const targetIdx = playlist.findIndex(
+              p => p.sceneIdx === current?.sceneIdx && p.lineIdx === i
+            )
+            const emotion = isActive && line.emotion ? EMOTION_LABELS[line.emotion] : null
+            return (
+              <div
+                key={i}
+                ref={isActive ? activeLineRef : null}
+                className={`transcript-line${isActive ? ' active' : ''}${hasAudio && !isActive ? ' clickable' : ''}`}
+                style={{ borderLeftColor: char?.color || '#667eea' }}
+                onClick={() => { if (hasAudio && targetIdx >= 0) goTo(targetIdx) }}
+                title={hasAudio && !isActive ? '點擊跳至此句' : undefined}
+              >
+                <span className="transcript-char" style={{ color: char?.color }}>
+                  {char?.emoji} {line.character_name}
+                  {emotion && <span className="transcript-emotion">{emotion}</span>}
+                </span>
+                <span className="transcript-text">{line.text}</span>
+              </div>
+            )
+          })}
         </div>
 
         {/* Controls */}

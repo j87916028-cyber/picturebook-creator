@@ -1322,18 +1322,19 @@ body {
 .playback-close-btn:hover { background: rgba(255,255,255,0.22); }
 .playback-body {
   display: flex; flex-direction: column; align-items: center;
-  gap: 20px; width: 100%; max-width: 860px; padding: 24px 20px 32px;
+  gap: 16px; width: 100%; max-width: 860px; padding: 20px 20px 28px;
+  max-height: 100vh; overflow-y: auto;
 }
 .playback-image-wrap {
-  position: relative; width: 100%; max-width: 640px;
+  position: relative; width: 100%; max-width: 520px;
   border-radius: 16px; overflow: hidden;
   box-shadow: 0 8px 40px rgba(0,0,0,0.6);
 }
 .playback-image {
-  width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block;
+  width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;
 }
 .playback-image-placeholder {
-  width: 100%; aspect-ratio: 4/3; background: #1e1e3a;
+  width: 100%; aspect-ratio: 16/9; background: #1e1e3a;
   display: flex; align-items: center; justify-content: center;
   font-size: 4rem; color: #444;
 }
@@ -1342,22 +1343,51 @@ body {
   background: rgba(0,0,0,0.6); color: #dde; font-size: 0.78rem;
   padding: 3px 10px; border-radius: 20px; backdrop-filter: blur(4px);
 }
-.playback-dialogue {
-  text-align: center; min-height: 80px; padding: 0 16px;
+/* Karaoke transcript panel */
+.playback-transcript {
+  width: 100%; max-width: 520px;
+  max-height: 200px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 4px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #334 transparent;
 }
-.playback-char-label {
-  font-size: 1rem; font-weight: 700; margin-bottom: 8px;
-  display: flex; align-items: center; justify-content: center; gap: 6px;
+.playback-transcript::-webkit-scrollbar { width: 4px; }
+.playback-transcript::-webkit-scrollbar-thumb { background: #334; border-radius: 2px; }
+.transcript-line {
+  padding: 7px 14px;
+  border-left: 3px solid;
+  border-radius: 0 8px 8px 0;
+  opacity: 0.38;
+  transition: opacity 0.2s, background 0.2s;
+  display: flex; flex-direction: column; gap: 2px;
 }
-.playback-char-emoji { font-size: 1.4rem; }
-.playback-line-text {
-  font-size: clamp(1.2rem, 3vw, 1.65rem); color: #f0f0ff;
-  line-height: 1.6; font-weight: 500;
+.transcript-line.clickable {
+  cursor: pointer;
 }
-.playback-emotion-badge { min-height: 20px; margin-top: 6px; }
-.playback-emotion-badge span {
-  background: rgba(255,255,255,0.1); color: #aab;
-  font-size: 0.72rem; padding: 2px 10px; border-radius: 20px;
+.transcript-line.clickable:hover {
+  opacity: 0.7;
+  background: rgba(255,255,255,0.05);
+}
+.transcript-line.active {
+  opacity: 1;
+  background: rgba(102,126,234,0.18);
+}
+.transcript-char {
+  font-size: 0.8rem; font-weight: 700;
+  display: flex; align-items: center; gap: 6px;
+}
+.transcript-emotion {
+  font-size: 0.68rem; color: rgba(255,255,255,0.45);
+  background: rgba(255,255,255,0.08); border-radius: 10px;
+  padding: 1px 8px; margin-left: 4px;
+}
+.transcript-text {
+  font-size: 0.95rem; color: #aab; line-height: 1.55;
+}
+.transcript-line.active .transcript-text {
+  font-size: clamp(1.1rem, 2.8vw, 1.45rem);
+  color: #f0f0ff; font-weight: 500;
 }
 .playback-controls {
   display: flex; align-items: center; gap: 16px;
