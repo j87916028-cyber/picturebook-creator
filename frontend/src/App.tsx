@@ -864,6 +864,32 @@ export default function App() {
               </div>
             )}
 
+            {scenes.length > 0 && (() => {
+              const totalLines  = scenes.reduce((n, s) => n + s.lines.length, 0)
+              const audioLines  = scenes.reduce((n, s) => n + s.lines.filter(l => l.audio_base64).length, 0)
+              const imagesDone  = scenes.filter(s => s.image && s.image !== 'error').length
+              const audioPct    = totalLines > 0 ? Math.round((audioLines / totalLines) * 100) : 0
+              return (
+                <div className="story-stats-strip">
+                  <span className="stats-item">📖 <strong>{scenes.length}</strong> 幕</span>
+                  <span className="stats-divider">·</span>
+                  <span className="stats-item">💬 <strong>{totalLines}</strong> 句台詞</span>
+                  <span className="stats-divider">·</span>
+                  <span className="stats-item">
+                    🎵 配音&nbsp;
+                    <strong style={{ color: audioPct === 100 ? '#38a169' : audioPct > 0 ? '#667eea' : '#aaa' }}>
+                      {audioLines}/{totalLines}
+                    </strong>
+                    <span className="stats-audio-bar">
+                      <span className="stats-audio-fill" style={{ width: `${audioPct}%` }} />
+                    </span>
+                  </span>
+                  <span className="stats-divider">·</span>
+                  <span className="stats-item">🖼️ 插圖 <strong>{imagesDone}/{scenes.length}</strong></span>
+                </div>
+              )
+            })()}
+
             <SceneOutput
               scenes={scenes}
               characters={characters}
