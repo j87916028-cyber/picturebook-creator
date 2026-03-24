@@ -755,6 +755,7 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
 - 對話要自然有趣，適合兒童
 - 每個角色至少說一句話
 - 台詞不超過20字/句
+- 角色在台詞中稱呼其他角色時，只能使用角色列表中的名字，不得自行發明暱稱或別名
 - 直接輸出 JSON，不要思考過程，不要其他說明
 """
 
