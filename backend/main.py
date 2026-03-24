@@ -749,142 +749,316 @@ async def generate_voice(req: GenerateVoiceRequest, request: Request):
 
     raise HTTPException(status_code=502, detail="語音生成失敗，請稍後重試")
 
-# ── 本機備用：使用 Pillow 生成場景感插圖（無需外部 API）──────────────
+# ── 本機備用：使用 Pillow 生成童書風格插圖（無需外部 API）────────────
 def _generate_scene_image_pillow(prompt: str, width: int = 800, height: int = 600) -> str:
     """
-    Procedurally generate a simple watercolor-style scene illustration.
+    Procedurally generate a watercolor children's-book-style scene illustration.
     Used as the last-resort fallback when all external image APIs are unavailable.
-    Returns a base64-encoded PNG data URI.
+    Returns a base64-encoded JPEG.
     """
     try:
-        from PIL import Image, ImageDraw, ImageFilter, ImageFont  # type: ignore
+        from PIL import Image, ImageDraw, ImageFilter  # type: ignore
     except ImportError:
         raise RuntimeError("Pillow not installed")
 
-    p = prompt.lower()
+    p   = prompt.lower()
     rng = random.Random(hash(prompt) & 0xFFFFFF)
 
-    # ── colour palette selection ──────────────────────────────────────
-    if any(w in p for w in ['night', 'moon', '夜', '晚', '星', 'star']):
-        sky_top, sky_bot  = (15, 10, 55), (50, 35, 100)
-        ground_col        = (30, 70, 45)
-        accent_col        = (200, 220, 255)
-        is_night          = True
-    elif any(w in p for w in ['sea', 'ocean', 'beach', '海', '沙灘', 'wave']):
-        sky_top, sky_bot  = (100, 185, 255), (195, 230, 255)
-        ground_col        = (230, 215, 155)
-        accent_col        = (80, 160, 220)
-        is_night          = False
-    elif any(w in p for w in ['city', 'town', 'street', '城市', '街道', '房子']):
-        sky_top, sky_bot  = (140, 195, 240), (210, 235, 255)
-        ground_col        = (160, 155, 150)
-        accent_col        = (220, 200, 130)
-        is_night          = False
-    elif any(w in p for w in ['mountain', 'snow', '山', '雪', '冰']):
-        sky_top, sky_bot  = (160, 210, 255), (220, 240, 255)
-        ground_col        = (200, 220, 195)
-        accent_col        = (255, 255, 255)
-        is_night          = False
-    else:  # default: sunny meadow / forest
-        sky_top, sky_bot  = (110, 190, 255), (200, 235, 255)
-        ground_col        = (75, 155, 75)
-        accent_col        = (255, 240, 100)
-        is_night          = False
+    # ── scene detection ───────────────────────────────────────────────
+    is_night  = any(w in p for w in ['night', 'moon', '夜', '晚', '星', 'star', 'dark'])
+    is_beach  = any(w in p for w in ['sea', 'ocean', 'beach', '海', '沙灘', 'wave', '浪'])
+    is_city   = any(w in p for w in ['city', 'town', 'street', '城市', '街道', '房子', 'building'])
+    is_snow   = any(w in p for w in ['snow', 'mountain', '山', '雪', '冰', 'winter'])
+    is_forest = any(w in p for w in ['forest', 'tree', '森林', '樹', '林', 'jungle', 'wood'])
+    is_indoor = any(w in p for w in ['room', 'home', 'house', 'inside', '室內', '家', '房間'])
+
+    # ── colour palette ────────────────────────────────────────────────
+    if is_night:
+        sky1, sky2   = (18, 12, 58), (48, 32, 110)
+        hill1, hill2 = (22, 58, 35), (18, 45, 28)
+        ground_top   = (25, 65, 38)
+    elif is_beach:
+        sky1, sky2   = (90, 185, 255), (185, 230, 255)
+        hill1, hill2 = (225, 210, 148), (205, 188, 120)
+        ground_top   = (230, 215, 155)
+    elif is_city:
+        sky1, sky2   = (138, 192, 240), (208, 232, 255)
+        hill1, hill2 = (155, 152, 148), (135, 132, 130)
+        ground_top   = (165, 160, 155)
+    elif is_snow:
+        sky1, sky2   = (155, 208, 252), (218, 238, 255)
+        hill1, hill2 = (210, 228, 212), (195, 215, 198)
+        ground_top   = (235, 245, 240)
+    elif is_indoor:
+        sky1, sky2   = (240, 225, 195), (255, 245, 220)   # warm interior wall
+        hill1, hill2 = (185, 155, 120), (165, 138, 105)
+        ground_top   = (195, 168, 130)
+    else:  # sunny meadow / forest
+        sky1, sky2   = (100, 190, 255), (190, 232, 255)
+        hill1, hill2 = (60, 148, 68), (45, 130, 55)
+        ground_top   = (72, 158, 72)
 
     img  = Image.new('RGB', (width, height))
     draw = ImageDraw.Draw(img)
 
-    horizon = int(height * 0.62)
+    horizon = int(height * 0.60)
 
-    # ── sky gradient ──────────────────────────────────────────────────
-    for y in range(horizon):
-        t = y / max(horizon, 1)
-        r = int(sky_top[0] + (sky_bot[0] - sky_top[0]) * t)
-        g = int(sky_top[1] + (sky_bot[1] - sky_top[1]) * t)
-        b = int(sky_top[2] + (sky_bot[2] - sky_top[2]) * t)
-        draw.line([(0, y), (width, y)], fill=(r, g, b))
+    # ─────────────────────────────────────────────────────────────────
+    # 1. Sky gradient
+    # ─────────────────────────────────────────────────────────────────
+    for y in range(horizon + 20):
+        t = y / max(horizon + 20, 1)
+        row = tuple(int(sky1[i] + (sky2[i] - sky1[i]) * t) for i in range(3))
+        draw.line([(0, y), (width, y)], fill=row)  # type: ignore[arg-type]
 
-    # ── ground ────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────
+    # 2. Distant rolling hills (background)
+    # ─────────────────────────────────────────────────────────────────
+    def _hill_row(base_y: int, amplitude: int, period: int, col: tuple, phase: float = 0.0):
+        pts = [(0, height)]
+        for x in range(0, width + 1, 4):
+            y_val = base_y + int(amplitude * math.sin((x / period + phase) * math.pi * 2))
+            pts.append((x, y_val))
+        pts.append((width, height))
+        draw.polygon(pts, fill=col)  # type: ignore[arg-type]
+
+    _hill_row(horizon - 40, 22, 220, hill1, phase=0.1 + rng.random() * 0.3)
+    _hill_row(horizon - 18, 15, 170, hill2, phase=0.5 + rng.random() * 0.3)
+
+    # ─────────────────────────────────────────────────────────────────
+    # 3. Ground
+    # ─────────────────────────────────────────────────────────────────
     for y in range(horizon, height):
         t  = (y - horizon) / max(height - horizon, 1)
-        dr = int(ground_col[0] * (1 - t * 0.35))
-        dg = int(ground_col[1] * (1 - t * 0.3))
-        db = int(ground_col[2] * (1 - t * 0.25))
+        dr = int(ground_top[0] * (1 - t * 0.3))
+        dg = int(ground_top[1] * (1 - t * 0.28))
+        db = int(ground_top[2] * (1 - t * 0.22))
         draw.line([(0, y), (width, y)], fill=(dr, dg, db))
 
-    # ── sun / moon ────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────
+    # 4. Sun / moon
+    # ─────────────────────────────────────────────────────────────────
+    sx, sy = width - 105, 35
+    sr     = 38
     if is_night:
-        draw.ellipse([width-110, 25, width-45, 90], fill=(240, 235, 200))
-        draw.ellipse([width-100, 20, width-38, 82], fill=sky_top)   # crescent
+        # Moon with crescent
+        draw.ellipse([sx-sr, sy-sr, sx+sr, sy+sr], fill=(248, 243, 208))
+        draw.ellipse([sx-sr+14, sy-sr-6, sx+sr+14, sy+sr-6], fill=sky1)  # crescent shadow
+        # Star cluster near moon
+        for _ in range(6):
+            stx = rng.randint(sx-90, sx+30)
+            sty = rng.randint(sy-30, sy+30)
+            draw.ellipse([stx-2, sty-2, stx+2, sty+2], fill=(255, 255, 220))
     else:
-        draw.ellipse([width-115, 20, width-45, 90], fill=(255, 225, 50))
-        for r_off in range(12, 28, 5):
-            draw.ellipse([width-115-r_off, 20-r_off, width-45+r_off, 90+r_off],
-                         outline=(255, 240, 120, 80))
+        # Sun with soft glow rings
+        for glow in [sr+22, sr+14, sr+6]:
+            alpha = int(28 - glow * 0.5)
+            glow_col = (255, 245, 160, max(0, alpha))
+            draw.ellipse([sx-glow, sy-glow, sx+glow, sy+glow], fill=(255, 245, 160))
+        draw.ellipse([sx-sr, sy-sr, sx+sr, sy+sr], fill=(255, 228, 50))
 
-    # ── clouds / stars ────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────
+    # 5. Clouds / stars
+    # ─────────────────────────────────────────────────────────────────
     if is_night:
-        for _ in range(50):
-            sx, sy = rng.randint(0, width), rng.randint(0, horizon - 20)
-            sr     = rng.choice([1, 1, 2])
-            draw.ellipse([sx-sr, sy-sr, sx+sr, sy+sr], fill=(255, 255, 230))
+        for _ in range(55):
+            stx = rng.randint(0, width)
+            sty = rng.randint(0, horizon - 15)
+            sr2 = rng.choice([1, 1, 1, 2])
+            draw.ellipse([stx-sr2, sty-sr2, stx+sr2, sty+sr2], fill=(255, 255, 220))
     else:
-        for cx, cy in [(130, 70), (320, 45), (540, 65), (720, 50)]:
-            cx += rng.randint(-20, 20)
-            for dx, dy, cr in [(-28, 0, 28), (0, -18, 35), (28, 0, 27), (12, 12, 22)]:
+        cloud_positions = [
+            (rng.randint(60, 200), rng.randint(35, 90)),
+            (rng.randint(280, 420), rng.randint(25, 70)),
+            (rng.randint(500, 650), rng.randint(40, 85)),
+        ]
+        for cx, cy in cloud_positions:
+            # Fluffy cloud from overlapping ellipses
+            for dx, dy, cr in [(-35, 5, 30), (-12, -10, 38), (16, -8, 34),
+                                (40, 5, 28), (20, 12, 24), (-20, 12, 22)]:
                 draw.ellipse([cx+dx-cr, cy+dy-cr, cx+dx+cr, cy+dy+cr],
                              fill=(255, 255, 255))
 
-    # ── scene-specific elements ───────────────────────────────────────
-    if any(w in p for w in ['forest', 'tree', '森林', '樹', '林', 'jungle']):
-        tree_xs = list(range(-20, width + 40, rng.randint(60, 90)))
-        rng.shuffle(tree_xs)
-        for tx in tree_xs:
-            th   = rng.randint(100, 190)
-            col1 = (rng.randint(25, 55), rng.randint(110, 145), rng.randint(40, 70))
-            col2 = tuple(min(255, c + 25) for c in col1)
-            # trunk
-            draw.rectangle([tx-7, horizon-8, tx+7, horizon+25], fill=(110, 75, 40))
-            # layered canopy
-            for lyr in range(3):
-                lw = 60 - lyr * 14
-                ly = horizon - th + lyr * 42
-                col = col1 if lyr % 2 == 0 else col2
-                draw.polygon([(tx, ly-42), (tx-lw, ly+28), (tx+lw, ly+28)], fill=col)
+    # ─────────────────────────────────────────────────────────────────
+    # 6. Scene-specific background elements
+    # ─────────────────────────────────────────────────────────────────
+    def _draw_round_tree(tx: int, th: int, trunk_col: tuple, leaf_col: tuple):
+        tw = 9
+        # trunk
+        draw.rectangle([tx-tw, horizon-6, tx+tw, horizon+30], fill=trunk_col)
+        # round canopy: 3 stacked ellipses → lollipop tree
+        cy_base = horizon - th
+        radii   = [int(th * 0.38), int(th * 0.32), int(th * 0.24)]
+        leaf_light = tuple(min(255, c + 28) for c in leaf_col)
+        for i, rad in enumerate(radii):
+            offset_y = i * int(th * 0.22)
+            col = leaf_col if i % 2 == 0 else leaf_light
+            draw.ellipse([tx-rad, cy_base+offset_y-rad//2,
+                          tx+rad, cy_base+offset_y+rad//2+rad//4], fill=col)  # type: ignore[arg-type]
 
-    elif any(w in p for w in ['sea', 'ocean', '海', 'wave', 'water', '水']):
-        for row in range(4):
-            wy   = horizon + 5 + row * 22
-            alpha = max(60, 150 - row * 25)
-            for wx in range(0, width, 45):
-                draw.arc([wx, wy-10, wx+45, wy+10], 0, 180,
-                         fill=(65, 155, 215), width=3)
+    def _draw_flower(fx: int, fy: int, fc: tuple):
+        draw.line([(fx, fy), (fx, fy+18)], fill=(80, 155, 65), width=2)
+        petal_offsets = [(0,-8),(6,-5),(6,5),(0,8),(-6,5),(-6,-5)]
+        for px, py in petal_offsets:
+            draw.ellipse([fx+px-5, fy+py-5, fx+px+5, fy+py+5], fill=fc)
+        draw.ellipse([fx-4, fy-4, fx+4, fy+4], fill=(255, 240, 60))
 
-    elif any(w in p for w in ['city', '城市', '街道', '房子', 'building']):
-        for bx in range(0, width, rng.randint(70, 110)):
-            bh  = rng.randint(80, 200)
-            bw  = rng.randint(55, 85)
-            bcol = (rng.randint(170, 210), rng.randint(155, 185), rng.randint(145, 175))
-            draw.rectangle([bx, horizon-bh, bx+bw, horizon], fill=bcol)
+    if is_forest or (not is_beach and not is_city and not is_snow and not is_indoor):
+        trunk_col = (120, 82, 44)
+        leaf_cols = [
+            (52, 140, 68), (40, 125, 55), (68, 155, 72),
+            (45, 148, 62), (75, 160, 58), (35, 118, 50),
+        ]
+        step = rng.randint(72, 100)
+        for tx in range(-30, width + 60, step):
+            tx += rng.randint(-15, 15)
+            th   = rng.randint(105, 195)
+            lcol = rng.choice(leaf_cols)
+            _draw_round_tree(tx, th, trunk_col, lcol)
+        # Foreground flowers
+        flower_cols = [(255, 88, 100), (255, 175, 45), (210, 75, 210), (80, 185, 255), (255, 130, 180)]
+        for _ in range(18):
+            fx = rng.randint(10, width - 10)
+            fy = rng.randint(horizon + 5, min(horizon + 80, height - 20))
+            _draw_flower(fx, fy, rng.choice(flower_cols))
+
+    elif is_beach:
+        # Waves layered
+        wave_cols = [(70, 170, 230), (95, 195, 245), (130, 215, 255)]
+        for wrow, wc in enumerate(wave_cols):
+            wy = horizon + 8 + wrow * 28
+            for wx in range(0, width, 55):
+                draw.arc([wx, wy-12, wx+55, wy+12], 0, 180, fill=wc, width=4)
+        # Palm trees
+        for tx in [120, width - 160]:
+            th = rng.randint(120, 170)
+            draw.line([(tx, horizon+20), (tx+30, horizon-th)], fill=(150, 110, 55), width=10)
+            leaf_cx, leaf_cy = tx+30, horizon-th
+            for angle_offset in range(0, 360, 55):
+                rad = math.radians(angle_offset)
+                ex  = leaf_cx + int(math.cos(rad) * 60)
+                ey  = leaf_cy + int(math.sin(rad) * 30)
+                draw.line([(leaf_cx, leaf_cy), (ex, ey)], fill=(55, 155, 55), width=5)
+
+    elif is_city:
+        # Buildings with variation
+        bx = 0
+        while bx < width:
+            bw   = rng.randint(58, 92)
+            bh   = rng.randint(90, 220)
+            hue  = rng.choice([(180, 165, 155), (165, 178, 188), (188, 172, 158),
+                                (195, 185, 170), (175, 168, 180)])
+            draw.rectangle([bx, horizon - bh, bx + bw, horizon + 5], fill=hue)
             # windows
-            for wy in range(horizon-bh+15, horizon-10, 22):
-                for wx in range(bx+8, bx+bw-8, 18):
-                    wc = (255, 240, 150) if rng.random() > 0.35 else (120, 150, 180)
-                    draw.rectangle([wx, wy, wx+10, wy+14], fill=wc)
+            for wy in range(horizon - bh + 18, horizon - 8, 24):
+                for wx in range(bx + 8, bx + bw - 8, 20):
+                    wc = (255, 245, 155) if rng.random() > 0.30 else (130, 160, 195)
+                    draw.rectangle([wx, wy, wx + 10, wy + 14], fill=wc)
+            bx += bw + rng.randint(2, 8)
 
-    else:  # meadow — flowers & grass
-        for fx in range(20, width, rng.randint(30, 60)):
-            fy   = rng.randint(horizon-5, horizon+30)
-            fc   = rng.choice([(255,80,80),(255,170,0),(200,50,200),(80,180,255)])
-            draw.ellipse([fx-7, fy-20, fx+7, fy-6], fill=(80, 160, 70))
-            draw.ellipse([fx-8, fy-33, fx+8, fy-20], fill=fc)
+    elif is_snow:
+        # Snow-covered mountains
+        for mi in range(3):
+            mx   = int(width * (0.2 + mi * 0.3)) + rng.randint(-30, 30)
+            mh   = rng.randint(180, 280)
+            mw   = rng.randint(160, 220)
+            mbase_col = (165, 185, 168)
+            draw.polygon([(mx - mw, horizon + 5), (mx, horizon - mh), (mx + mw, horizon + 5)],
+                         fill=mbase_col)
+            # snow cap
+            cap_h = int(mh * 0.35)
+            draw.polygon([(mx - int(mw * 0.38), horizon - mh + cap_h),
+                          (mx, horizon - mh - 4),
+                          (mx + int(mw * 0.38), horizon - mh + cap_h)],
+                         fill=(242, 248, 252))
+        # Snowflakes
+        for _ in range(30):
+            sx2 = rng.randint(0, width)
+            sy2 = rng.randint(0, height - 20)
+            sr3 = rng.choice([2, 2, 3, 4])
+            draw.ellipse([sx2 - sr3, sy2 - sr3, sx2 + sr3, sy2 + sr3], fill=(245, 250, 255))
 
-    # ── soft watercolor blur ──────────────────────────────────────────
-    img = img.filter(ImageFilter.GaussianBlur(radius=1.8))
+    elif is_indoor:
+        # Floor boards
+        for fy in range(horizon, height, 35):
+            draw.line([(0, fy), (width, fy)], fill=(155, 125, 88), width=2)
+        # Window on wall
+        wx0, wy0, wx1, wy1 = 580, 60, 740, 220
+        draw.rectangle([wx0, wy0, wx1, wy1], fill=(185, 225, 255))
+        draw.rectangle([wx0, wy0, wx1, wy1], outline=(160, 130, 90), width=6)
+        draw.line([(wx0, (wy0+wy1)//2), (wx1, (wy0+wy1)//2)], fill=(160, 130, 90), width=4)
+        draw.line([((wx0+wx1)//2, wy0), ((wx0+wx1)//2, wy1)], fill=(160, 130, 90), width=4)
 
-    # ── encode ────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────
+    # 7. Foreground path / road
+    # ─────────────────────────────────────────────────────────────────
+    if not is_beach and not is_city and not is_indoor:
+        path_col  = (200, 185, 148) if not is_snow else (225, 235, 238)
+        path_pts  = [
+            (int(width * 0.38), horizon + 2),
+            (int(width * 0.28), height),
+            (int(width * 0.72), height),
+            (int(width * 0.62), horizon + 2),
+        ]
+        draw.polygon(path_pts, fill=path_col)
+
+    # ─────────────────────────────────────────────────────────────────
+    # 8. Simple character silhouettes (1-2 cute blob figures)
+    # ─────────────────────────────────────────────────────────────────
+    char_cols = [(255, 180, 100), (160, 220, 255), (255, 150, 180),
+                 (180, 255, 160), (255, 215, 80), (210, 170, 255)]
+    n_chars = 2 if any(c in p for c in ['and', '和', '與', '兩', '朋友']) else 1
+    char_xs = [int(width * 0.42), int(width * 0.58)] if n_chars == 2 else [int(width * 0.50)]
+    for ci, char_x in enumerate(char_xs):
+        char_y   = horizon + 15
+        body_col = rng.choice(char_cols)
+        ear_col  = tuple(max(0, c - 25) for c in body_col)
+        # ears
+        draw.ellipse([char_x - 14, char_y - 42, char_x - 4, char_y - 28], fill=ear_col)  # type: ignore[arg-type]
+        draw.ellipse([char_x + 4,  char_y - 42, char_x + 14, char_y - 28], fill=ear_col)  # type: ignore[arg-type]
+        # head
+        draw.ellipse([char_x - 18, char_y - 35, char_x + 18, char_y - 5], fill=body_col)
+        # body
+        draw.ellipse([char_x - 16, char_y - 10, char_x + 16, char_y + 30], fill=body_col)
+        # eyes
+        draw.ellipse([char_x - 8, char_y - 26, char_x - 3, char_y - 21], fill=(60, 40, 30))
+        draw.ellipse([char_x + 3, char_y - 26, char_x + 8, char_y - 21], fill=(60, 40, 30))
+        # smile
+        draw.arc([char_x - 7, char_y - 19, char_x + 7, char_y - 8], 15, 165, fill=(60, 40, 30), width=2)
+        # shadow
+        draw.ellipse([char_x - 18, char_y + 26, char_x + 18, char_y + 34],
+                     fill=tuple(max(0, c - 18) for c in (ground_top[0], ground_top[1], ground_top[2])))  # type: ignore[arg-type]
+
+    # ─────────────────────────────────────────────────────────────────
+    # 9. Watercolor paper texture overlay (light noise)
+    # ─────────────────────────────────────────────────────────────────
+    img = img.filter(ImageFilter.GaussianBlur(radius=1.4))
+    # Vignette-like darkening at edges
+    vig     = Image.new('RGB', (width, height), (0, 0, 0))
+    vdraw   = ImageDraw.Draw(vig)
+    for step in range(15):
+        margin = step * 5
+        alpha  = int(12 - step * 0.6)
+        if alpha <= 0:
+            break
+        vdraw.rectangle([margin, margin, width - margin, height - margin],
+                        outline=(0, 0, 0))
+    img = Image.blend(img, vig, 0.08)
+
+    # ─────────────────────────────────────────────────────────────────
+    # 10. Decorative storybook border
+    # ─────────────────────────────────────────────────────────────────
+    border_draw = ImageDraw.Draw(img)
+    border_col  = (180, 145, 100) if not is_night else (120, 110, 165)
+    for bw2 in [4, 9]:
+        border_draw.rectangle([bw2, bw2, width - bw2, height - bw2],
+                               outline=border_col, width=2)
+
+    # ─────────────────────────────────────────────────────────────────
+    # Encode
+    # ─────────────────────────────────────────────────────────────────
     buf = io.BytesIO()
-    img.save(buf, format='JPEG', quality=85, optimize=True)
+    img.save(buf, format='JPEG', quality=88, optimize=True)
     return base64.b64encode(buf.getvalue()).decode('utf-8')
 
 
@@ -935,29 +1109,32 @@ async def generate_image(req: GenerateImageRequest, request: Request):
 
     # ── 備用：Pollinations.ai → fetch 回來轉成 base64 ─────────────
     # gen.pollinations.ai/image/{prompt} 需要 API key（免費方案可申請）
-    # 設定 POLLINATIONS_API_KEY 環境變數即可啟用
-    encoded = urllib.parse.quote(full_prompt)
-    seed = random.randint(1, 99999)
-    image_url = (
-        f"https://gen.pollinations.ai/image/{encoded}"
-        f"?width=1024&height=768&nologo=true&seed={seed}&model=flux"
-    )
-    logger.info("Fallback Pollinations fetch: %s", image_url[:200])
-    try:
-        headers: dict[str, str] = {}
-        if POLLINATIONS_API_KEY:
-            headers["Authorization"] = f"Bearer {POLLINATIONS_API_KEY}"
-        img_resp = await _http_client.get(image_url, headers=headers, timeout=90, follow_redirects=True)
-        if img_resp.status_code == 200 and img_resp.content:
-            mime = img_resp.headers.get("content-type", "image/jpeg").split(";")[0]
-            if not mime.startswith("image/"):
-                mime = "image/jpeg"
-            b64 = base64.b64encode(img_resp.content).decode("utf-8")
-            logger.info("Pollinations fetch OK, size=%d bytes", len(img_resp.content))
-            return {"url": f"data:{mime};base64,{b64}"}
-        logger.warning("Pollinations returned status %s", img_resp.status_code)
-    except Exception as e:
-        logger.warning("Pollinations fetch failed: %s", e)
+    # 設定 POLLINATIONS_API_KEY 環境變數即可啟用；未設定則跳過（避免 401 延遲）
+    if POLLINATIONS_API_KEY:
+        encoded   = urllib.parse.quote(full_prompt)
+        seed      = random.randint(1, 99999)
+        image_url = (
+            f"https://gen.pollinations.ai/image/{encoded}"
+            f"?width=1024&height=768&nologo=true&seed={seed}&model=flux"
+        )
+        logger.info("Pollinations fetch: %s", image_url[:200])
+        try:
+            img_resp = await _http_client.get(
+                image_url,
+                headers={"Authorization": f"Bearer {POLLINATIONS_API_KEY}"},
+                timeout=90,
+                follow_redirects=True,
+            )
+            if img_resp.status_code == 200 and img_resp.content:
+                mime = img_resp.headers.get("content-type", "image/jpeg").split(";")[0]
+                if not mime.startswith("image/"):
+                    mime = "image/jpeg"
+                b64 = base64.b64encode(img_resp.content).decode("utf-8")
+                logger.info("Pollinations fetch OK, size=%d bytes", len(img_resp.content))
+                return {"url": f"data:{mime};base64,{b64}"}
+            logger.warning("Pollinations returned status %s", img_resp.status_code)
+        except Exception as e:
+            logger.warning("Pollinations fetch failed: %s", e)
 
     # ── 最終備用：Pillow 本機生成場景插圖（無外部 API）────────────────
     try:
