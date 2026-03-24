@@ -1,3 +1,4 @@
+import { useRef, useState, useEffect } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { Character } from '../types'
@@ -15,6 +16,24 @@ export default function CharacterCard({ character, onDelete, onEdit, isDragging 
     id: character.id,
     data: { character },
   })
+
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Clean up timer on unmount
+  useEffect(() => () => { if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current) }, [])
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirmDelete) {
+      setConfirmDelete(true)
+      confirmTimerRef.current = setTimeout(() => setConfirmDelete(false), 4000)
+      return
+    }
+    if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+    setConfirmDelete(false)
+    onDelete(character.id)
+  }
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -52,10 +71,10 @@ export default function CharacterCard({ character, onDelete, onEdit, isDragging 
           title="編輯角色"
         >✏️</button>
         <button
-          className="card-delete"
-          onClick={() => onDelete(character.id)}
-          title="刪除角色"
-        >×</button>
+          className={`card-delete${confirmDelete ? ' confirm' : ''}`}
+          onClick={handleDeleteClick}
+          title={confirmDelete ? '再次點擊確認刪除' : '刪除角色'}
+        >{confirmDelete ? '⚠️' : '×'}</button>
       </div>
     </div>
   )
