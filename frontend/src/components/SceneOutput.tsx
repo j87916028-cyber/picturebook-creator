@@ -472,7 +472,7 @@ function SceneCard({
             <span className="image-error-text">插圖生成失敗</span>
             <button
               className="btn-scene-action"
-              onClick={handleImageRegen}
+              onClick={() => handleImageRegen()}
               disabled={regenImage}
               style={{ marginTop: '8px', fontSize: '0.8rem' }}
             >
