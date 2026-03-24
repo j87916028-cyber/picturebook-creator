@@ -49,6 +49,7 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
   const [cursor, setCursor] = useState(startCursor)  // index into playlist
   const [playing, setPlaying] = useState(true)
   const [speed, setSpeed] = useState(1.0)
+  const [showHelp, setShowHelp] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const activeLineRef = useRef<HTMLDivElement | null>(null)
@@ -115,7 +116,7 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') { if (showHelp) { setShowHelp(false); return } onClose() }
       else if (e.key === ' ' || e.key === 'k') { e.preventDefault(); togglePlay() }
       else if (e.key === 'ArrowRight' || e.key === 'l') goTo(cursor + 1)
       else if (e.key === 'ArrowLeft'  || e.key === 'j') goTo(cursor - 1)
@@ -124,7 +125,7 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [cursor, togglePlay, goTo, goToScene, onClose])
+  }, [cursor, showHelp, togglePlay, goTo, goToScene, onClose])
 
   if (playlist.length === 0) {
     return (
@@ -152,6 +153,32 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
 
       {/* Close */}
       <button className="playback-close-btn" onClick={onClose} title="關閉 (Esc)">✕</button>
+
+      {/* Help / keyboard shortcuts */}
+      <button
+        className={`playback-help-btn${showHelp ? ' active' : ''}`}
+        onClick={() => setShowHelp(v => !v)}
+        title="快捷鍵說明"
+      >?</button>
+      {showHelp && (
+        <div className="playback-help-panel" onClick={() => setShowHelp(false)}>
+          <div className="playback-help-inner" onClick={e => e.stopPropagation()}>
+            <div className="playback-help-title">⌨️ 鍵盤快捷鍵</div>
+            <table className="playback-help-table">
+              <tbody>
+                <tr><td><kbd>Space</kbd> / <kbd>K</kbd></td><td>播放 / 暫停</td></tr>
+                <tr><td><kbd>→</kbd> / <kbd>L</kbd></td><td>下一句台詞</td></tr>
+                <tr><td><kbd>←</kbd> / <kbd>J</kbd></td><td>上一句台詞</td></tr>
+                <tr><td><kbd>PageDown</kbd></td><td>跳至下一幕</td></tr>
+                <tr><td><kbd>PageUp</kbd></td><td>跳至上一幕</td></tr>
+                <tr><td><kbd>Esc</kbd></td><td>關閉播放器</td></tr>
+              </tbody>
+            </table>
+            <div className="playback-help-tip">💡 點擊字幕列可直接跳至該句</div>
+            <button className="playback-help-close" onClick={() => setShowHelp(false)}>關閉</button>
+          </div>
+        </div>
+      )}
 
       <div className="playback-body">
         {/* Scene image */}

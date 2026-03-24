@@ -1611,6 +1611,64 @@ body {
   cursor: pointer; transition: background 0.15s; z-index: 1;
 }
 .playback-close-btn:hover { background: rgba(255,255,255,0.22); }
+
+/* Help button (top-left of overlay) */
+.playback-help-btn {
+  position: absolute; top: 18px; left: 22px;
+  background: rgba(255,255,255,0.1); border: none; border-radius: 50%;
+  color: rgba(255,255,255,0.7); font-size: 1rem; font-weight: 700;
+  width: 36px; height: 36px; cursor: pointer;
+  transition: background 0.15s, color 0.15s; z-index: 1;
+}
+.playback-help-btn:hover,
+.playback-help-btn.active { background: rgba(255,255,255,0.22); color: #fff; }
+
+/* Help overlay panel */
+.playback-help-panel {
+  position: absolute; inset: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.5);
+}
+.playback-help-inner {
+  background: #1e1e3a; border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 16px; padding: 24px 28px; min-width: 280px;
+  display: flex; flex-direction: column; gap: 14px;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.6);
+}
+.playback-help-title {
+  font-size: 1rem; font-weight: 700; color: #fff; text-align: center;
+}
+.playback-help-table {
+  border-collapse: collapse; width: 100%;
+}
+.playback-help-table td {
+  padding: 6px 10px; font-size: 0.82rem; color: rgba(255,255,255,0.8);
+  vertical-align: middle;
+}
+.playback-help-table td:first-child {
+  white-space: nowrap; text-align: right; padding-right: 16px;
+}
+.playback-help-table tr:not(:last-child) td {
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+kbd {
+  display: inline-block; background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.25); border-radius: 5px;
+  padding: 2px 7px; font-size: 0.75rem; font-family: monospace;
+  color: #ccd; line-height: 1.5;
+}
+.playback-help-tip {
+  font-size: 0.75rem; color: rgba(255,255,255,0.45); text-align: center;
+}
+.playback-help-close {
+  align-self: center;
+  background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 20px; color: rgba(255,255,255,0.8);
+  padding: 6px 22px; font-size: 0.82rem; cursor: pointer;
+  transition: background 0.15s;
+}
+.playback-help-close:hover { background: rgba(255,255,255,0.22); color: #fff; }
+
 .playback-body {
   display: flex; flex-direction: column; align-items: center;
   gap: 16px; width: 100%; max-width: 860px; padding: 20px 20px 28px;
