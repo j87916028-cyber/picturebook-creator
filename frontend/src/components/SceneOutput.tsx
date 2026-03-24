@@ -345,7 +345,20 @@ function SceneCard({
 
       {/* 場景插圖 */}
       <div className="scene-card-image-wrap">
-        {scene.image ? (
+        {scene.image === 'error' ? (
+          <div className="image-error">
+            <span className="image-error-icon">🖼️</span>
+            <span className="image-error-text">插圖生成失敗</span>
+            <button
+              className="btn-scene-action"
+              onClick={handleImageRegen}
+              disabled={regenImage}
+              style={{ marginTop: '8px', fontSize: '0.8rem' }}
+            >
+              🔄 重新生成插圖
+            </button>
+          </div>
+        ) : scene.image ? (
           <>
             <img
               src={scene.image}
@@ -364,7 +377,7 @@ function SceneCard({
       </div>
 
       {/* Lightbox overlay */}
-      {expandedImage && scene.image && (
+      {expandedImage && scene.image && scene.image !== 'error' && (
         <div className="image-lightbox-overlay" onClick={() => setExpandedImage(false)}>
           <button className="lightbox-close" onClick={() => setExpandedImage(false)} title="關閉 (Esc)">✕</button>
           <button

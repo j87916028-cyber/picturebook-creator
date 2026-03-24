@@ -473,6 +473,13 @@ body {
   background-size: 200% 100%; animation: shimmer 1.5s infinite;
   border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #aaa;
 }
+.image-error {
+  height: 200px; border-radius: 12px; border: 2px dashed #f5a3a3;
+  background: #fff8f8; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 6px;
+}
+.image-error-icon { font-size: 2rem; opacity: 0.5; }
+.image-error-text { font-size: 0.85rem; color: #e53e3e; font-weight: 600; }
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 .sfx-note { font-size: 0.82rem; color: #888; margin-top: 8px; font-style: italic; }
 

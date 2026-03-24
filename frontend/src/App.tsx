@@ -227,10 +227,10 @@ export default function App() {
         signal,
       }).then(async r => {
         if (r.status === 402) { setPlanWarning('image'); return }
-        if (!r.ok) return
+        if (!r.ok) { updateScene(s => ({ ...s, image: 'error' })); return }
         const d = await r.json()
         updateScene(s => ({ ...s, image: d.url }))
-      }).catch(() => {})
+      }).catch(() => { updateScene(s => ({ ...s, image: 'error' })) })
 
       const voicePromises = script.lines.map(async (line, index) => {
         try {
@@ -383,7 +383,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: scene.script.scene_prompt }),
       })
-      if (!res.ok) return
+      if (!res.ok) { setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: 'error' } : s)); return }
       const data = await res.json()
       let saved: Scene[] | null = null
       setScenes(prev => {
@@ -392,7 +392,7 @@ export default function App() {
         return next
       })
       if (saved && currentProjectId) autoSave(currentProjectId, saved, characters)
-    } catch {}
+    } catch { setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: 'error' } : s)) }
   }
 
   // Batch-regenerate all lines that are missing audio (e.g. after a voice change)
@@ -488,10 +488,10 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: script.scene_prompt }),
       }).then(async r => {
-        if (!r.ok) return
+        if (!r.ok) { setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: 'error' } : s)); return }
         const d = await r.json()
         setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: d.url } : s))
-      }).catch(() => {})
+      }).catch(() => { setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: 'error' } : s)) })
 
       const voicePs = script.lines.map(async (line: ScriptLine, index: number) => {
         try {

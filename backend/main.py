@@ -757,15 +757,30 @@ async def generate_image(req: GenerateImageRequest, request: Request):
         except Exception as e:
             logger.warning("HF image exception: %s", e)
 
-    # ── 備用：Pollinations.ai URL ─────────────────────────────────
+    # ── 備用：Pollinations.ai → fetch 回來轉成 base64 ─────────────
+    # 不直接回傳外部 URL：瀏覽器無法保證能載入（CORS / 超時 / 服務不穩定），
+    # 且存入 DB 後重新載入會再次依賴外部服務。fetch 後回傳 base64 才能永久可用。
     encoded = urllib.parse.quote(full_prompt)
     seed = random.randint(1, 99999)
     image_url = (
         f"https://image.pollinations.ai/prompt/{encoded}"
         f"?width=1024&height=768&nologo=true&seed={seed}&model=flux"
     )
-    logger.info("Fallback Pollinations URL: %s", image_url[:200])
-    return {"url": image_url}
+    logger.info("Fallback Pollinations fetch: %s", image_url[:200])
+    try:
+        img_resp = await _http_client.get(image_url, timeout=90, follow_redirects=True)
+        if img_resp.status_code == 200 and img_resp.content:
+            mime = img_resp.headers.get("content-type", "image/jpeg").split(";")[0]
+            if not mime.startswith("image/"):
+                mime = "image/jpeg"
+            b64 = base64.b64encode(img_resp.content).decode("utf-8")
+            logger.info("Pollinations fetch OK, size=%d bytes", len(img_resp.content))
+            return {"url": f"data:{mime};base64,{b64}"}
+        logger.warning("Pollinations returned status %s", img_resp.status_code)
+    except Exception as e:
+        logger.warning("Pollinations fetch failed: %s", e)
+
+    raise HTTPException(status_code=502, detail="插圖生成失敗，請點「重新生成插圖」再試一次")
 
 # ── 端點：圖片辨識（Groq Vision → 繁體中文場景描述）────────────
 IMAGE_MAX_BYTES = 4 * 1024 * 1024  # 4 MB
