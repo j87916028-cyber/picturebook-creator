@@ -224,7 +224,6 @@ VOICES = [
     {"id": "cn-girl-soft",           "label": "柔和女孩",    "emoji": "🌸"},
     # ── 台灣腔（zh-TW） ────────────────────────────────────
     {"id": "female-yujie",           "label": "御姐音",      "emoji": "👩"},
-    {"id": "female-chengshu",        "label": "成熟女聲",    "emoji": "👩‍💼"},
     {"id": "male-qn-qingse",         "label": "青澀男聲",    "emoji": "👦"},
     {"id": "male-qn-jingying",       "label": "精英男聲",    "emoji": "🧑‍💼"},
     {"id": "male-qn-badao",          "label": "霸道男聲",    "emoji": "👨"},
@@ -247,7 +246,6 @@ VOICE_TO_GROQ = {
     "cn-girl-clear":          "autumn",
     "cn-girl-soft":           "autumn",
     "female-yujie":           "diana",
-    "female-chengshu":        "hannah",
     "male-qn-qingse":         "austin",
     "male-qn-jingying":       "daniel",
     "male-qn-badao":          "troy",
@@ -270,7 +268,6 @@ VOICE_TO_EDGE = {
     "cn-girl-soft":           "zh-CN-XiaoxiaoNeural",   # 柔和女孩（語速稍慢、音調偏低）
     # ── 台灣腔 zh-TW ───────────────────────────────────────
     "female-yujie":           "zh-TW-HsiaoChenNeural", # 御姐音
-    "female-chengshu":        "zh-TW-HsiaoChenNeural", # 成熟女聲
     "male-qn-qingse":         "zh-TW-YunJheNeural",    # 青澀男聲
     "male-qn-jingying":       "zh-TW-YunJheNeural",    # 精英男聲
     "male-qn-badao":          "zh-TW-YunJheNeural",    # 霸道男聲
@@ -293,7 +290,6 @@ VOICE_TO_XFYUN: dict[str, str] = {
     "cn-girl-clear":          "xiaoyan",
     "cn-girl-soft":           "xiaoyan",
     "female-yujie":           "xiaoyan",
-    "female-chengshu":        "xiaoyan",
     "male-qn-qingse":         "xiaoyu",       # 小宇 — 年輕男聲（免費）
     "male-qn-jingying":       "xiaoyu",
     "male-qn-badao":          "xiaoyu",
@@ -455,7 +451,6 @@ _VOICE_SAMPLE: dict[str, str] = {
     "cn-girl-clear":          "嗯嗯！我知道了，媽媽說要勇敢，我才不怕呢！",
     "cn-girl-soft":           "我想要一隻小兔子……軟軟的、毛茸茸的那種。",
     "female-yujie":           "嗯，這個故事才剛開始，有趣的事還在後頭呢。",
-    "female-chengshu":        "孩子們，今天的故事讓我們一起來聽聽看吧。",
     "male-qn-qingse":         "呃……我有點緊張，不過我會努力的！",
     "male-qn-jingying":       "很好，一切都在掌握之中，讓我們繼續前進。",
     "male-qn-badao":          "哼，這點小事難不倒我，跟我走就對了！",
@@ -863,7 +858,6 @@ _VOICE_PITCH: dict[str, str] = {
     "cn-girl-clear":          "+10Hz",   # YunxiaNeural：稍高
     "cn-girl-soft":           "-8Hz",    # XiaoxiaoNeural：偏低，溫柔安靜感
     "female-yujie":           "+0Hz",    # 御姐音：標準
-    "female-chengshu":        "-5Hz",    # 成熟女聲：稍低
     "male-qn-qingse":         "+10Hz",   # 青澀男聲：偏高（年輕感）
     "male-qn-jingying":       "+0Hz",    # 精英男聲：標準
     "male-qn-badao":          "-10Hz",   # 霸道男聲：偏低
