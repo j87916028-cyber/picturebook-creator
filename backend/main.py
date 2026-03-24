@@ -14,7 +14,7 @@ import zipfile
 import httpx
 import logging
 import urllib.parse
-from collections import defaultdict
+from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 import edge_tts
 
@@ -36,18 +36,27 @@ class _RateLimiter:
     def __init__(self, max_calls: int, window_secs: int):
         self.max_calls = max_calls
         self.window_secs = window_secs
-        self._calls: dict[str, list[float]] = defaultdict(list)
+        self._calls: dict[str, deque[float]] = defaultdict(deque)
+        self._last_prune = time.monotonic()
 
     def is_allowed(self, key: str) -> bool:
         now = time.monotonic()
         cutoff = now - self.window_secs
         bucket = self._calls[key]
-        # Prune expired timestamps
+        # Prune expired timestamps — O(1) popleft on deque vs O(n) pop(0) on list
         while bucket and bucket[0] < cutoff:
-            bucket.pop(0)
+            bucket.popleft()
         if len(bucket) >= self.max_calls:
             return False
         bucket.append(now)
+        # Periodically evict empty buckets to prevent unbounded memory growth.
+        # Without this, each unique client IP (including spoofed X-Forwarded-For
+        # values) leaves a permanent entry in the dict.
+        if now - self._last_prune > 300:  # every 5 minutes
+            self._last_prune = now
+            stale = [k for k, v in self._calls.items() if not v]
+            for k in stale:
+                del self._calls[k]
         return True
 
 
