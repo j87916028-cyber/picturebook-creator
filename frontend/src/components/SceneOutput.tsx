@@ -62,7 +62,20 @@ function SceneCard({
   onPlayFromScene,
 }: SceneCardProps) {
   const [playingIndex, setPlayingIndex] = useState<number | null>(null)
+  const [playProgress, setPlayProgress] = useState(0)  // 0–100 percent
   const audioRefs = useRef<(HTMLAudioElement | null)[]>([])
+
+  // Attach timeupdate listener whenever the active line changes
+  useEffect(() => {
+    if (playingIndex === null) { setPlayProgress(0); return }
+    const audio = audioRefs.current[playingIndex]
+    if (!audio) return
+    const onTime = () => {
+      if (audio.duration) setPlayProgress((audio.currentTime / audio.duration) * 100)
+    }
+    audio.addEventListener('timeupdate', onTime)
+    return () => audio.removeEventListener('timeupdate', onTime)
+  }, [playingIndex])
 
   // Edit state
   const [editingLineIndex, setEditingLineIndex] = useState<number | null>(null)
@@ -111,6 +124,15 @@ function SceneCard({
 
   const playAll = () => {
     if (scene.lines.length > 0) playLine(0)
+  }
+
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>, index: number) => {
+    const audio = audioRefs.current[index]
+    if (!audio || !audio.duration) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    audio.currentTime = pct * audio.duration
+    setPlayProgress(pct * 100)
   }
 
   const handleDownloadImage = () => {
@@ -444,6 +466,18 @@ function SceneCard({
                           >
                             {isPlaying ? '⏸' : '▶'} {isPlaying ? '播放中' : '播放'}
                           </button>
+                          {isPlaying && (
+                            <div
+                              className="audio-progress-track"
+                              onClick={e => handleSeek(e, i)}
+                              title="點擊跳轉播放位置"
+                            >
+                              <div
+                                className="audio-progress-fill"
+                                style={{ width: `${playProgress}%` }}
+                              />
+                            </div>
+                          )}
                         </>
                       ) : (
                         <span className="audio-loading">
