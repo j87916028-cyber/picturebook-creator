@@ -343,9 +343,14 @@ async def voice_preview(voice_id: str):
         return {"audio_base64": base64.b64encode(cached).decode(), "format": "mp3"}
     sample_text = _VOICE_SAMPLE.get(voice_id, "大家好！我是故事裡的角色，很高興認識你。")
     edge_voice = VOICE_TO_EDGE.get(voice_id, "zh-TW-HsiaoYuNeural")
+    prosody = _emotion_prosody_params("happy")
     try:
-        ssml = _build_ssml(sample_text, edge_voice, "happy", voice_id)
-        communicate = edge_tts.Communicate(text=ssml, voice=edge_voice)
+        communicate = edge_tts.Communicate(
+            text=_text_with_breaks(sample_text),
+            voice=edge_voice,
+            rate=prosody["rate"],
+            volume=prosody["volume"],
+        )
         buf = io.BytesIO()
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
@@ -687,53 +692,17 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
         logger.error("JSON parse failed: %s\nContent: %s", e, content[:800])
         raise HTTPException(status_code=502, detail=f"劇本解析失敗，請重試（{type(e).__name__}）")
 
-# ── 依角色 + 情緒選擇 SSML 說話風格 ─────────────────────────────
-# zh-TW 支援的風格：chat / cheerful / friendly / assistant
-# 角色個性決定基調，情緒決定是否提升至更活潑的風格
-_VOICE_STYLE_MAP: dict[str, dict[str, str]] = {
-    # 活潑/可愛系 → 開心/驚喜時用 cheerful，平靜也偏 cheerful
-    "female-tianmei-jingpin": {"happy": "cheerful", "surprised": "cheerful", "neutral": "friendly"},
-    "female-shaonv":          {"happy": "cheerful", "surprised": "cheerful", "neutral": "cheerful"},
-    "cute_boy":               {"happy": "cheerful", "surprised": "cheerful", "neutral": "cheerful"},
-    # 成熟/優雅系 → cheerful 不誇張，平靜用 friendly
-    "female-yujie":           {"happy": "friendly", "surprised": "friendly", "neutral": "friendly"},
-    "female-chengshu":        {"happy": "cheerful", "surprised": "friendly", "neutral": "friendly"},
-    "male-qn-jingying":       {"happy": "friendly", "surprised": "friendly", "neutral": "friendly"},
-    # 老人系 → 以 friendly 為主，維持溫和感
-    "elderly_man":            {"happy": "friendly", "neutral": "friendly"},
-    "elderly_woman":          {"happy": "friendly", "surprised": "friendly", "neutral": "friendly"},
-    # 說書/播報 → 平穩，偶爾 friendly
-    "audiobook_male_2":       {"happy": "friendly", "neutral": "chat"},
-    "audiobook_female_2":     {"happy": "friendly", "neutral": "friendly"},
-    "presenter_male":         {"happy": "friendly", "neutral": "friendly"},
-    # 青澀/霸道 → 預設 chat，開心稍升
-    "male-qn-qingse":         {"happy": "cheerful", "surprised": "cheerful"},
-    "male-qn-badao":          {"happy": "chat"},
-}
-
-def _get_ssml_style(voice_id: str, emotion: str) -> str:
-    """Return the best SSML speaking style for this voice + emotion combo."""
-    style_map = _VOICE_STYLE_MAP.get(voice_id, {})
-    return style_map.get(emotion or "neutral", "chat")
-
-# styledegree：1.0 = 預設，最大 2.0。提高可讓情感風格更明顯
-_STYLE_DEGREE: dict[str, str] = {
-    "cheerful": "1.9",   # 開心/活潑角色大幅提升
-    "friendly": "1.6",   # 溫和角色有感情但不誇張
-    "chat":     "1.4",   # 基本對話也比原版自然
-    "assistant":"1.2",
-}
-
-# 情緒語調：rate（語速）+ pitch（音高）+ volume（音量）
-# 音量是最接近真人的情緒維度：生氣/驚喜會大聲，難過/害怕會輕聲
+# 情緒語調：rate（語速）+ volume（音量）傳給 edge-tts 原生 prosody 參數
+# 不使用 mstts:express-as — edge-tts 會把傳入的文字包在自己的 <speak> 裡，
+# 若再傳完整 SSML 文件會造成雙層巢狀 <speak>，導致 TTS 把 XML 屬性名當成文字朗讀。
 _EMOTION_PROSODY: dict[str, dict[str, str]] = {
-    "happy":     {"rate": "+8%",  "volume": "+8%"},                       # 開心：稍快、聲音飽滿
-    "sad":       {"rate": "-15%", "pitch": "-2.5st", "volume": "-12%"},   # 難過：慢而低沉、聲音輕柔
-    "angry":     {"rate": "+15%", "pitch": "+2.5st", "volume": "+18%"},   # 生氣：急促高亢、大聲
-    "surprised": {"rate": "+5%",  "pitch": "+2st",   "volume": "+14%"},   # 驚訝：pitch 上揚、音量拉高
-    "fearful":   {"rate": "-8%",  "pitch": "+1.5st", "volume": "-15%"},   # 害怕：慢而輕、微顫感
-    "disgusted": {"rate": "-8%",  "pitch": "-2st",   "volume": "-8%"},    # 厭惡：低沉緩慢
-    "neutral":   {"rate": "0%"},
+    "happy":     {"rate": "+8%",  "volume": "+8%"},    # 開心：稍快、聲音飽滿
+    "sad":       {"rate": "-15%", "volume": "-12%"},   # 難過：慢而輕柔
+    "angry":     {"rate": "+15%", "volume": "+18%"},   # 生氣：急促大聲
+    "surprised": {"rate": "+5%",  "volume": "+14%"},   # 驚訝：音量拉高
+    "fearful":   {"rate": "-8%",  "volume": "-15%"},   # 害怕：慢而輕
+    "disgusted": {"rate": "-8%",  "volume": "-8%"},    # 厭惡：低沉緩慢
+    "neutral":   {"rate": "+0%",  "volume": "+0%"},
 }
 
 # 插入自然停頓的標點及對應暫停時間
@@ -743,74 +712,68 @@ _PAUSE_MAP = [
     ("!",  "180ms"), ("?",  "180ms"), (",",  "80ms"),
 ]
 
-def _build_ssml(text: str, voice: str, emotion: Optional[str], voice_id: str = "") -> str:
-    """Build natural-sounding SSML: voice-appropriate style, styledegree, and punctuation pauses."""
-    emo = emotion or "neutral"
 
-    # 1. HTML-escape user text first
+def _text_with_breaks(text: str) -> str:
+    """HTML-escape user text and insert SSML <break> pauses after punctuation.
+
+    edge-tts embeds the returned string directly inside <prosody> without further
+    escaping, so XML elements like <break/> survive intact while user-supplied
+    angle brackets are safely escaped.
+    """
     safe = (text.replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
                 .replace('"', "&quot;"))
-
-    # 2. Insert natural pause breaks after punctuation (tags are safe — not user content)
     for punct, dur in _PAUSE_MAP:
         safe = safe.replace(punct, f"{punct}<break time='{dur}'/>")
     # Remove any trailing break so the sentence doesn't end with dead air
-    safe = re.sub(r'(\s*<break[^/]*/>\s*)+$', '', safe).strip()
+    return re.sub(r'(\s*<break[^/]*/>\s*)+$', '', safe).strip()
 
-    # 3. Choose speaking style and degree
-    style  = _get_ssml_style(voice_id, emo)
-    degree = _STYLE_DEGREE.get(style, "1.2")
 
-    # 4. Build prosody attributes (pitch + volume only when explicitly defined)
-    p = _EMOTION_PROSODY.get(emo, {"rate": "0%"})
-    prosody_attrs = f"rate='{p['rate']}'"
-    if "pitch" in p:
-        prosody_attrs += f" pitch='{p['pitch']}'"
-    if "volume" in p:
-        prosody_attrs += f" volume='{p['volume']}'"
-
-    return (
-        f"<speak version='1.0' "
-        f"xmlns='http://www.w3.org/2001/10/synthesis' "
-        f"xmlns:mstts='https://www.w3.org/2001/mstts' "
-        f"xml:lang='zh-TW'>"
-        f"<voice name='{voice}'>"
-        f"<mstts:express-as style='{style}' styledegree='{degree}'>"
-        f"<prosody {prosody_attrs}>{safe}</prosody>"
-        f"</mstts:express-as>"
-        f"</voice></speak>"
-    )
+def _emotion_prosody_params(emotion: Optional[str]) -> dict[str, str]:
+    """Return edge-tts constructor kwargs (rate, volume) for the given emotion."""
+    p = _EMOTION_PROSODY.get(emotion or "neutral", {"rate": "+0%", "volume": "+0%"})
+    rate   = p.get("rate",   "+0%")
+    volume = p.get("volume", "+0%")
+    # edge-tts requires an explicit sign prefix
+    if rate   and not rate.startswith(('+', '-')):
+        rate   = f"+{rate}"
+    if volume and not volume.startswith(('+', '-')):
+        volume = f"+{volume}"
+    return {"rate": rate, "volume": volume}
 
 # ── 端點：生成語音（Edge TTS 台灣腔優先，Groq Orpheus 英文備用）───
 @app.post("/api/generate-voice")
 async def generate_voice(req: GenerateVoiceRequest, request: Request):
     if not _rl_voice.is_allowed(_client_ip(request)):
         raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
-    # ── 優先：Microsoft Edge TTS（台灣繁體中文 zh-TW，SSML 對話風格）─
+    # ── 優先：Microsoft Edge TTS（台灣繁體中文 zh-TW）─────────────────
+    # Pass text + <break> tags as the text argument and use edge-tts's native
+    # rate/volume parameters for emotion prosody.  Do NOT pass a full <speak>
+    # document — edge-tts wraps text in its own <speak> element, so a pre-built
+    # SSML document would become doubly-nested and the TTS would read the XML
+    # attribute names aloud as literal text.
     edge_voice = VOICE_TO_EDGE.get(req.voice_id, "zh-TW-HsiaoYuNeural")
-    logger.info("TTS voice_id=%s emotion=%s → edge_voice=%s", req.voice_id, req.emotion, edge_voice)
-    # Try SSML with chat style first, fall back to plain text
-    for use_ssml in (True, False):
-        try:
-            if use_ssml:
-                ssml = _build_ssml(req.text, edge_voice, req.emotion, req.voice_id)
-                communicate = edge_tts.Communicate(text=ssml, voice=edge_voice)
-            else:
-                communicate = edge_tts.Communicate(text=req.text, voice=edge_voice)
-            audio_buffer = io.BytesIO()
-            async for chunk in communicate.stream():
-                if chunk["type"] == "audio":
-                    audio_buffer.write(chunk["data"])
-            audio_bytes = audio_buffer.getvalue()
-            if audio_bytes:
-                return {"audio_base64": base64.b64encode(audio_bytes).decode("utf-8"), "format": "mp3"}
-            logger.warning("Edge TTS returned empty audio (ssml=%s)", use_ssml)
-        except Exception as e:
-            logger.warning("Edge TTS error (ssml=%s): %s", use_ssml, e)
-            if not use_ssml:
-                break  # both attempts failed
+    prosody    = _emotion_prosody_params(req.emotion)
+    logger.info("TTS voice_id=%s emotion=%s → edge_voice=%s rate=%s vol=%s",
+                req.voice_id, req.emotion, edge_voice, prosody["rate"], prosody["volume"])
+    try:
+        communicate = edge_tts.Communicate(
+            text=_text_with_breaks(req.text),
+            voice=edge_voice,
+            rate=prosody["rate"],
+            volume=prosody["volume"],
+        )
+        audio_buffer = io.BytesIO()
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio_buffer.write(chunk["data"])
+        audio_bytes = audio_buffer.getvalue()
+        if audio_bytes:
+            return {"audio_base64": base64.b64encode(audio_bytes).decode("utf-8"), "format": "mp3"}
+        logger.warning("Edge TTS returned empty audio")
+    except Exception as e:
+        logger.warning("Edge TTS error: %s", e)
 
     # ── 備用：Groq Orpheus（英文聲音，僅供緊急 fallback）────
     if GROQ_API_KEY:
