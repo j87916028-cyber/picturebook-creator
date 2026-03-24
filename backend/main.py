@@ -716,23 +716,23 @@ def _get_ssml_style(voice_id: str, emotion: str) -> str:
     style_map = _VOICE_STYLE_MAP.get(voice_id, {})
     return style_map.get(emotion or "neutral", "chat")
 
-# styledegree 讓風格表達更明顯（1.0 = 預設，1.3~1.5 = 更自然有感情）
+# styledegree：1.0 = 預設，最大 2.0。提高可讓情感風格更明顯
 _STYLE_DEGREE: dict[str, str] = {
-    "cheerful": "1.4",
-    "friendly": "1.3",
-    "chat":     "1.2",
-    "assistant":"1.1",
+    "cheerful": "1.9",   # 開心/活潑角色大幅提升
+    "friendly": "1.6",   # 溫和角色有感情但不誇張
+    "chat":     "1.4",   # 基本對話也比原版自然
+    "assistant":"1.2",
 }
 
-# 情緒語調：只在真正有表達意義的情緒加 pitch；
-# 已有專屬風格（cheerful/friendly）的情緒不疊加 pitch，避免機械感
+# 情緒語調：rate（語速）+ pitch（音高）+ volume（音量）
+# 音量是最接近真人的情緒維度：生氣/驚喜會大聲，難過/害怕會輕聲
 _EMOTION_PROSODY: dict[str, dict[str, str]] = {
-    "happy":     {"rate": "+5%"},                        # cheerful 自帶高亢，不加 pitch
-    "sad":       {"rate": "-10%", "pitch": "-1.5st"},    # 低沉緩慢
-    "angry":     {"rate": "+8%",  "pitch": "+2st"},      # 急促高亢
-    "surprised": {"rate": "+3%"},                        # 稍快即可
-    "fearful":   {"rate": "-5%",  "pitch": "+1st"},      # 輕微顫抖感
-    "disgusted": {"rate": "-5%",  "pitch": "-1st"},
+    "happy":     {"rate": "+8%",  "volume": "+8%"},                       # 開心：稍快、聲音飽滿
+    "sad":       {"rate": "-15%", "pitch": "-2.5st", "volume": "-12%"},   # 難過：慢而低沉、聲音輕柔
+    "angry":     {"rate": "+15%", "pitch": "+2.5st", "volume": "+18%"},   # 生氣：急促高亢、大聲
+    "surprised": {"rate": "+5%",  "pitch": "+2st",   "volume": "+14%"},   # 驚訝：pitch 上揚、音量拉高
+    "fearful":   {"rate": "-8%",  "pitch": "+1.5st", "volume": "-15%"},   # 害怕：慢而輕、微顫感
+    "disgusted": {"rate": "-8%",  "pitch": "-2st",   "volume": "-8%"},    # 厭惡：低沉緩慢
     "neutral":   {"rate": "0%"},
 }
 
@@ -763,11 +763,13 @@ def _build_ssml(text: str, voice: str, emotion: Optional[str], voice_id: str = "
     style  = _get_ssml_style(voice_id, emo)
     degree = _STYLE_DEGREE.get(style, "1.2")
 
-    # 4. Build prosody attributes (pitch only when explicitly defined)
+    # 4. Build prosody attributes (pitch + volume only when explicitly defined)
     p = _EMOTION_PROSODY.get(emo, {"rate": "0%"})
     prosody_attrs = f"rate='{p['rate']}'"
     if "pitch" in p:
         prosody_attrs += f" pitch='{p['pitch']}'"
+    if "volume" in p:
+        prosody_attrs += f" volume='{p['volume']}'"
 
     return (
         f"<speak version='1.0' "
