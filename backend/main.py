@@ -218,6 +218,10 @@ VOICES = [
     {"id": "cn-natural-female",      "label": "自然女聲 ★",  "emoji": "🌟"},
     {"id": "cn-natural-male",        "label": "自然男聲 ★",  "emoji": "⭐"},
     {"id": "cn-story-male",          "label": "說書聲音 ★",  "emoji": "📻"},
+    # ── 孩童聲（zh-CN，真實兒童感） ────────────────────────
+    {"id": "cn-child-girl",          "label": "活潑小女孩",  "emoji": "👧"},
+    {"id": "cn-girl-clear",          "label": "清亮女孩",    "emoji": "🎀"},
+    {"id": "cn-girl-soft",           "label": "柔和女孩",    "emoji": "🌸"},
     # ── 台灣腔（zh-TW） ────────────────────────────────────
     {"id": "female-yujie",           "label": "御姐音",      "emoji": "👩"},
     {"id": "female-chengshu",        "label": "成熟女聲",    "emoji": "👩‍💼"},
@@ -239,6 +243,9 @@ VOICE_TO_GROQ = {
     "cn-natural-female":      "diana",
     "cn-natural-male":        "daniel",
     "cn-story-male":          "troy",
+    "cn-child-girl":          "autumn",
+    "cn-girl-clear":          "autumn",
+    "cn-girl-soft":           "autumn",
     "female-yujie":           "diana",
     "female-chengshu":        "hannah",
     "male-qn-qingse":         "austin",
@@ -258,6 +265,9 @@ VOICE_TO_EDGE = {
     "cn-natural-female":      "zh-CN-XiaoxiaoNeural",   # 最自然女聲
     "cn-natural-male":        "zh-CN-YunxiNeural",      # 最自然男聲
     "cn-story-male":          "zh-CN-YunyangNeural",    # 新聞/說書男聲
+    "cn-child-girl":          "zh-CN-XiaoyiNeural",     # 活潑小女孩（孩童感最強）
+    "cn-girl-clear":          "zh-CN-XiaohanNeural",    # 清亮年輕女孩
+    "cn-girl-soft":           "zh-CN-XiaoqiuNeural",    # 柔和女孩
     # ── 台灣腔 zh-TW ───────────────────────────────────────
     "female-yujie":           "zh-TW-HsiaoChenNeural", # 御姐音
     "female-chengshu":        "zh-TW-HsiaoChenNeural", # 成熟女聲
@@ -279,6 +289,9 @@ VOICE_TO_XFYUN: dict[str, str] = {
     "cn-natural-female":      "aisjiajia",    # ★ 嘉嘉 — 溫柔自然，品質最佳
     "cn-natural-male":        "aisxiaofeng",  # ★ 小風 — 標準自然男聲
     "cn-story-male":          "aisjinger",    # ★ 靜兒 → 備選；若未開通自動降回 xiaoyu
+    "cn-child-girl":          "xiaoyan",      # 小燕 — 孩童備用
+    "cn-girl-clear":          "xiaoyan",
+    "cn-girl-soft":           "xiaoyan",
     "female-yujie":           "xiaoyan",
     "female-chengshu":        "xiaoyan",
     "male-qn-qingse":         "xiaoyu",       # 小宇 — 年輕男聲（免費）
@@ -438,6 +451,9 @@ _VOICE_SAMPLE: dict[str, str] = {
     "cn-natural-female":      "嗨！大家好，我是你的故事角色，很高興認識你喔！今天我們要一起去冒險了！",
     "cn-natural-male":        "大家好，今天的故事就從這裡開始。準備好了嗎？讓我們一起出發吧！",
     "cn-story-male":          "話說從前，在一座茂密的大森林裡，住著一群快樂的小動物……",
+    "cn-child-girl":          "哇！那個好漂亮喔！我們去那裡玩好不好？耶耶耶！",
+    "cn-girl-clear":          "嗯嗯！我知道了，媽媽說要勇敢，我才不怕呢！",
+    "cn-girl-soft":           "我想要一隻小兔子……軟軟的、毛茸茸的那種。",
     "female-yujie":           "嗯，這個故事才剛開始，有趣的事還在後頭呢。",
     "female-chengshu":        "孩子們，今天的故事讓我們一起來聽聽看吧。",
     "male-qn-qingse":         "呃……我有點緊張，不過我會努力的！",
@@ -843,6 +859,9 @@ _VOICE_PITCH: dict[str, str] = {
     "cn-natural-female":      "+0Hz",    # XiaoxiaoNeural：標準（原聲最自然）
     "cn-natural-male":        "+0Hz",    # YunxiNeural：標準
     "cn-story-male":          "-5Hz",    # YunyangNeural：稍低沉有磁性
+    "cn-child-girl":          "+20Hz",   # XiaoyiNeural：偏高，強化孩童感
+    "cn-girl-clear":          "+15Hz",   # XiaohanNeural：稍高
+    "cn-girl-soft":           "+10Hz",   # XiaoqiuNeural：微高
     "female-yujie":           "+0Hz",    # 御姐音：標準
     "female-chengshu":        "-5Hz",    # 成熟女聲：稍低
     "male-qn-qingse":         "+10Hz",   # 青澀男聲：偏高（年輕感）
