@@ -2025,8 +2025,21 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
     return buf.getvalue()
 
 
-def _export_html_zip(project_name: str, scenes: list) -> bytes:
-    # Build a self-contained index.html with all scenes
+_SAFE_CSS_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{3,8}$')
+
+
+def _safe_css_color(color: str, fallback: str = "#667eea") -> str:
+    """Validate a CSS hex color; return fallback if it doesn't look safe."""
+    return color if _SAFE_CSS_COLOR_RE.match(color or "") else fallback
+
+
+def _export_html_zip(project_name: str, scenes: list, char_color_map: dict | None = None) -> bytes:
+    # Build a self-contained index.html with all scenes.
+    # char_color_map: {character_name: hex_color} — used for per-character
+    # dialogue border colours.  Falls back to the brand purple when absent.
+    if char_color_map is None:
+        char_color_map = {}
+
     scene_htmls = []
     for i, scene in enumerate(scenes):
         desc = html.escape(scene.get("description", ""))
@@ -2044,7 +2057,8 @@ def _export_html_zip(project_name: str, scenes: list) -> bytes:
 
         line_divs = ""
         for j, line in enumerate(lines):
-            char_name = html.escape(line.get("character_name", ""))
+            raw_char_name = line.get("character_name", "")
+            char_name = html.escape(raw_char_name)
             text = html.escape(line.get("text", ""))
             audio_b64 = line.get("audio_base64")
             audio_fmt = line.get("audio_format", "mp3")
@@ -2056,9 +2070,13 @@ def _export_html_zip(project_name: str, scenes: list) -> bytes:
                 )
             else:
                 audio_tag = '<span class="no-audio">（無音檔）</span>'
+
+            # Per-character accent colour via CSS custom property so the
+            # `.playing` class can still override `border-left-color`.
+            char_color = _safe_css_color(char_color_map.get(raw_char_name, ""))
             line_divs += f"""
-        <div class="dialogue-line" id="line-{i}-{j}">
-          <span class="char-name">{char_name}</span>
+        <div class="dialogue-line" id="line-{i}-{j}" style="--char-color:{char_color}">
+          <span class="char-name" style="color:{char_color}">{char_name}</span>
           <span class="dialogue-text">{text}</span>
           {audio_tag}
         </div>"""
@@ -2093,8 +2111,8 @@ def _export_html_zip(project_name: str, scenes: list) -> bytes:
     .scene-img {{ width: 100%; border-radius: 12px; margin-bottom: 20px; }}
     .scene-img-placeholder {{ background: #f0f0f0; border-radius: 12px; height: 200px; display: flex; align-items: center; justify-content: center; color: #bbb; margin-bottom: 20px; }}
     .dialogue-block {{ display: flex; flex-direction: column; gap: 12px; }}
-    .dialogue-line {{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #fafbff; border-radius: 10px; padding: 10px 14px; border-left: 4px solid #667eea; }}
-    .char-name {{ font-weight: 700; color: #764ba2; white-space: nowrap; min-width: 4em; }}
+    .dialogue-line {{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #fafbff; border-radius: 10px; padding: 10px 14px; border-left: 4px solid var(--char-color, #667eea); }}
+    .char-name {{ font-weight: 700; white-space: nowrap; min-width: 4em; }}
     .dialogue-text {{ flex: 1; font-size: 1rem; line-height: 1.6; }}
     .btn-play {{ background: linear-gradient(135deg,#43e97b,#38f9d7); border: none; border-radius: 20px; padding: 5px 14px; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: white; transition: opacity 0.15s; }}
     .btn-play:hover {{ opacity: 0.85; }}
@@ -2315,7 +2333,7 @@ async def export_project(
     # Load project from DB
     async with _db_pool.acquire() as conn:
         proj = await conn.fetchrow(
-            "SELECT id, name FROM projects WHERE id = $1", project_id
+            "SELECT id, name, characters FROM projects WHERE id = $1", project_id
         )
         if proj is None:
             raise HTTPException(status_code=404, detail="專案不存在")
@@ -2326,6 +2344,17 @@ async def export_project(
         )
 
     project_name = proj["name"]
+
+    # Build name→color map for per-character accent colours in exports.
+    raw_chars = proj["characters"] or []
+    if isinstance(raw_chars, str):
+        raw_chars = json.loads(raw_chars)
+    char_color_map: dict[str, str] = {
+        c.get("name", ""): c.get("color", "")
+        for c in raw_chars
+        if c.get("name")
+    }
+
     scenes = []
     for row in scene_rows:
         raw_lines = row["lines"]
@@ -2351,7 +2380,7 @@ async def export_project(
         media_type = "application/epub+zip"
         filename = f"{project_name}.epub"
     elif format == "html":
-        data = await loop.run_in_executor(None, _export_html_zip, project_name, scenes)
+        data = await loop.run_in_executor(None, _export_html_zip, project_name, scenes, char_color_map)
         media_type = "application/zip"
         filename = f"{project_name}_web.zip"
     else:  # "mp3"
