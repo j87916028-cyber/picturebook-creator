@@ -1,3 +1,6 @@
+import email.utils
+import hashlib
+import hmac
 import html
 import io
 import os
@@ -176,6 +179,11 @@ MINIMAX_HEADERS = {
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_TTS_URL = "https://api.groq.com/openai/v1/audio/speech"
 
+# ── 科大訊飛 TTS ────────────────────────────────────────────
+XFYUN_APP_ID     = os.getenv("XFYUN_APP_ID", "")
+XFYUN_API_KEY    = os.getenv("XFYUN_API_KEY", "")
+XFYUN_API_SECRET = os.getenv("XFYUN_API_SECRET", "")
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # Initialise Gemini client once at startup (not per-request)
@@ -268,6 +276,106 @@ VOICE_TO_EDGE = {
     "elderly_man":            "zh-TW-YunJheNeural",    # 老爺爺音
     "elderly_woman":          "zh-TW-HsiaoChenNeural", # 老奶奶音
 }
+
+# ── 科大訊飛 voice ID 映射 ────────────────────────────────────
+# 免費基礎聲音：xiaoyan / xiaoyu（所有帳號可用）
+# 精選聲音（aisjiajia / aisxiaofeng）需在開放平台控制台開通
+VOICE_TO_XFYUN: dict[str, str] = {
+    "cn-natural-female":      "aisjiajia",    # ★ 嘉嘉 — 溫柔自然，品質最佳
+    "cn-natural-male":        "aisxiaofeng",  # ★ 小風 — 標準自然男聲
+    "cn-story-male":          "aisjinger",    # ★ 靜兒 → 備選；若未開通自動降回 xiaoyu
+    "female-tianmei-jingpin": "xiaoyan",      # 小燕 — 甜美女聲（免費）
+    "female-shaonv":          "xiaoyan",
+    "female-yujie":           "xiaoyan",
+    "female-chengshu":        "xiaoyan",
+    "male-qn-qingse":         "xiaoyu",       # 小宇 — 年輕男聲（免費）
+    "male-qn-jingying":       "xiaoyu",
+    "male-qn-badao":          "xiaoyu",
+    "presenter_male":         "xiaoyu",
+    "audiobook_male_2":       "xiaoyu",
+    "audiobook_female_2":     "xiaoyan",
+    "cute_boy":               "xiaoyu",
+    "elderly_man":            "xiaoyu",
+    "elderly_woman":          "xiaoyan",
+}
+
+
+def _xfyun_auth_url() -> str:
+    """Build HMAC-SHA256 signed WebSocket URL for iFlytek TTS API."""
+    host = "tts-api.xfyun.cn"
+    path = "/v2/tts"
+    date = email.utils.formatdate(usegmt=True)   # RFC 1123, e.g. "Mon, 01 Jan 2024 00:00:00 GMT"
+    signature_origin = f"host: {host}\ndate: {date}\nGET {path} HTTP/1.1"
+    signature = base64.b64encode(
+        hmac.new(XFYUN_API_SECRET.encode(), signature_origin.encode(), hashlib.sha256).digest()
+    ).decode()
+    authorization_origin = (
+        f'api_key="{XFYUN_API_KEY}",algorithm="hmac-sha256",'
+        f'headers="host date request-line",signature="{signature}"'
+    )
+    authorization = base64.b64encode(authorization_origin.encode()).decode()
+    params = urllib.parse.urlencode({"authorization": authorization, "date": date, "host": host})
+    return f"wss://{host}{path}?{params}"
+
+
+def _pct_to_xfyun(pct_str: str, default: int = 50) -> int:
+    """Convert '+8%' / '-15%' to iFlytek 0-100 scale (50 = normal)."""
+    try:
+        val = int(pct_str.strip().rstrip("%"))
+        return max(0, min(100, 50 + val // 2))
+    except (ValueError, AttributeError):
+        return default
+
+
+async def _generate_voice_xfyun(text: str, voice_id: str, emotion: Optional[str]) -> bytes:
+    """Synthesise speech via iFlytek WebSocket TTS. Returns raw MP3 bytes.
+
+    Raises RuntimeError if websockets library is not installed or API fails.
+    The caller should catch and fall back to Edge TTS.
+    """
+    try:
+        import websockets as _ws   # optional dep; installed in requirements.txt
+    except ImportError:
+        raise RuntimeError("websockets 未安裝")
+
+    vcn = VOICE_TO_XFYUN.get(voice_id, "xiaoyan")
+    p   = _EMOTION_PROSODY.get(emotion or "neutral", {"rate": "+0%", "volume": "+0%"})
+    spd = _pct_to_xfyun(p.get("rate",   "+0%"))
+    vol = _pct_to_xfyun(p.get("volume", "+0%"))
+
+    url = _xfyun_auth_url()
+    audio_chunks: list[bytes] = []
+
+    async with _ws.connect(url) as ws:
+        await ws.send(json.dumps({
+            "common":   {"app_id": XFYUN_APP_ID},
+            "business": {
+                "aue": "lame",   # MP3
+                "sfl": 1,        # 流式合成
+                "tte": "utf8",
+                "vcn": vcn,
+                "spd": spd,
+                "vol": vol,
+            },
+            "data": {
+                "status": 2,     # 2 = complete single-shot request
+                "text": base64.b64encode(text.encode("utf-8")).decode(),
+            },
+        }))
+
+        async for message in ws:
+            resp = json.loads(message)
+            code = resp.get("code", -1)
+            if code != 0:
+                raise RuntimeError(f"iFlytek error {code}: {resp.get('message', '')}")
+            d = resp.get("data", {})
+            if d.get("audio"):
+                audio_chunks.append(base64.b64decode(d["audio"]))
+            if d.get("status") == 2:   # 2 = last frame
+                break
+
+    return b"".join(audio_chunks)
+
 
 # ── Models ───────────────────────────────────────────────────
 class Character(BaseModel):
@@ -771,20 +879,30 @@ def _emotion_prosody_params(emotion: Optional[str], voice_id: str = "") -> dict[
         volume = f"+{volume}"
     return {"rate": rate, "volume": volume, "pitch": pitch}
 
-# ── 端點：生成語音（Edge TTS 台灣腔優先，Groq Orpheus 英文備用）───
+# ── 端點：生成語音 ────────────────────────────────────────────
+# 優先順序：科大訊飛（設定後）→ Edge TTS → Groq Orpheus（緊急備用）
 @app.post("/api/generate-voice")
 async def generate_voice(req: GenerateVoiceRequest, request: Request):
     if not _rl_voice.is_allowed(_client_ip(request)):
         raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
-    # ── 優先：Microsoft Edge TTS（台灣繁體中文 zh-TW）─────────────────
-    # Pass text + <break> tags as the text argument and use edge-tts's native
-    # rate/volume parameters for emotion prosody.  Do NOT pass a full <speak>
-    # document — edge-tts wraps text in its own <speak> element, so a pre-built
-    # SSML document would become doubly-nested and the TTS would read the XML
-    # attribute names aloud as literal text.
+
+    # ── 1. 科大訊飛（若已設定 API 金鑰）────────────────────────
+    if XFYUN_APP_ID and XFYUN_API_KEY and XFYUN_API_SECRET:
+        try:
+            audio_bytes = await _generate_voice_xfyun(req.text, req.voice_id, req.emotion)
+            if audio_bytes:
+                logger.info("TTS xfyun ok voice_id=%s", req.voice_id)
+                return {"audio_base64": base64.b64encode(audio_bytes).decode("utf-8"), "format": "mp3"}
+            logger.warning("iFlytek TTS returned empty audio")
+        except Exception as e:
+            logger.warning("iFlytek TTS failed, falling back to Edge TTS: %s", e)
+
+    # ── 2. Microsoft Edge TTS（免費，台灣腔）────────────────────
+    # Do NOT pass a full <speak> SSML document — edge-tts wraps text in its own
+    # <speak> element internally, causing double-nesting and reading XML tags aloud.
     edge_voice = VOICE_TO_EDGE.get(req.voice_id, "zh-TW-HsiaoYuNeural")
     prosody    = _emotion_prosody_params(req.emotion, req.voice_id)
-    logger.info("TTS voice_id=%s emotion=%s → edge_voice=%s rate=%s vol=%s pitch=%s",
+    logger.info("TTS edge voice_id=%s emotion=%s → %s rate=%s vol=%s pitch=%s",
                 req.voice_id, req.emotion, edge_voice, prosody["rate"], prosody["volume"], prosody["pitch"])
     try:
         communicate = edge_tts.Communicate(
