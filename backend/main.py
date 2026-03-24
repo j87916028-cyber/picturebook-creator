@@ -554,32 +554,96 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
         logger.error("JSON parse failed: %s\nContent: %s", e, content[:800])
         raise HTTPException(status_code=502, detail=f"劇本解析失敗，請重試（{type(e).__name__}）")
 
-# ── SSML 情緒對應語調設定（Edge TTS 對話風格）───────────────────
-_EMOTION_PROSODY: dict[str, dict[str, str]] = {
-    "happy":     {"rate": "+8%",  "pitch": "+2st"},
-    "sad":       {"rate": "-12%", "pitch": "-2st"},
-    "angry":     {"rate": "+10%", "pitch": "+3st"},
-    "surprised": {"rate": "+5%",  "pitch": "+3st"},
-    "fearful":   {"rate": "-5%",  "pitch": "+1st"},
-    "disgusted": {"rate": "-5%",  "pitch": "-1st"},
-    "neutral":   {"rate": "0%",   "pitch": "0st"},
+# ── 依角色 + 情緒選擇 SSML 說話風格 ─────────────────────────────
+# zh-TW 支援的風格：chat / cheerful / friendly / assistant
+# 角色個性決定基調，情緒決定是否提升至更活潑的風格
+_VOICE_STYLE_MAP: dict[str, dict[str, str]] = {
+    # 活潑/可愛系 → 開心/驚喜時用 cheerful，平靜也偏 cheerful
+    "female-tianmei-jingpin": {"happy": "cheerful", "surprised": "cheerful", "neutral": "friendly"},
+    "female-shaonv":          {"happy": "cheerful", "surprised": "cheerful", "neutral": "cheerful"},
+    "cute_boy":               {"happy": "cheerful", "surprised": "cheerful", "neutral": "cheerful"},
+    # 成熟/優雅系 → cheerful 不誇張，平靜用 friendly
+    "female-yujie":           {"happy": "friendly", "surprised": "friendly", "neutral": "friendly"},
+    "female-chengshu":        {"happy": "cheerful", "surprised": "friendly", "neutral": "friendly"},
+    "male-qn-jingying":       {"happy": "friendly", "surprised": "friendly", "neutral": "friendly"},
+    # 老人系 → 以 friendly 為主，維持溫和感
+    "elderly_man":            {"happy": "friendly", "neutral": "friendly"},
+    "elderly_woman":          {"happy": "friendly", "surprised": "friendly", "neutral": "friendly"},
+    # 說書/播報 → 平穩，偶爾 friendly
+    "audiobook_male_2":       {"happy": "friendly", "neutral": "chat"},
+    "audiobook_female_2":     {"happy": "friendly", "neutral": "friendly"},
+    "presenter_male":         {"happy": "friendly", "neutral": "friendly"},
+    # 青澀/霸道 → 預設 chat，開心稍升
+    "male-qn-qingse":         {"happy": "cheerful", "surprised": "cheerful"},
+    "male-qn-badao":          {"happy": "chat"},
 }
 
-def _build_ssml(text: str, voice: str, emotion: Optional[str]) -> str:
-    """Build SSML with chat style + emotion-aware prosody for natural dialogue."""
-    p = _EMOTION_PROSODY.get(emotion or "neutral", _EMOTION_PROSODY["neutral"])
+def _get_ssml_style(voice_id: str, emotion: str) -> str:
+    """Return the best SSML speaking style for this voice + emotion combo."""
+    style_map = _VOICE_STYLE_MAP.get(voice_id, {})
+    return style_map.get(emotion or "neutral", "chat")
+
+# styledegree 讓風格表達更明顯（1.0 = 預設，1.3~1.5 = 更自然有感情）
+_STYLE_DEGREE: dict[str, str] = {
+    "cheerful": "1.4",
+    "friendly": "1.3",
+    "chat":     "1.2",
+    "assistant":"1.1",
+}
+
+# 情緒語調：只在真正有表達意義的情緒加 pitch；
+# 已有專屬風格（cheerful/friendly）的情緒不疊加 pitch，避免機械感
+_EMOTION_PROSODY: dict[str, dict[str, str]] = {
+    "happy":     {"rate": "+5%"},                        # cheerful 自帶高亢，不加 pitch
+    "sad":       {"rate": "-10%", "pitch": "-1.5st"},    # 低沉緩慢
+    "angry":     {"rate": "+8%",  "pitch": "+2st"},      # 急促高亢
+    "surprised": {"rate": "+3%"},                        # 稍快即可
+    "fearful":   {"rate": "-5%",  "pitch": "+1st"},      # 輕微顫抖感
+    "disgusted": {"rate": "-5%",  "pitch": "-1st"},
+    "neutral":   {"rate": "0%"},
+}
+
+# 插入自然停頓的標點及對應暫停時間
+_PAUSE_MAP = [
+    ("。", "220ms"), ("！", "180ms"), ("？", "180ms"),
+    ("…", "250ms"),  ("、", "70ms"),  ("，", "90ms"),
+    ("!",  "180ms"), ("?",  "180ms"), (",",  "80ms"),
+]
+
+def _build_ssml(text: str, voice: str, emotion: Optional[str], voice_id: str = "") -> str:
+    """Build natural-sounding SSML: voice-appropriate style, styledegree, and punctuation pauses."""
+    emo = emotion or "neutral"
+
+    # 1. HTML-escape user text first
     safe = (text.replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
                 .replace('"', "&quot;"))
+
+    # 2. Insert natural pause breaks after punctuation (tags are safe — not user content)
+    for punct, dur in _PAUSE_MAP:
+        safe = safe.replace(punct, f"{punct}<break time='{dur}'/>")
+    # Remove any trailing break so the sentence doesn't end with dead air
+    safe = re.sub(r'(\s*<break[^/]*/>\s*)+$', '', safe).strip()
+
+    # 3. Choose speaking style and degree
+    style  = _get_ssml_style(voice_id, emo)
+    degree = _STYLE_DEGREE.get(style, "1.2")
+
+    # 4. Build prosody attributes (pitch only when explicitly defined)
+    p = _EMOTION_PROSODY.get(emo, {"rate": "0%"})
+    prosody_attrs = f"rate='{p['rate']}'"
+    if "pitch" in p:
+        prosody_attrs += f" pitch='{p['pitch']}'"
+
     return (
         f"<speak version='1.0' "
         f"xmlns='http://www.w3.org/2001/10/synthesis' "
         f"xmlns:mstts='https://www.w3.org/2001/mstts' "
         f"xml:lang='zh-TW'>"
         f"<voice name='{voice}'>"
-        f"<mstts:express-as style='chat'>"
-        f"<prosody rate='{p['rate']}' pitch='{p['pitch']}'>{safe}</prosody>"
+        f"<mstts:express-as style='{style}' styledegree='{degree}'>"
+        f"<prosody {prosody_attrs}>{safe}</prosody>"
         f"</mstts:express-as>"
         f"</voice></speak>"
     )
