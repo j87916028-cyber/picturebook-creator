@@ -156,7 +156,7 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
       <div className="playback-body">
         {/* Scene image */}
         <div className="playback-image-wrap">
-          {currentScene?.image ? (
+          {currentScene?.image && currentScene.image !== 'error' ? (
             <img
               src={currentScene.image}
               alt={`第${(current?.sceneIdx ?? 0) + 1}幕`}
@@ -240,9 +240,10 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
         {/* Scene selector chips — jump to any scene instantly */}
         {scenes.length > 1 && (
           <div className="playback-scene-chips">
-            {scenes.map((_, si) => {
+            {scenes.map((scene, si) => {
               const hasAudio = playlist.some(p => p.sceneIdx === si)
               const isCurrentScene = current?.sceneIdx === si
+              const thumb = scene.image && scene.image !== 'error' ? scene.image : null
               return (
                 <button
                   key={si}
@@ -251,7 +252,11 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
                   disabled={!hasAudio}
                   title={hasAudio ? `跳至第 ${si + 1} 幕` : `第 ${si + 1} 幕（無音訊）`}
                 >
-                  {si + 1}
+                  {thumb
+                    ? <img src={thumb} alt={`第${si + 1}幕`} className="chip-thumb" />
+                    : <span className="chip-fallback">🖼️</span>
+                  }
+                  <span className="chip-num">{si + 1}</span>
                 </button>
               )
             })}
