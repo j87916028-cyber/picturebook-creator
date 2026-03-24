@@ -1342,6 +1342,50 @@ body {
 }
 .export-menu button:hover { background: #f0f4ff; color: #667eea; }
 
+/* ── AI Title Suggest ──────────────────────────── */
+.title-suggest-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-suggest-title {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.35);
+  color: white;
+  border-radius: 6px;
+  width: 26px; height: 26px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.btn-suggest-title:hover { background: rgba(255,255,255,0.3); }
+.title-suggest-menu {
+  position: absolute; right: 0; top: 110%;
+  background: white; border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+  padding: 6px; min-width: 180px; z-index: 200;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.title-suggest-header {
+  font-size: 0.72rem; color: #999; padding: 4px 10px 6px;
+  border-bottom: 1px solid #f0f0f0; margin-bottom: 2px;
+  font-weight: 600; letter-spacing: 0.5px;
+}
+.title-suggest-loading {
+  font-size: 0.83rem; color: #aaa;
+  padding: 8px 10px; text-align: center;
+}
+.title-suggest-item {
+  background: none; border: none; border-radius: 8px;
+  padding: 8px 12px; text-align: left; cursor: pointer;
+  font-size: 0.875rem; color: #333; width: 100%;
+  transition: background 0.1s;
+}
+.title-suggest-item:hover { background: #f0f4ff; color: #667eea; }
+
 /* ── Scene Navigation Strip ──────────────────── */
 .scene-nav-strip {
   display: flex;

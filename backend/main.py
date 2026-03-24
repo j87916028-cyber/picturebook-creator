@@ -748,6 +748,92 @@ async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
     logger.warning("suggest-next-scene all providers failed: %s", last_error)
     raise HTTPException(status_code=502, detail="靈感生成失敗")
 
+
+# ── 端點：AI 書名建議 ─────────────────────────────────────────
+class SuggestTitleRequest(BaseModel):
+    story_context: Annotated[str, Field(max_length=5000)]
+    style: Annotated[str, Field(max_length=20)] = "溫馨童趣"
+
+
+@app.post("/api/suggest-title")
+async def suggest_title(req: SuggestTitleRequest, request: Request):
+    if not _rl_suggest.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+    if not MINIMAX_API_KEY and not GROQ_API_KEY:
+        raise HTTPException(status_code=503, detail="服務未設定")
+
+    prompt = f"""你是台灣繪本故事作家。根據以下故事內容，為這本兒童繪本建議 3 個吸引人的書名。
+
+風格：{req.style}
+故事內容：
+{req.story_context}
+
+請提供 3 個書名，每個 4-15 字，簡短有力、適合兒童繪本、富有想像力。
+直接輸出 JSON，格式如下，不要任何多餘說明：
+{{"suggestions": ["書名1", "書名2", "書名3"]}}
+
+注意：使用台灣繁體中文"""
+
+    async def _call_groq() -> list[str]:
+        resp = await _http_client.post(
+            GROQ_CHAT_URL,
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": "llama-3.1-8b-instant",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.9,
+                "max_tokens": 200,
+            },
+            timeout=30,
+        )
+        resp.raise_for_status()
+        raw = resp.json()["choices"][0]["message"].get("content", "")
+        return _parse_suggestions(str(raw))
+
+    async def _call_minimax() -> list[str]:
+        resp = await _http_client.post(
+            f"{MINIMAX_BASE}/chat/completions",
+            headers=MINIMAX_HEADERS,
+            json={
+                "model": "MiniMax-M2.7",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.9,
+                "max_tokens": 200,
+            },
+            timeout=30,
+        )
+        resp.raise_for_status()
+        message = resp.json()["choices"][0]["message"]
+        raw_content = message.get("content", "")
+        if isinstance(raw_content, list):
+            raw = " ".join(b.get("text", "") for b in raw_content if b.get("type") == "text").strip()
+        else:
+            raw = str(raw_content)
+        return _parse_suggestions(raw)
+
+    last_error: Exception | None = None
+    if GROQ_API_KEY:
+        try:
+            suggestions = await _call_groq()
+            if suggestions:
+                return {"suggestions": suggestions}
+        except Exception as e:
+            logger.warning("suggest-title Groq failed: %s", e)
+            last_error = e
+
+    if MINIMAX_API_KEY:
+        try:
+            suggestions = await _call_minimax()
+            if suggestions:
+                return {"suggestions": suggestions}
+        except Exception as e:
+            logger.warning("suggest-title MiniMax failed: %s", e)
+            last_error = e
+
+    logger.warning("suggest-title all providers failed: %s", last_error)
+    raise HTTPException(status_code=502, detail="書名建議生成失敗")
+
+
 # ── 端點：生成劇本 ────────────────────────────────────────────
 @app.post("/api/generate-script", response_model=ScriptResponse)
 async def generate_script(req: GenerateScriptRequest, request: Request):

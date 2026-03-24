@@ -80,6 +80,11 @@ export default function App() {
   const [exportOpen, setExportOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
 
+  // AI title-suggest state
+  const [titleSuggestOpen, setTitleSuggestOpen] = useState(false)
+  const [titleSuggestions, setTitleSuggestions] = useState<string[]>([])
+  const [titleSuggestLoading, setTitleSuggestLoading] = useState(false)
+
   const abortControllerRef = useRef<AbortController | null>(null)
 
   // ── Auto-init: fetch projects on mount, auto-load most recent ──
@@ -775,6 +780,49 @@ export default function App() {
     }
   }
 
+  const handleSuggestTitle = async () => {
+    if (!currentProjectId || scenes.length === 0) return
+    setTitleSuggestOpen(true)
+    setTitleSuggestions([])
+    setTitleSuggestLoading(true)
+    try {
+      const storyContext = buildStoryContext(scenes)
+      // Pick the most common style across scenes as the dominant style
+      const styleCounts = scenes.reduce<Record<string, number>>((acc, s) => {
+        acc[s.style] = (acc[s.style] ?? 0) + 1; return acc
+      }, {})
+      const dominantStyle = Object.entries(styleCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '溫馨童趣'
+      const res = await fetch('/api/suggest-title', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ story_context: storyContext, style: dominantStyle }),
+      })
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setTitleSuggestions(data.suggestions ?? [])
+    } catch {
+      setTitleSuggestions([])
+    } finally {
+      setTitleSuggestLoading(false)
+    }
+  }
+
+  const handleApplyTitle = async (newName: string) => {
+    if (!currentProjectId || !newName.trim()) return
+    setTitleSuggestOpen(false)
+    setTitleSuggestions([])
+    try {
+      await fetch(`/api/projects/${currentProjectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName.trim() }),
+      })
+      setProjectName(newName.trim())
+      setTitleSparkle(true)
+      setTimeout(() => setTitleSparkle(false), 2500)
+    } catch {}
+  }
+
   const handleProjectLoad = (proj: ProjectDetail) => {
     loadProjectData(proj)
   }
@@ -808,9 +856,38 @@ export default function App() {
             {savedStatus === 'saving' && <span className="save-indicator saving">儲存中...</span>}
             {savedStatus === 'saved' && <span className="save-indicator saved">✓ 已儲存</span>}
             {currentProjectId && projectName && (
-              <span className={`current-project-name${titleSparkle ? ' sparkle' : ''}`} title={projectName}>
-                {titleSparkle ? '✨ ' : ''}{projectName}
-              </span>
+              <div className="title-suggest-wrap">
+                <span className={`current-project-name${titleSparkle ? ' sparkle' : ''}`} title={projectName}>
+                  {titleSparkle ? '✨ ' : ''}{projectName}
+                </span>
+                {scenes.length > 0 && (
+                  <button
+                    className="btn-suggest-title"
+                    onClick={() => titleSuggestOpen ? setTitleSuggestOpen(false) : handleSuggestTitle()}
+                    title="AI 建議書名"
+                  >
+                    {titleSuggestLoading ? <span className="spinner-sm" /> : '✨'}
+                  </button>
+                )}
+                {titleSuggestOpen && (
+                  <div className="title-suggest-menu">
+                    <div className="title-suggest-header">AI 書名建議</div>
+                    {titleSuggestLoading && (
+                      <div className="title-suggest-loading">生成中...</div>
+                    )}
+                    {!titleSuggestLoading && titleSuggestions.length === 0 && (
+                      <div className="title-suggest-loading">生成失敗，請重試</div>
+                    )}
+                    {titleSuggestions.map((t, i) => (
+                      <button
+                        key={i}
+                        className="title-suggest-item"
+                        onClick={() => handleApplyTitle(t)}
+                      >{t}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
             <div className="export-dropdown-wrap">
               <button
