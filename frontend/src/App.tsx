@@ -390,6 +390,41 @@ export default function App() {
     } catch {}
   }
 
+  // Change emotion for a single line and auto-regen voice
+  const handleLineEmotionChange = async (sceneId: string, lineIndex: number, newEmotion: string) => {
+    const scene = scenes.find(s => s.id === sceneId)
+    if (!scene) return
+    const line = scene.lines[lineIndex]
+    // Update emotion + clear stale audio immediately
+    setScenes(prev => prev.map(s => {
+      if (s.id !== sceneId) return s
+      const lines = [...s.lines]
+      lines[lineIndex] = { ...lines[lineIndex], emotion: newEmotion, audio_base64: undefined, audio_format: undefined }
+      return { ...s, lines }
+    }))
+    try {
+      const res = await fetch('/api/generate-voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: line.text, voice_id: line.voice_id, emotion: newEmotion }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      let saved: Scene[] | null = null
+      setScenes(prev => {
+        const next = prev.map(s => {
+          if (s.id !== sceneId) return s
+          const lines = [...s.lines]
+          lines[lineIndex] = { ...lines[lineIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+          return { ...s, lines }
+        })
+        saved = next
+        return next
+      })
+      if (saved && currentProjectId) autoSave(currentProjectId, saved, characters)
+    } catch {}
+  }
+
   // Re-generate scene image
   const handleImageRegen = async (sceneId: string) => {
     const scene = scenes.find(s => s.id === sceneId)
@@ -713,6 +748,7 @@ export default function App() {
               onSceneDuplicate={handleSceneDuplicate}
               onLineTextChange={handleLineTextChange}
               onLineVoiceRegen={handleLineVoiceRegen}
+              onLineEmotionChange={handleLineEmotionChange}
               onImageRegen={handleImageRegen}
               onSceneRegen={handleSceneRegen}
               onBatchRegenVoice={handleBatchRegenVoice}

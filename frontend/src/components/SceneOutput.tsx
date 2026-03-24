@@ -29,6 +29,7 @@ interface Props {
   onSceneDuplicate: (sceneId: string) => void
   onLineTextChange: (sceneId: string, lineIndex: number, newText: string) => void
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
+  onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
   onImageRegen: (sceneId: string) => Promise<void>
   onSceneRegen: (sceneId: string, newDescription: string, style: string) => Promise<void>
   onBatchRegenVoice: () => void
@@ -45,6 +46,7 @@ interface SceneCardProps {
   onSceneDuplicate: (sceneId: string) => void
   onLineTextChange: (sceneId: string, lineIndex: number, newText: string) => void
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
+  onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
   onImageRegen: (sceneId: string) => Promise<void>
   onSceneRegen: (sceneId: string, newDescription: string, style: string) => Promise<void>
   onPlayFromScene: (sceneIndex: number) => void
@@ -60,6 +62,7 @@ function SceneCard({
   onSceneDuplicate,
   onLineTextChange,
   onLineVoiceRegen,
+  onLineEmotionChange,
   onImageRegen,
   onSceneRegen,
   onPlayFromScene,
@@ -84,6 +87,7 @@ function SceneCard({
   const [editingLineIndex, setEditingLineIndex] = useState<number | null>(null)
   const [editLineText, setEditLineText] = useState('')
   const [regenVoiceIndex, setRegenVoiceIndex] = useState<number | null>(null)
+  const [emotionRegenIndex, setEmotionRegenIndex] = useState<number | null>(null)
   const [regenImage, setRegenImage] = useState(false)
   const [showRegenForm, setShowRegenForm] = useState(false)
   const [regenDesc, setRegenDesc] = useState(scene.description)
@@ -195,6 +199,15 @@ function SceneCard({
       await onLineVoiceRegen(scene.id, index)
     } finally {
       setRegenVoiceIndex(null)
+    }
+  }
+
+  const handleEmotionChange = async (index: number, newEmotion: string) => {
+    setEmotionRegenIndex(index)
+    try {
+      await onLineEmotionChange(scene.id, index, newEmotion)
+    } finally {
+      setEmotionRegenIndex(null)
     }
   }
 
@@ -439,7 +452,23 @@ function SceneCard({
                   <div className="dialogue-speaker">
                     <span className="speaker-emoji">{char?.emoji || '🎭'}</span>
                     <span className="speaker-name" style={{ color }}>{line.character_name}</span>
-                    <span className="emotion-badge">{EMOTION_LABELS[line.emotion] ?? line.emotion}</span>
+                    {emotionRegenIndex === i ? (
+                      <span className="emotion-badge emotion-regen-badge">
+                        <span className="spinner-sm" /> 換情緒中...
+                      </span>
+                    ) : (
+                      <select
+                        className="emotion-select"
+                        value={line.emotion || 'neutral'}
+                        onChange={e => handleEmotionChange(i, e.target.value)}
+                        disabled={isRegenVoice || emotionRegenIndex !== null}
+                        title="更換情緒，自動重新配音"
+                      >
+                        {Object.entries(EMOTION_LABELS).map(([k, v]) => (
+                          <option key={k} value={k}>{v}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                   <div className="dialogue-content">
                     {isEditingThis ? (
@@ -553,6 +582,7 @@ export default function SceneOutput({
   onSceneDuplicate,
   onLineTextChange,
   onLineVoiceRegen,
+  onLineEmotionChange,
   onImageRegen,
   onSceneRegen,
   onBatchRegenVoice,
@@ -666,6 +696,7 @@ export default function SceneOutput({
             onSceneDuplicate={onSceneDuplicate}
             onLineTextChange={onLineTextChange}
             onLineVoiceRegen={onLineVoiceRegen}
+            onLineEmotionChange={onLineEmotionChange}
             onImageRegen={onImageRegen}
             onSceneRegen={onSceneRegen}
             onPlayFromScene={handlePlayFromScene}
