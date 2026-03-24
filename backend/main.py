@@ -1643,14 +1643,24 @@ def _export_pdf(project_name: str, scenes: list) -> bytes:
     pdf = FPDF(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=15)
 
-    # Register CJK font if available
+    # Register CJK regular + bold fonts.
+    # fpdf2 raises "Undefined font: notosanscjkB" if bold is requested but not
+    # registered, which crashes the entire export.  Load the bold variant too
+    # (NotoSansCJK-Bold.ttc ships alongside Regular in the Docker image).
     use_cjk = font_path is not None
+    has_cjk_bold = False
     if use_cjk:
-        pdf.add_font("NotoSansCJK", "", font_path, uni=True)
+        pdf.add_font("NotoSansCJK", "", font_path)
+        bold_path = font_path.replace("Regular", "Bold").replace("regular", "bold")
+        if os.path.exists(bold_path):
+            pdf.add_font("NotoSansCJK", "B", bold_path)
+            has_cjk_bold = True
 
     def set_font_safe(size: int, style: str = ""):
         if use_cjk:
-            pdf.set_font("NotoSansCJK", style=style, size=size)
+            # Fall back to regular when bold isn't registered to avoid crash
+            effective_style = style if (style != "B" or has_cjk_bold) else ""
+            pdf.set_font("NotoSansCJK", style=effective_style, size=size)
         else:
             pdf.set_font("Helvetica", style=style, size=size)
 
@@ -1693,12 +1703,14 @@ def _export_pdf(project_name: str, scenes: list) -> bytes:
                 with tempfile.NamedTemporaryFile(suffix=f".{img_ext}", delete=False) as tmp:
                     tmp.write(img_bytes)
                     tmp_path = tmp.name
-                # Keep image within page, max height 80mm
-                img_h = min(80, 297 - current_y - 50)
-                if img_h > 10:
-                    pdf.image(tmp_path, x=10, y=current_y, w=190, h=img_h)
-                    current_y += img_h + 4
-                os.unlink(tmp_path)
+                try:
+                    # Keep image within page, max height 80mm
+                    img_h = min(80, 297 - current_y - 50)
+                    if img_h > 10:
+                        pdf.image(tmp_path, x=10, y=current_y, w=190, h=img_h)
+                        current_y += img_h + 4
+                finally:
+                    os.unlink(tmp_path)
             except Exception as e:
                 logger.warning("PDF image embed failed: %s", e)
                 set_font_safe(9)
