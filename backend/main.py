@@ -437,12 +437,20 @@ async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
 - 使用台灣繁體中文
 - 每個描述要能自然銜接前情
 - 簡潔生動，適合兒童繪本"""
+    def _is_chinese_text(s: str) -> bool:
+        """Return True if the string is predominantly Chinese (>40% CJK characters)."""
+        if not s:
+            return False
+        cjk = sum(1 for c in s if '\u4e00' <= c <= '\u9fff')
+        return cjk / len(s) >= 0.4
+
     try:
+        # Use MiniMax-Text-01 (non-thinking model) to avoid <think> block contamination
         resp = await _http_client.post(
             f"{MINIMAX_BASE}/chat/completions",
             headers=MINIMAX_HEADERS,
             json={
-                "model": "MiniMax-M2.7",
+                "model": "MiniMax-Text-01",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.8,
                 "max_tokens": 400,
@@ -451,18 +459,15 @@ async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
         )
         resp.raise_for_status()
         message = resp.json()["choices"][0]["message"]
-        # M2.7 may return content as list of blocks
         raw_content = message.get("content", "")
         if isinstance(raw_content, list):
             raw = " ".join(b.get("text", "") for b in raw_content if b.get("type") == "text").strip()
         else:
             raw = str(raw_content)
 
-        # Strip think blocks; if nothing remains, search inside the think block
-        # (M2.7 sometimes puts the entire answer inside <think> with an empty reply)
-        stripped = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
-        search_text = stripped if stripped else raw
-        logger.info("suggest stripped=%d search=%d preview: %s", len(stripped), len(search_text), search_text[:200])
+        # Strip any think blocks just in case
+        search_text = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip() or raw
+        logger.info("suggest preview: %s", search_text[:200])
 
         suggestions: list[str] = []
 
@@ -473,19 +478,20 @@ async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
         if m:
             try:
                 data = json.loads(m.group(0))
-                suggestions = [s.strip() for s in data.get("suggestions", []) if isinstance(s, str) and s.strip()]
+                candidates = [s.strip() for s in data.get("suggestions", []) if isinstance(s, str) and s.strip()]
+                suggestions = [s for s in candidates if _is_chinese_text(s)]
             except json.JSONDecodeError:
                 pass
 
-        # 2. Numbered / bulleted lines
+        # 2. Numbered / bulleted lines — only accept Chinese-heavy lines
         if not suggestions:
             lines = re.findall(r'(?:^|\n)\s*(?:\d+[.、。）)]\s*)(.{10,80})', search_text)
-            suggestions = [l.strip().strip('「」') for l in lines if l.strip()]
+            suggestions = [l.strip().strip('「」') for l in lines if _is_chinese_text(l.strip())]
 
         # 3. Last-resort: split by Chinese sentence endings and take first 3 meaningful chunks
         if not suggestions:
             chunks = re.split(r'[。！\n]{1,2}', search_text)
-            suggestions = [c.strip() for c in chunks if len(c.strip()) >= 10][:3]
+            suggestions = [c.strip() for c in chunks if len(c.strip()) >= 10 and _is_chinese_text(c.strip())][:3]
 
         if not suggestions:
             raise ValueError(f"could not parse suggestions, search_text={search_text[:300]!r}")
