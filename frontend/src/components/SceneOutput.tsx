@@ -143,6 +143,11 @@ function SceneCard({
   const [addLineText, setAddLineText] = useState('')
   const [addLineLoading, setAddLineLoading] = useState(false)
 
+  // Inline delete confirmation — avoids blocking window.confirm
+  const [confirmDeleteScene, setConfirmDeleteScene] = useState(false)
+  const deleteConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (deleteConfirmTimerRef.current) clearTimeout(deleteConfirmTimerRef.current) }, [])
+
   // Keep editedPrompt in sync when scene_prompt changes (e.g. after full scene regen)
   useEffect(() => {
     setEditedPrompt(scene.script.scene_prompt || '')
@@ -228,9 +233,17 @@ function SceneCard({
   const isGenerating = scene.lines.length === 0
 
   const handleDeleteScene = () => {
-    if (window.confirm(`確定要刪除第 ${sceneIndex + 1} 幕嗎？此動作無法復原。`)) {
-      onSceneDelete(scene.id)
+    if (!confirmDeleteScene) {
+      // First click: arm the confirmation; auto-dismiss after 4 s
+      setConfirmDeleteScene(true)
+      if (deleteConfirmTimerRef.current) clearTimeout(deleteConfirmTimerRef.current)
+      deleteConfirmTimerRef.current = setTimeout(() => setConfirmDeleteScene(false), 4000)
+      return
     }
+    // Second click within 4 s: execute
+    if (deleteConfirmTimerRef.current) clearTimeout(deleteConfirmTimerRef.current)
+    setConfirmDeleteScene(false)
+    onSceneDelete(scene.id)
   }
 
   const handleStartEditLine = (index: number, text: string) => {
@@ -387,14 +400,33 @@ function SceneCard({
         >
           📋 複製此幕
         </button>
-        <button
-          className="btn-scene-action btn-scene-delete"
-          onClick={handleDeleteScene}
-          disabled={regenLoading}
-          title="刪除此幕"
-        >
-          🗑️ 刪除此幕
-        </button>
+        {confirmDeleteScene ? (
+          <>
+            <button
+              className="btn-scene-action btn-scene-delete btn-scene-delete-confirm"
+              onClick={handleDeleteScene}
+              title="再次點擊以確認刪除"
+            >
+              ⚠️ 確認刪除？
+            </button>
+            <button
+              className="btn-ghost"
+              onClick={() => { setConfirmDeleteScene(false); if (deleteConfirmTimerRef.current) clearTimeout(deleteConfirmTimerRef.current) }}
+              style={{ fontSize: '0.78rem', padding: '4px 10px' }}
+            >
+              取消
+            </button>
+          </>
+        ) : (
+          <button
+            className="btn-scene-action btn-scene-delete"
+            onClick={handleDeleteScene}
+            disabled={regenLoading}
+            title="刪除此幕"
+          >
+            🗑️ 刪除此幕
+          </button>
+        )}
       </div>
 
       {/* Image prompt editor */}

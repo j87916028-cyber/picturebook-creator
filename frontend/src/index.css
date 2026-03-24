@@ -1042,6 +1042,7 @@ body {
   transition: color 0.15s, background 0.15s;
 }
 .btn-delete-project:hover { color: #ff6b6b; background: #fff0f0; }
+.btn-delete-project.confirm { color: #e65100; font-size: 0.85rem; animation: pulse-warn 0.6s ease-in-out infinite alternate; }
 
 /* ── Scene Card Edit Actions ─────────────────── */
 .scene-card-actions {
@@ -1090,6 +1091,17 @@ body {
   background: #fff5f5;
   border-color: #ef9a9a;
   color: #c62828;
+}
+.btn-scene-delete-confirm {
+  background: #fff3e0 !important;
+  border-color: #ff9800 !important;
+  color: #e65100 !important;
+  font-weight: 600;
+  animation: pulse-warn 0.6s ease-in-out infinite alternate;
+}
+@keyframes pulse-warn {
+  from { opacity: 1; }
+  to   { opacity: 0.75; }
 }
 
 /* ── Line editing ────────────────────────────── */

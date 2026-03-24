@@ -26,6 +26,8 @@ export default function ProjectPanel({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const editInputRef = useRef<HTMLInputElement>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fetchProjects = async () => {
     try {
@@ -78,7 +80,16 @@ export default function ProjectPanel({
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
-    if (!confirm('確定刪除此作品？此動作無法復原。')) return
+    if (confirmDeleteId !== id) {
+      // First click: arm confirmation; auto-dismiss after 4 s
+      setConfirmDeleteId(id)
+      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
+      deleteTimerRef.current = setTimeout(() => setConfirmDeleteId(null), 4000)
+      return
+    }
+    // Second click: execute delete
+    if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
+    setConfirmDeleteId(null)
     try {
       await fetch(`/api/projects/${id}`, { method: 'DELETE' })
       if (id === currentProjectId) {
@@ -165,10 +176,10 @@ export default function ProjectPanel({
               </span>
             </div>
             <button
-              className="btn-delete-project"
+              className={`btn-delete-project${confirmDeleteId === p.id ? ' confirm' : ''}`}
               onClick={e => handleDelete(e, p.id)}
-              title="刪除作品"
-            >✕</button>
+              title={confirmDeleteId === p.id ? '再次點擊確認刪除' : '刪除作品'}
+            >{confirmDeleteId === p.id ? '⚠️' : '✕'}</button>
           </div>
         ))}
       </div>
