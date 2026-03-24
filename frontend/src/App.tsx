@@ -805,6 +805,12 @@ export default function App() {
 
           <CharacterPanel
             characters={characters}
+            lineCountsByCharId={scenes.reduce<Record<string, number>>((acc, s) => {
+              s.lines.forEach(l => {
+                if (l.character_id) acc[l.character_id] = (acc[l.character_id] ?? 0) + 1
+              })
+              return acc
+            }, {})}
             onChange={updated => {
               // Build a lookup of what changed from the current characters array
               const prevMap = new Map(characters.map(c => [c.id, c]))

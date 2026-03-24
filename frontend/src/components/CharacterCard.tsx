@@ -7,9 +7,10 @@ interface Props {
   onDelete: (id: string) => void
   onEdit: (id: string) => void
   isDragging?: boolean
+  lineCount?: number   // total dialogue lines this character has across all scenes
 }
 
-export default function CharacterCard({ character, onDelete, onEdit, isDragging = false }: Props) {
+export default function CharacterCard({ character, onDelete, onEdit, isDragging = false, lineCount }: Props) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: character.id,
     data: { character },
@@ -30,7 +31,14 @@ export default function CharacterCard({ character, onDelete, onEdit, isDragging 
       <div className="card-drag-handle" {...listeners}>
         <span className="card-emoji">{character.emoji}</span>
         <div className="card-info">
-          <div className="card-name" style={{ color: character.color }}>{character.name}</div>
+          <div className="card-name-row">
+            <span className="card-name" style={{ color: character.color }}>{character.name}</span>
+            {lineCount !== undefined && lineCount > 0 && (
+              <span className="card-line-badge" style={{ borderColor: character.color, color: character.color }}>
+                💬 {lineCount}
+              </span>
+            )}
+          </div>
           <div className="card-personality">{character.personality}</div>
           {character.visual_description && (
             <div className="card-visual-desc" title="外形描述">👗 {character.visual_description}</div>

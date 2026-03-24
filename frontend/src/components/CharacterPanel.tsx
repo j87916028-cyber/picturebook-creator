@@ -5,6 +5,7 @@ import CharacterCard from './CharacterCard'
 interface Props {
   characters: Character[]
   onChange: (characters: Character[]) => void
+  lineCountsByCharId?: Record<string, number>
 }
 
 const DEFAULT_VOICES: Voice[] = [
@@ -223,7 +224,7 @@ function CharacterForm({
   )
 }
 
-export default function CharacterPanel({ characters, onChange }: Props) {
+export default function CharacterPanel({ characters, onChange, lineCountsByCharId = {} }: Props) {
   const [voices, setVoices] = useState<Voice[]>(DEFAULT_VOICES)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -277,6 +278,7 @@ export default function CharacterPanel({ characters, onChange }: Props) {
               character={c}
               onDelete={deleteCharacter}
               onEdit={id => setEditingId(id === editingId ? null : id)}
+              lineCount={lineCountsByCharId[c.id]}
             />
             {editingId === c.id && (
               <CharacterForm

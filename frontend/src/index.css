@@ -129,7 +129,15 @@ body {
 .card-drag-handle { display: flex; align-items: center; gap: 10px; flex: 1; }
 .card-emoji { font-size: 1.8rem; }
 .card-info { flex: 1; }
+.card-name-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .card-name { font-weight: 700; font-size: 0.95rem; }
+.card-line-badge {
+  font-size: 0.68rem; font-weight: 700;
+  border: 1px solid; border-radius: 10px;
+  padding: 1px 6px; line-height: 1.5;
+  opacity: 0.8;
+  white-space: nowrap;
+}
 .card-personality { font-size: 0.75rem; color: #888; margin-top: 2px; }
 .card-visual-desc {
   font-size: 0.7rem; color: #a878e0; margin-top: 2px;
