@@ -67,7 +67,7 @@ interface Props {
   onSceneMove: (sceneId: string, direction: 'up' | 'down') => void
   onScenesReorder: (orderedIds: string[]) => void
   onSceneDuplicate: (sceneId: string) => void
-  onLineTextChange: (sceneId: string, lineIndex: number, newText: string) => void
+  onLineEditConfirm: (sceneId: string, lineIndex: number, newText: string) => Promise<void>
   onLineDelete: (sceneId: string, lineIndex: number) => void
   onLineAdd: (sceneId: string, characterId: string, text: string) => Promise<void>
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
@@ -86,7 +86,7 @@ interface SceneCardProps {
   onSceneDelete: (sceneId: string) => void
   onSceneMove: (sceneId: string, direction: 'up' | 'down') => void
   onSceneDuplicate: (sceneId: string) => void
-  onLineTextChange: (sceneId: string, lineIndex: number, newText: string) => void
+  onLineEditConfirm: (sceneId: string, lineIndex: number, newText: string) => Promise<void>
   onLineDelete: (sceneId: string, lineIndex: number) => void
   onLineAdd: (sceneId: string, characterId: string, text: string) => Promise<void>
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
@@ -104,7 +104,7 @@ function SceneCard({
   onSceneDelete,
   onSceneMove,
   onSceneDuplicate,
-  onLineTextChange,
+  onLineEditConfirm,
   onLineDelete,
   onLineAdd,
   onLineVoiceRegen,
@@ -238,11 +238,17 @@ function SceneCard({
     setEditLineText(text)
   }
 
-  const handleConfirmEditLine = (index: number) => {
-    if (editLineText.trim()) {
-      onLineTextChange(scene.id, index, editLineText.trim())
-    }
+  const handleConfirmEditLine = async (index: number) => {
+    const newText = editLineText.trim()
+    if (!newText) return
+    // Close edit form immediately, then show voice-loading while regen runs
     setEditingLineIndex(null)
+    setRegenVoiceIndex(index)
+    try {
+      await onLineEditConfirm(scene.id, index, newText)
+    } finally {
+      setRegenVoiceIndex(null)
+    }
   }
 
   const handleCancelEditLine = () => {
@@ -760,7 +766,7 @@ export default function SceneOutput({
   onSceneMove,
   onScenesReorder,
   onSceneDuplicate,
-  onLineTextChange,
+  onLineEditConfirm,
   onLineDelete,
   onLineAdd,
   onLineVoiceRegen,
@@ -881,7 +887,7 @@ export default function SceneOutput({
             onSceneDelete={onSceneDelete}
             onSceneMove={onSceneMove}
             onSceneDuplicate={onSceneDuplicate}
-            onLineTextChange={onLineTextChange}
+            onLineEditConfirm={onLineEditConfirm}
             onLineDelete={onLineDelete}
             onLineAdd={onLineAdd}
             onLineVoiceRegen={onLineVoiceRegen}

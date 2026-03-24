@@ -418,6 +418,47 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
+  // Confirm a line text edit: update text then auto-regenerate voice (mirrors
+  // the emotion-change flow so the user never needs a separate "重新配音" click).
+  const handleLineEditConfirm = useCallback(async (sceneId: string, lineIndex: number, newText: string) => {
+    const scene = scenes.find(s => s.id === sceneId)
+    if (!scene) return
+    const { voice_id, emotion } = scene.lines[lineIndex]
+
+    // 1. Commit new text + clear stale audio immediately
+    const next = scenes.map(s => {
+      if (s.id !== sceneId) return s
+      const lines = [...s.lines]
+      lines[lineIndex] = { ...lines[lineIndex], text: newText, audio_base64: undefined, audio_format: undefined }
+      return { ...s, lines }
+    })
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
+
+    // 2. Auto-regenerate voice with the updated text
+    try {
+      const res = await fetch('/api/generate-voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: newText, voice_id, emotion }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      let saved: Scene[] | null = null
+      setScenes(prev => {
+        const updated = prev.map(s => {
+          if (s.id !== sceneId) return s
+          const lines = [...s.lines]
+          lines[lineIndex] = { ...lines[lineIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+          return { ...s, lines }
+        })
+        saved = updated
+        return updated
+      })
+      if (saved && currentProjectId) autoSave(currentProjectId, saved, characters)
+    } catch {}
+  }, [scenes, currentProjectId, characters, autoSave])
+
   // Delete a single dialogue line (with 5-second undo window)
   const handleLineDelete = (sceneId: string, lineIndex: number) => {
     const scene = scenes.find(s => s.id === sceneId)
@@ -903,7 +944,7 @@ export default function App() {
               onSceneMove={handleSceneMove}
               onScenesReorder={handleScenesReorder}
               onSceneDuplicate={handleSceneDuplicate}
-              onLineTextChange={handleLineTextChange}
+              onLineEditConfirm={handleLineEditConfirm}
               onLineDelete={handleLineDelete}
               onLineAdd={handleLineAdd}
               onLineVoiceRegen={handleLineVoiceRegen}
