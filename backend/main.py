@@ -343,13 +343,14 @@ async def voice_preview(voice_id: str):
         return {"audio_base64": base64.b64encode(cached).decode(), "format": "mp3"}
     sample_text = _VOICE_SAMPLE.get(voice_id, "大家好！我是故事裡的角色，很高興認識你。")
     edge_voice = VOICE_TO_EDGE.get(voice_id, "zh-TW-HsiaoYuNeural")
-    prosody = _emotion_prosody_params("happy")
+    prosody = _emotion_prosody_params("happy", voice_id)
     try:
         communicate = edge_tts.Communicate(
             text=_prepare_tts_text(sample_text),
             voice=edge_voice,
             rate=prosody["rate"],
             volume=prosody["volume"],
+            pitch=prosody["pitch"],
         )
         buf = io.BytesIO()
         async for chunk in communicate.stream():
@@ -705,6 +706,24 @@ _EMOTION_PROSODY: dict[str, dict[str, str]] = {
     "neutral":   {"rate": "+0%",  "volume": "+0%"},
 }
 
+# 角色音調偏移（pitch，單位 Hz）
+# edge-tts 台灣腔只有 3 個實際聲音，用 pitch 讓同聲音的不同 voice_id 聽起來有個性差異
+_VOICE_PITCH: dict[str, str] = {
+    "female-tianmei-jingpin": "+20Hz",   # 甜美女聲：偏高
+    "female-shaonv":          "+15Hz",   # 少女音：稍高
+    "female-yujie":           "+0Hz",    # 御姐音：標準
+    "female-chengshu":        "-5Hz",    # 成熟女聲：稍低
+    "male-qn-qingse":         "+10Hz",   # 青澀男聲：偏高（年輕感）
+    "male-qn-jingying":       "+0Hz",    # 精英男聲：標準
+    "male-qn-badao":          "-10Hz",   # 霸道男聲：偏低
+    "presenter_male":         "-5Hz",    # 播報男聲：稍低沉
+    "audiobook_male_2":       "-8Hz",    # 說書男聲：低沉有磁性
+    "audiobook_female_2":     "-5Hz",    # 說書女聲：穩重
+    "cute_boy":               "+25Hz",   # 可愛男孩：明顯偏高
+    "elderly_man":            "-20Hz",   # 老爺爺：低沉蒼老
+    "elderly_woman":          "-10Hz",   # 老奶奶：稍低
+}
+
 
 def _prepare_tts_text(text: str) -> str:
     """Return text ready for edge-tts.
@@ -718,17 +737,18 @@ def _prepare_tts_text(text: str) -> str:
     return text.strip()
 
 
-def _emotion_prosody_params(emotion: Optional[str]) -> dict[str, str]:
-    """Return edge-tts constructor kwargs (rate, volume) for the given emotion."""
+def _emotion_prosody_params(emotion: Optional[str], voice_id: str = "") -> dict[str, str]:
+    """Return edge-tts constructor kwargs (rate, volume, pitch) for the given emotion + voice."""
     p = _EMOTION_PROSODY.get(emotion or "neutral", {"rate": "+0%", "volume": "+0%"})
     rate   = p.get("rate",   "+0%")
     volume = p.get("volume", "+0%")
-    # edge-tts requires an explicit sign prefix
+    pitch  = _VOICE_PITCH.get(voice_id, "+0Hz")
+    # edge-tts requires an explicit sign prefix on rate/volume
     if rate   and not rate.startswith(('+', '-')):
         rate   = f"+{rate}"
     if volume and not volume.startswith(('+', '-')):
         volume = f"+{volume}"
-    return {"rate": rate, "volume": volume}
+    return {"rate": rate, "volume": volume, "pitch": pitch}
 
 # ── 端點：生成語音（Edge TTS 台灣腔優先，Groq Orpheus 英文備用）───
 @app.post("/api/generate-voice")
@@ -742,15 +762,16 @@ async def generate_voice(req: GenerateVoiceRequest, request: Request):
     # SSML document would become doubly-nested and the TTS would read the XML
     # attribute names aloud as literal text.
     edge_voice = VOICE_TO_EDGE.get(req.voice_id, "zh-TW-HsiaoYuNeural")
-    prosody    = _emotion_prosody_params(req.emotion)
-    logger.info("TTS voice_id=%s emotion=%s → edge_voice=%s rate=%s vol=%s",
-                req.voice_id, req.emotion, edge_voice, prosody["rate"], prosody["volume"])
+    prosody    = _emotion_prosody_params(req.emotion, req.voice_id)
+    logger.info("TTS voice_id=%s emotion=%s → edge_voice=%s rate=%s vol=%s pitch=%s",
+                req.voice_id, req.emotion, edge_voice, prosody["rate"], prosody["volume"], prosody["pitch"])
     try:
         communicate = edge_tts.Communicate(
             text=_prepare_tts_text(req.text),
             voice=edge_voice,
             rate=prosody["rate"],
             volume=prosody["volume"],
+            pitch=prosody["pitch"],
         )
         audio_buffer = io.BytesIO()
         async for chunk in communicate.stream():
