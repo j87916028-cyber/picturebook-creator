@@ -222,6 +222,10 @@ function SceneCard({
   }
 
   const hasAudio = scene.lines.some(l => l.audio_base64)
+  // A line whose audio is missing while other lines in the same scene have
+  // audio means this specific line's voice generation silently failed.
+  const isAudioFailed = (line: { audio_base64?: string }) =>
+    hasAudio && !line.audio_base64
 
   return (
     <div className="scene-card">
@@ -503,12 +507,21 @@ function SceneCard({
                             </div>
                           )}
                         </>
+                      ) : isRegenVoice ? (
+                        <span className="audio-loading">配音生成中...</span>
+                      ) : isAudioFailed(line) ? (
+                        <button
+                          className="btn-regen-voice btn-regen-voice-failed"
+                          onClick={() => handleVoiceRegen(i)}
+                          disabled={isEditingThis}
+                          title="配音生成失敗，點擊重試"
+                        >
+                          ⚠️ 配音失敗，點擊重試
+                        </button>
                       ) : (
-                        <span className="audio-loading">
-                          {isRegenVoice ? '配音生成中...' : '音訊生成中...'}
-                        </span>
+                        <span className="audio-loading">音訊生成中...</span>
                       )}
-                      {line.text && (
+                      {line.text && !isAudioFailed(line) && (
                         <button
                           className="btn-regen-voice"
                           onClick={() => handleVoiceRegen(i)}
@@ -548,6 +561,18 @@ export default function SceneOutput({
   const [showPlayback, setShowPlayback] = useState(false)
   const [playbackStartScene, setPlaybackStartScene] = useState(0)
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([])
+
+  // Auto-scroll to newly added scene (length increase only, not on initial load)
+  const prevSceneCountRef = useRef(scenes.length)
+  useEffect(() => {
+    if (scenes.length > prevSceneCountRef.current) {
+      const lastIdx = scenes.length - 1
+      setTimeout(() => {
+        sceneRefs.current[lastIdx]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 80)
+    }
+    prevSceneCountRef.current = scenes.length
+  }, [scenes.length])
 
   if (scenes.length === 0) return null
 

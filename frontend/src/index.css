@@ -1014,6 +1014,16 @@ body {
   opacity: 0.5;
   cursor: not-allowed;
 }
+.btn-regen-voice-failed {
+  border-color: #f6ad55;
+  color: #c05621;
+  background: #fffaf0;
+  font-weight: 600;
+}
+.btn-regen-voice-failed:hover:not(:disabled) {
+  background: #feebcb;
+  border-color: #c05621;
+}
 
 /* ── Re-generate scene form ──────────────────── */
 .regen-scene-form {
