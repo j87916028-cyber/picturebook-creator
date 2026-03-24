@@ -79,11 +79,38 @@ export default function App() {
   // Export state
   const [exportOpen, setExportOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const exportMenuRef = useRef<HTMLDivElement>(null)
 
   // AI title-suggest state
   const [titleSuggestOpen, setTitleSuggestOpen] = useState(false)
   const [titleSuggestions, setTitleSuggestions] = useState<string[]>([])
   const [titleSuggestLoading, setTitleSuggestLoading] = useState(false)
+  const titleSuggestRef = useRef<HTMLDivElement>(null)
+
+  // Close any open dropdown on outside click or Escape
+  useEffect(() => {
+    if (!exportOpen && !titleSuggestOpen) return
+    const onMouseDown = (e: MouseEvent) => {
+      if (exportOpen && exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setExportOpen(false)
+      }
+      if (titleSuggestOpen && titleSuggestRef.current && !titleSuggestRef.current.contains(e.target as Node)) {
+        setTitleSuggestOpen(false)
+      }
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setExportOpen(false)
+        setTitleSuggestOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [exportOpen, titleSuggestOpen])
 
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -474,7 +501,7 @@ export default function App() {
       return { ...s, lines: s.lines.filter((_, i) => i !== lineIndex) }
     })
     setScenes(next)
-    autoSave(currentProjectId!, next, characters)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
     // Arm the undo toast for 5 seconds
     setUndoState({ sceneId, lineIndex, line: deletedLine })
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
@@ -856,7 +883,7 @@ export default function App() {
             {savedStatus === 'saving' && <span className="save-indicator saving">儲存中...</span>}
             {savedStatus === 'saved' && <span className="save-indicator saved">✓ 已儲存</span>}
             {currentProjectId && projectName && (
-              <div className="title-suggest-wrap">
+              <div className="title-suggest-wrap" ref={titleSuggestRef}>
                 <span className={`current-project-name${titleSparkle ? ' sparkle' : ''}`} title={projectName}>
                   {titleSparkle ? '✨ ' : ''}{projectName}
                 </span>
@@ -889,7 +916,7 @@ export default function App() {
                 )}
               </div>
             )}
-            <div className="export-dropdown-wrap">
+            <div className="export-dropdown-wrap" ref={exportMenuRef}>
               <button
                 className="btn-export"
                 onClick={() => setExportOpen(v => !v)}
