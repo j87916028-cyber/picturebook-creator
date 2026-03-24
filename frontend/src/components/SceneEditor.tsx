@@ -44,6 +44,9 @@ export default function SceneEditor({
 
   const imageInputRef = useRef<HTMLInputElement>(null)
   const audioInputRef = useRef<HTMLInputElement>(null)
+  // Track which sceneCount we last fetched suggestions for, so we re-fetch
+  // every time a new scene is added instead of stopping at suggestions.length > 0.
+  const lastFetchedForCount = useRef(0)
 
   const { setNodeRef, isOver } = useDroppable({ id: 'scene-drop-zone' })
 
@@ -72,9 +75,20 @@ export default function SceneEditor({
     }
   }, [storyContext, droppedCharacters, style, suggestLoading])
 
-  // Auto-fetch when we have context (new scene needed)
+  // Re-fetch suggestions every time sceneCount increases.
+  // Previously this was gated on suggestions.length === 0, which meant after the
+  // first fetch the suggestions never updated for subsequent scenes.
   useEffect(() => {
-    if (sceneCount > 0 && storyContext && droppedCharacters.length > 0 && suggestions.length === 0 && !suggestLoading) {
+    if (
+      sceneCount > 0 &&
+      sceneCount !== lastFetchedForCount.current &&
+      storyContext &&
+      droppedCharacters.length > 0 &&
+      !suggestLoading
+    ) {
+      lastFetchedForCount.current = sceneCount
+      setSuggestions([])
+      setSuggestError(false)
       fetchSuggestions()
     }
   }, [sceneCount, storyContext]) // eslint-disable-line react-hooks/exhaustive-deps
