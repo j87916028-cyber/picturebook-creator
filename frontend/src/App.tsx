@@ -80,6 +80,7 @@ export default function App() {
   const [exportOpen, setExportOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const exportMenuRef = useRef<HTMLDivElement>(null)
+  const [copiedFeedback, setCopiedFeedback] = useState(false)
 
   // AI title-suggest state
   const [titleSuggestOpen, setTitleSuggestOpen] = useState(false)
@@ -784,6 +785,33 @@ export default function App() {
     }
   }
 
+  // Copy the full story script to clipboard as plain text
+  const handleCopyStory = async () => {
+    const title = projectName || '繪本故事'
+    const textLines: string[] = [`《${title}》`, '']
+    scenes.forEach((s, i) => {
+      textLines.push(`── 第${i + 1}幕：${s.description} ──`)
+      s.lines.forEach(l => textLines.push(`${l.character_name}：${l.text}`))
+      textLines.push('')
+    })
+    const fullText = textLines.join('\n')
+    try {
+      await navigator.clipboard.writeText(fullText)
+    } catch {
+      // Fallback for environments where clipboard API is unavailable
+      const ta = document.createElement('textarea')
+      ta.value = fullText
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
+    setCopiedFeedback(true)
+    setTimeout(() => setCopiedFeedback(false), 2000)
+  }
+
   const handleExport = async (format: string) => {
     if (!currentProjectId) return
     setExporting(true)
@@ -1020,11 +1048,20 @@ export default function App() {
               const audioLines  = scenes.reduce((n, s) => n + s.lines.filter(l => l.audio_base64).length, 0)
               const imagesDone  = scenes.filter(s => s.image && s.image !== 'error').length
               const audioPct    = totalLines > 0 ? Math.round((audioLines / totalLines) * 100) : 0
+              const totalChars  = scenes.reduce((n, s) => n + s.lines.reduce((m, l) => m + l.text.length, 0), 0)
+              // Children's read-aloud pace ≈ 200 Chinese chars / minute
+              const readMinutes = totalChars > 0 ? Math.max(1, Math.round(totalChars / 200)) : 0
               return (
                 <div className="story-stats-strip">
                   <span className="stats-item">📖 <strong>{scenes.length}</strong> 幕</span>
                   <span className="stats-divider">·</span>
                   <span className="stats-item">💬 <strong>{totalLines}</strong> 句台詞</span>
+                  <span className="stats-divider">·</span>
+                  <span className="stats-item">📝 <strong>{totalChars}</strong> 字</span>
+                  {readMinutes > 0 && <>
+                    <span className="stats-divider">·</span>
+                    <span className="stats-item">🕐 約 <strong>{readMinutes}</strong> 分鐘</span>
+                  </>}
                   <span className="stats-divider">·</span>
                   <span className="stats-item">
                     🎵 配音&nbsp;
@@ -1037,6 +1074,14 @@ export default function App() {
                   </span>
                   <span className="stats-divider">·</span>
                   <span className="stats-item">🖼️ 插圖 <strong>{imagesDone}/{scenes.length}</strong></span>
+                  <span className="stats-divider">·</span>
+                  <button
+                    className={`btn-copy-story${copiedFeedback ? ' copied' : ''}`}
+                    onClick={handleCopyStory}
+                    title="複製全書台詞文字"
+                  >
+                    {copiedFeedback ? '✓ 已複製' : '📋 複製文字'}
+                  </button>
                 </div>
               )
             })()}

@@ -606,6 +606,23 @@ body {
   border-radius: 4px;
   transition: width 0.4s ease;
 }
+.btn-copy-story {
+  background: none;
+  border: 1px solid #dde;
+  border-radius: 8px;
+  padding: 3px 10px;
+  font-size: 0.8rem;
+  color: #667eea;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.btn-copy-story:hover { background: #f0f4ff; border-color: #667eea; }
+.btn-copy-story.copied {
+  background: #f0fff4;
+  border-color: #38a169;
+  color: #38a169;
+}
 
 /* ── Scene Output Panel ──────────────────────── */
 .scene-output-panel {
