@@ -134,6 +134,11 @@ export default function App() {
     setPlanWarning(null)
   }
 
+  // Cancel the in-progress generation only; preserves all existing scenes
+  const handleCancelGeneration = () => {
+    abortControllerRef.current?.abort()
+  }
+
   const handleGenerate = async (description: string, style: string) => {
     if (!description.trim() || droppedCharacters.length === 0) return
 
@@ -661,6 +666,7 @@ export default function App() {
               droppedCharacters={droppedCharacters}
               onRemoveCharacter={removeDropped}
               onGenerate={handleGenerate}
+              onCancel={handleCancelGeneration}
               isLoading={isLoading}
               genStatus={genStatus}
               sceneCount={scenes.length}

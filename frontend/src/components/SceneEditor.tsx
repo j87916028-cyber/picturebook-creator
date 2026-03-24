@@ -12,6 +12,7 @@ interface Props {
   droppedCharacters: Character[]
   onRemoveCharacter: (id: string) => void
   onGenerate: (description: string, style: string) => void
+  onCancel: () => void
   isLoading: boolean
   genStatus: GenStatus | null
   sceneCount: number
@@ -25,6 +26,7 @@ export default function SceneEditor({
   droppedCharacters,
   onRemoveCharacter,
   onGenerate,
+  onCancel,
   isLoading,
   genStatus,
   sceneCount,
@@ -290,23 +292,30 @@ export default function SceneEditor({
 
         {/* 生成按鈕列 */}
         <div className="generate-row">
-          <button
-            className="btn-generate"
-            onClick={() => onGenerate(description, style)}
-            disabled={isLoading || droppedCharacters.length === 0 || !description.trim()}
-          >
-            {isLoading ? (
-              <span className="loading-text"><span className="spinner" />生成中...</span>
-            ) : sceneCount > 0 ? (
-              `✨ 繼續第 ${sceneCount + 1} 幕`
-            ) : (
-              '✨ 生成繪本場景'
-            )}
-          </button>
-          {sceneCount > 0 && (
-            <button className="btn-reset" onClick={onReset} disabled={isLoading} title="清除所有幕次，重新開始">
-              🔄 重新開始
-            </button>
+          {isLoading ? (
+            <>
+              <button className="btn-generate" disabled>
+                <span className="loading-text"><span className="spinner" />生成中...</span>
+              </button>
+              <button className="btn-cancel" onClick={onCancel} title="取消本次生成，保留已有幕次">
+                ✕ 取消
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="btn-generate"
+                onClick={() => onGenerate(description, style)}
+                disabled={droppedCharacters.length === 0 || !description.trim()}
+              >
+                {sceneCount > 0 ? `✨ 繼續第 ${sceneCount + 1} 幕` : '✨ 生成繪本場景'}
+              </button>
+              {sceneCount > 0 && (
+                <button className="btn-reset" onClick={onReset} title="清除所有幕次，重新開始">
+                  🔄 重新開始
+                </button>
+              )}
+            </>
           )}
         </div>
 

@@ -665,6 +665,20 @@ body {
 }
 .generate-row .btn-generate { flex: 1; }
 
+.btn-cancel {
+  background: none;
+  border: 1.5px solid #ffb3b3;
+  border-radius: 12px;
+  padding: 0 16px;
+  color: #e53e3e;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.btn-cancel:hover { background: #fff5f5; border-color: #e53e3e; }
+
 .btn-reset {
   background: none;
   border: 1.5px solid #e0e0e0;
