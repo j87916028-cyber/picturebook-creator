@@ -369,7 +369,7 @@ class GenerateTitleRequest(BaseModel):
 async def generate_title(req: GenerateTitleRequest, request: Request):
     if not _rl_title.is_allowed(_client_ip(request)):
         raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
-    if not MINIMAX_API_KEY:
+    if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
     char_names = "、".join(c.name for c in req.characters)
     lines_preview = " ".join(req.first_lines[:5])
@@ -384,29 +384,65 @@ async def generate_title(req: GenerateTitleRequest, request: Request):
 - 書名 4～12 個字，簡短吸引人
 - 風格溫馨、適合兒童
 - 只回傳書名文字，不要任何說明或標點符號"""
-    try:
-        resp = await _http_client.post(
-            f"{MINIMAX_BASE}/chat/completions",
-            headers=MINIMAX_HEADERS,
-            json={
-                "model": "MiniMax-M2.7",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.9,
-                "max_tokens": 30,
-            },
-            timeout=30,
-        )
-        resp.raise_for_status()
-        raw = resp.json()["choices"][0]["message"]["content"].strip()
-        # Strip any surrounding quotes or think tags
-        title = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
-        title = title.strip('「」『』""\'').strip()
-        if not title or len(title) > 20:
+
+    def _clean_title(raw: str) -> str:
+        t = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+        if not t:
+            # search inside think block as fallback
+            m = re.search(r'[\u4e00-\u9fff]{4,12}', raw)
+            t = m.group(0) if m else ""
+        return t.strip('「」『』""\'').strip()
+
+    # Try Groq first (faster, no think-block issues, ample rate limits)
+    if GROQ_API_KEY:
+        try:
+            resp = await _http_client.post(
+                GROQ_CHAT_URL,
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+                json={
+                    "model": "llama-3.1-8b-instant",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.9,
+                    "max_tokens": 30,
+                },
+                timeout=20,
+            )
+            resp.raise_for_status()
+            raw = resp.json()["choices"][0]["message"].get("content", "").strip()
+            title = _clean_title(raw)
+            if title and len(title) <= 20:
+                logger.info("generate-title via Groq: %s", title)
+                return {"title": title}
+        except Exception as e:
+            logger.warning("generate-title Groq failed: %s", e)
+
+    # Fall back to MiniMax
+    if MINIMAX_API_KEY:
+        try:
+            resp = await _http_client.post(
+                f"{MINIMAX_BASE}/chat/completions",
+                headers=MINIMAX_HEADERS,
+                json={
+                    "model": "MiniMax-M2.7",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.9,
+                    "max_tokens": 30,
+                },
+                timeout=30,
+            )
+            resp.raise_for_status()
+            raw_content = resp.json()["choices"][0]["message"].get("content", "")
+            if isinstance(raw_content, list):
+                raw_content = " ".join(b.get("text", "") for b in raw_content if b.get("type") == "text")
+            title = _clean_title(str(raw_content))
+            if title and len(title) <= 20:
+                logger.info("generate-title via MiniMax: %s", title)
+                return {"title": title}
             raise ValueError(f"invalid title: {title!r}")
-        return {"title": title}
-    except Exception as e:
-        logger.warning("generate-title failed: %s", e)
-        raise HTTPException(status_code=502, detail="書名生成失敗")
+        except Exception as e:
+            logger.warning("generate-title MiniMax failed: %s", e)
+
+    raise HTTPException(status_code=502, detail="書名生成失敗")
 
 # ── 端點：下一幕靈感建議 ──────────────────────────────────────
 class SuggestNextSceneRequest(BaseModel):
@@ -626,7 +662,12 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
         raise HTTPException(status_code=502, detail="AI 服務回應格式異常")
 
     # 移除 <think>...</think> 思考區塊
+    # M2.7 sometimes places the entire answer inside <think>; save raw so we can search it as fallback
+    raw_llm_content = content
     content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+    if not content:
+        logger.info("stripped content empty — searching inside think block for JSON")
+        content = raw_llm_content
     logger.info("LLM cleaned content: %s", content[:300])
 
     # 方式1：```json ... ``` 或 ``` ... ```
