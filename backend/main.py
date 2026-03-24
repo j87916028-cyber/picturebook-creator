@@ -330,7 +330,7 @@ async def voice_preview(voice_id: str):
     sample_text = _VOICE_SAMPLE.get(voice_id, "大家好！我是故事裡的角色，很高興認識你。")
     edge_voice = VOICE_TO_EDGE.get(voice_id, "zh-TW-HsiaoYuNeural")
     try:
-        ssml = _build_ssml(sample_text, edge_voice, "happy")
+        ssml = _build_ssml(sample_text, edge_voice, "happy", voice_id)
         communicate = edge_tts.Communicate(text=ssml, voice=edge_voice)
         buf = io.BytesIO()
         async for chunk in communicate.stream():
@@ -660,7 +660,7 @@ async def generate_voice(req: GenerateVoiceRequest, request: Request):
     for use_ssml in (True, False):
         try:
             if use_ssml:
-                ssml = _build_ssml(req.text, edge_voice, req.emotion)
+                ssml = _build_ssml(req.text, edge_voice, req.emotion, req.voice_id)
                 communicate = edge_tts.Communicate(text=ssml, voice=edge_voice)
             else:
                 communicate = edge_tts.Communicate(text=req.text, voice=edge_voice)
