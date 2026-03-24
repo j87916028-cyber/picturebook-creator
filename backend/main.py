@@ -202,26 +202,36 @@ HF_INFERENCE_URL = f"https://router.huggingface.co/hf-inference/models/{HF_IMAGE
 POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", "")
 
 # ── 可用聲音清單 ─────────────────────────────────────────────
+# ★ 標示的聲音使用 zh-CN XiaoxiaoNeural / YunxiNeural / YunyangNeural，
+#   是 Microsoft 中文 TTS 品質最高的聲音，語調更自然、更接近真人。
 VOICES = [
-    {"id": "female-tianmei-jingpin", "label": "甜美女聲",   "emoji": "👧"},
-    {"id": "female-shaonv",          "label": "少女音",     "emoji": "🧒"},
-    {"id": "female-yujie",           "label": "御姐音",     "emoji": "👩"},
-    {"id": "female-chengshu",        "label": "成熟女聲",   "emoji": "👩‍💼"},
-    {"id": "male-qn-qingse",         "label": "青澀男聲",   "emoji": "👦"},
-    {"id": "male-qn-jingying",       "label": "精英男聲",   "emoji": "🧑‍💼"},
-    {"id": "male-qn-badao",          "label": "霸道男聲",   "emoji": "👨"},
-    {"id": "presenter_male",         "label": "播報男聲",   "emoji": "🎙️"},
-    {"id": "audiobook_male_2",       "label": "說書男聲",   "emoji": "📖"},
-    {"id": "audiobook_female_2",     "label": "說書女聲",   "emoji": "📚"},
-    {"id": "cute_boy",               "label": "可愛男孩",   "emoji": "🐣"},
-    {"id": "elderly_man",            "label": "老爺爺音",   "emoji": "👴"},
-    {"id": "elderly_woman",          "label": "老奶奶音",   "emoji": "👵"},
+    # ── 精選高品質（zh-CN，語調最自然） ───────────────────
+    {"id": "cn-natural-female",      "label": "自然女聲 ★",  "emoji": "🌟"},
+    {"id": "cn-natural-male",        "label": "自然男聲 ★",  "emoji": "⭐"},
+    {"id": "cn-story-male",          "label": "說書聲音 ★",  "emoji": "📻"},
+    # ── 台灣腔（zh-TW） ────────────────────────────────────
+    {"id": "female-tianmei-jingpin", "label": "甜美女聲",    "emoji": "👧"},
+    {"id": "female-shaonv",          "label": "少女音",      "emoji": "🧒"},
+    {"id": "female-yujie",           "label": "御姐音",      "emoji": "👩"},
+    {"id": "female-chengshu",        "label": "成熟女聲",    "emoji": "👩‍💼"},
+    {"id": "male-qn-qingse",         "label": "青澀男聲",    "emoji": "👦"},
+    {"id": "male-qn-jingying",       "label": "精英男聲",    "emoji": "🧑‍💼"},
+    {"id": "male-qn-badao",          "label": "霸道男聲",    "emoji": "👨"},
+    {"id": "presenter_male",         "label": "播報男聲",    "emoji": "🎙️"},
+    {"id": "audiobook_male_2",       "label": "說書男聲",    "emoji": "📖"},
+    {"id": "audiobook_female_2",     "label": "說書女聲",    "emoji": "📚"},
+    {"id": "cute_boy",               "label": "可愛男孩",    "emoji": "🐣"},
+    {"id": "elderly_man",            "label": "老爺爺音",    "emoji": "👴"},
+    {"id": "elderly_woman",          "label": "老奶奶音",    "emoji": "👵"},
 ]
 
 VALID_VOICE_IDS = {v["id"] for v in VOICES}
 
 # MiniMax voice ID → Groq Orpheus voice
 VOICE_TO_GROQ = {
+    "cn-natural-female":      "diana",
+    "cn-natural-male":        "daniel",
+    "cn-story-male":          "troy",
     "female-tianmei-jingpin": "diana",
     "female-shaonv":          "autumn",
     "female-yujie":           "diana",
@@ -237,8 +247,13 @@ VOICE_TO_GROQ = {
     "elderly_woman":          "hannah",
 }
 
-# MiniMax voice ID → Microsoft Edge TTS voice（全部使用台灣腔 zh-TW）
+# MiniMax voice ID → Microsoft Edge TTS voice
 VOICE_TO_EDGE = {
+    # ── 高品質 zh-CN 聲音 ──────────────────────────────────
+    "cn-natural-female":      "zh-CN-XiaoxiaoNeural",   # 最自然女聲
+    "cn-natural-male":        "zh-CN-YunxiNeural",      # 最自然男聲
+    "cn-story-male":          "zh-CN-YunyangNeural",    # 新聞/說書男聲
+    # ── 台灣腔 zh-TW ───────────────────────────────────────
     "female-tianmei-jingpin": "zh-TW-HsiaoYuNeural",   # 甜美女聲
     "female-shaonv":          "zh-TW-HsiaoYuNeural",   # 少女音
     "female-yujie":           "zh-TW-HsiaoChenNeural", # 御姐音
@@ -319,6 +334,9 @@ _voice_preview_cache: dict[str, bytes] = {}
 
 # 每種聲音類型對應的試聽範例句
 _VOICE_SAMPLE: dict[str, str] = {
+    "cn-natural-female":      "嗨！大家好，我是你的故事角色，很高興認識你喔！今天我們要一起去冒險了！",
+    "cn-natural-male":        "大家好，今天的故事就從這裡開始。準備好了嗎？讓我們一起出發吧！",
+    "cn-story-male":          "話說從前，在一座茂密的大森林裡，住著一群快樂的小動物……",
     "female-tianmei-jingpin": "嗨！大家好，我是你的故事角色，很高興認識你喔！",
     "female-shaonv":          "嗨嗨！今天的冒險要開始囉，準備好了嗎？",
     "female-yujie":           "嗯，這個故事才剛開始，有趣的事還在後頭呢。",
@@ -709,6 +727,9 @@ _EMOTION_PROSODY: dict[str, dict[str, str]] = {
 # 角色音調偏移（pitch，單位 Hz）
 # edge-tts 台灣腔只有 3 個實際聲音，用 pitch 讓同聲音的不同 voice_id 聽起來有個性差異
 _VOICE_PITCH: dict[str, str] = {
+    "cn-natural-female":      "+0Hz",    # XiaoxiaoNeural：標準（原聲最自然）
+    "cn-natural-male":        "+0Hz",    # YunxiNeural：標準
+    "cn-story-male":          "-5Hz",    # YunyangNeural：稍低沉有磁性
     "female-tianmei-jingpin": "+20Hz",   # 甜美女聲：偏高
     "female-shaonv":          "+15Hz",   # 少女音：稍高
     "female-yujie":           "+0Hz",    # 御姐音：標準

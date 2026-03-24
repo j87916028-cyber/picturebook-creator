@@ -28,3 +28,7 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Test / temp audio files
+*.mp3
+*.wav
