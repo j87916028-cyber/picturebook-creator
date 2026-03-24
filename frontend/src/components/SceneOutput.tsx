@@ -68,6 +68,7 @@ interface Props {
   onScenesReorder: (orderedIds: string[]) => void
   onSceneDuplicate: (sceneId: string) => void
   onLineTextChange: (sceneId: string, lineIndex: number, newText: string) => void
+  onLineDelete: (sceneId: string, lineIndex: number) => void
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
   onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
@@ -85,6 +86,7 @@ interface SceneCardProps {
   onSceneMove: (sceneId: string, direction: 'up' | 'down') => void
   onSceneDuplicate: (sceneId: string) => void
   onLineTextChange: (sceneId: string, lineIndex: number, newText: string) => void
+  onLineDelete: (sceneId: string, lineIndex: number) => void
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
   onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
@@ -101,6 +103,7 @@ function SceneCard({
   onSceneMove,
   onSceneDuplicate,
   onLineTextChange,
+  onLineDelete,
   onLineVoiceRegen,
   onLineEmotionChange,
   onImageRegen,
@@ -600,6 +603,17 @@ function SceneCard({
                         >
                           ✏️
                         </button>
+                        <button
+                          className="btn-delete-line"
+                          onClick={() => {
+                            if (scene.lines.length <= 1) return   // keep at least one line
+                            onLineDelete(scene.id, i)
+                          }}
+                          disabled={scene.lines.length <= 1}
+                          title={scene.lines.length <= 1 ? '至少保留一行台詞' : '刪除此行台詞'}
+                        >
+                          🗑️
+                        </button>
                       </div>
                     )}
                     <div className="dialogue-controls">
@@ -675,6 +689,7 @@ export default function SceneOutput({
   onScenesReorder,
   onSceneDuplicate,
   onLineTextChange,
+  onLineDelete,
   onLineVoiceRegen,
   onLineEmotionChange,
   onImageRegen,
@@ -794,6 +809,7 @@ export default function SceneOutput({
             onSceneMove={onSceneMove}
             onSceneDuplicate={onSceneDuplicate}
             onLineTextChange={onLineTextChange}
+            onLineDelete={onLineDelete}
             onLineVoiceRegen={onLineVoiceRegen}
             onLineEmotionChange={onLineEmotionChange}
             onImageRegen={onImageRegen}

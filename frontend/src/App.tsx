@@ -400,6 +400,17 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
+  // Delete a single dialogue line
+  const handleLineDelete = (sceneId: string, lineIndex: number) => {
+    const next = scenes.map(s => {
+      if (s.id !== sceneId) return s
+      const lines = s.lines.filter((_, i) => i !== lineIndex)
+      return { ...s, lines }
+    })
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
+  }
+
   // Re-generate voice for a single line
   const handleLineVoiceRegen = async (sceneId: string, lineIndex: number) => {
     const scene = scenes.find(s => s.id === sceneId)
@@ -780,6 +791,7 @@ export default function App() {
               onScenesReorder={handleScenesReorder}
               onSceneDuplicate={handleSceneDuplicate}
               onLineTextChange={handleLineTextChange}
+              onLineDelete={handleLineDelete}
               onLineVoiceRegen={handleLineVoiceRegen}
               onLineEmotionChange={handleLineEmotionChange}
               onImageRegen={handleImageRegen}
