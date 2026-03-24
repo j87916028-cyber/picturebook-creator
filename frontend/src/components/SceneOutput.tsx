@@ -77,6 +77,8 @@ interface Props {
   onSceneRegen: (sceneId: string, newDescription: string, style: string) => Promise<void>
   onBatchRegenVoice: () => void
   batchRegenStatus: { done: number; total: number } | null
+  onBatchRegenImages: () => void
+  batchImageStatus: { done: number; total: number } | null
 }
 
 interface SceneCardProps {
@@ -825,6 +827,8 @@ export default function SceneOutput({
   onSceneRegen,
   onBatchRegenVoice,
   batchRegenStatus,
+  onBatchRegenImages,
+  batchImageStatus,
 }: Props) {
   const [showPlayback, setShowPlayback] = useState(false)
   const [playbackStartScene, setPlaybackStartScene] = useState(0)
@@ -849,6 +853,7 @@ export default function SceneOutput({
   const missingAudioCount = scenes.reduce(
     (n, s) => n + s.lines.filter(l => l.text && !l.audio_base64).length, 0
   )
+  const missingImageCount = scenes.filter(s => !s.image || s.image === 'error').length
 
   const scrollToScene = (index: number) => {
     sceneRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -861,7 +866,7 @@ export default function SceneOutput({
 
   return (
     <div className="scene-output-panel">
-      {(hasAudio || missingAudioCount > 0) && (
+      {(hasAudio || missingAudioCount > 0 || missingImageCount > 0) && (
         <div className="playbook-bar">
           {hasAudio && (
             <button className="btn-playbook" onClick={() => { setPlaybackStartScene(0); setShowPlayback(true) }}>
@@ -872,7 +877,7 @@ export default function SceneOutput({
             <button
               className="btn-batch-regen"
               onClick={onBatchRegenVoice}
-              disabled={batchRegenStatus !== null}
+              disabled={batchRegenStatus !== null || batchImageStatus !== null}
               title={`補齊 ${missingAudioCount} 條缺失配音`}
             >
               {batchRegenStatus
@@ -880,9 +885,23 @@ export default function SceneOutput({
                 : `🎤 補齊配音（${missingAudioCount}）`}
             </button>
           )}
+          {missingImageCount > 0 && (
+            <button
+              className="btn-batch-regen btn-batch-image"
+              onClick={onBatchRegenImages}
+              disabled={batchImageStatus !== null || batchRegenStatus !== null}
+              title={`補齊 ${missingImageCount} 幕缺失插圖`}
+            >
+              {batchImageStatus
+                ? `🖼️ 插圖中 ${batchImageStatus.done}/${batchImageStatus.total}…`
+                : `🖼️ 補齊插圖（${missingImageCount}）`}
+            </button>
+          )}
           <span className="playbook-hint">
             {batchRegenStatus
               ? `正在生成配音 ${batchRegenStatus.done}/${batchRegenStatus.total}`
+              : batchImageStatus
+              ? `正在生成插圖 ${batchImageStatus.done}/${batchImageStatus.total}`
               : '全螢幕朗讀模式・各幕可單獨播放 ▶'}
           </span>
         </div>

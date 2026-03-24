@@ -1564,6 +1564,10 @@ body {
 }
 .btn-batch-regen:hover:not(:disabled) { opacity: 0.88; }
 .btn-batch-regen:disabled { opacity: 0.65; cursor: default; }
+.btn-batch-image {
+  background: linear-gradient(135deg, #f7971e, #ffd200);
+  color: #3a2800;
+}
 .playbook-hint { font-size: 0.8rem; color: #aab; }
 
 /* ── Playback Modal (full-screen) ─────────────── */

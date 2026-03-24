@@ -60,6 +60,7 @@ export default function App() {
   const [planWarning, setPlanWarning] = useState<'voice' | 'image' | null>(null)
   const voiceDoneRef = useRef(0)
   const [batchRegenStatus, setBatchRegenStatus] = useState<{ done: number; total: number } | null>(null)
+  const [batchImageStatus, setBatchImageStatus] = useState<{ done: number; total: number } | null>(null)
 
   // Project state
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
@@ -718,6 +719,43 @@ export default function App() {
     setTimeout(() => setBatchRegenStatus(null), 1500)
   }
 
+  // Batch-regenerate images for all scenes that are missing or errored
+  const handleBatchRegenImages = async () => {
+    const targets = scenes.filter(s => !s.image || s.image === 'error')
+    if (targets.length === 0) return
+
+    setBatchImageStatus({ done: 0, total: targets.length })
+
+    const imageTasks = targets.map(scene => async () => {
+      const prompt = scene.script.scene_prompt
+      if (!prompt) { setBatchImageStatus(prev => prev ? { ...prev, done: prev.done + 1 } : null); return }
+      setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, image: '' } : s))
+      try {
+        const res = await fetch('/api/generate-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt }),
+        })
+        if (!res.ok) { setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, image: 'error' } : s)); return }
+        const data = await res.json()
+        setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, image: data.url } : s))
+      } catch {
+        setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, image: 'error' } : s))
+      } finally {
+        setBatchImageStatus(prev => prev ? { ...prev, done: prev.done + 1 } : null)
+      }
+    })
+
+    // Image generation is slow; run at most 2 in parallel to respect rate limits
+    await throttled(imageTasks, 2)
+
+    setScenes(prev => {
+      setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, prev, characters) }, 0)
+      return prev
+    })
+    setTimeout(() => setBatchImageStatus(null), 1500)
+  }
+
   // Re-generate entire scene
   const handleSceneRegen = async (sceneId: string, newDescription: string, style: string) => {
     // Snapshot the old scene BEFORE clearing — needed for rollback on failure.
@@ -1116,6 +1154,8 @@ export default function App() {
               onSceneRegen={handleSceneRegen}
               onBatchRegenVoice={handleBatchRegenVoice}
               batchRegenStatus={batchRegenStatus}
+              onBatchRegenImages={handleBatchRegenImages}
+              batchImageStatus={batchImageStatus}
             />
           </div>
         </main>
