@@ -200,6 +200,7 @@ interface Props {
   onBatchRegenImages: () => void
   batchImageStatus: { done: number; total: number } | null
   onLinesReorder: (sceneId: string, newLines: ScriptLine[]) => void
+  onScrollToEditor?: () => void
 }
 
 interface SceneCardProps {
@@ -394,6 +395,9 @@ function SceneCard({
   const handleLineDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
+    // Stop any in-progress audio before reordering so playingIndex stays consistent
+    audioRefs.current.forEach(a => { if (a) { a.pause(); a.currentTime = 0 } })
+    setPlayingIndex(null)
     const oldIndex = parseInt(String(active.id))
     const newIndex = parseInt(String(over.id))
     onLinesReorder(scene.id, arrayMove(scene.lines, oldIndex, newIndex))
@@ -1262,6 +1266,7 @@ export default function SceneOutput({
   onBatchRegenImages,
   batchImageStatus,
   onLinesReorder,
+  onScrollToEditor,
 }: Props) {
   const [showPlayback, setShowPlayback] = useState(false)
   const [playbackStartScene, setPlaybackStartScene] = useState(0)
@@ -1502,6 +1507,14 @@ export default function SceneOutput({
             />
           </div>
         ))
+      )}
+
+      {scenes.length > 0 && onScrollToEditor && viewMode === 'detail' && (
+        <div className="continue-story-bar">
+          <button className="btn-continue-story" onClick={onScrollToEditor}>
+            ✏️ 繼續創作下一幕
+          </button>
+        </div>
       )}
     </div>
   )

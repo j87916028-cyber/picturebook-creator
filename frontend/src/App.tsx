@@ -102,6 +102,7 @@ export default function App() {
   const [editingTitle, setEditingTitle] = useState(false)
   const [editTitleValue, setEditTitleValue] = useState('')
   const editTitleInputRef = useRef<HTMLInputElement>(null)
+  const sceneEditorRef = useRef<HTMLDivElement>(null)
 
   // Close any open dropdown on outside click or Escape
   useEffect(() => {
@@ -1349,17 +1350,19 @@ export default function App() {
           />
 
           <div className="right-panel">
-            <SceneEditor
-              droppedCharacters={droppedCharacters}
-              onRemoveCharacter={removeDropped}
-              onGenerate={handleGenerate}
-              onCancel={handleCancelGeneration}
-              isLoading={isLoading}
-              genStatus={genStatus}
-              sceneCount={scenes.length}
-              onReset={handleReset}
-              storyContext={storyContext}
-            />
+            <div ref={sceneEditorRef}>
+              <SceneEditor
+                droppedCharacters={droppedCharacters}
+                onRemoveCharacter={removeDropped}
+                onGenerate={handleGenerate}
+                onCancel={handleCancelGeneration}
+                isLoading={isLoading}
+                genStatus={genStatus}
+                sceneCount={scenes.length}
+                onReset={handleReset}
+                storyContext={storyContext}
+              />
+            </div>
 
             {error && <div className="error-box">⚠️ {error}</div>}
 
@@ -1459,6 +1462,7 @@ export default function App() {
               onBatchRegenImages={handleBatchRegenImages}
               batchImageStatus={batchImageStatus}
               onLinesReorder={handleLinesReorder}
+              onScrollToEditor={() => sceneEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
             />
           </div>
         </main>
