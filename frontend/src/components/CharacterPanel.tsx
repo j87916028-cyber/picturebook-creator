@@ -169,6 +169,26 @@ function CharacterForm({
   const [form, setForm] = useState<FormState>(initial)
   const [emojiTab, setEmojiTab] = useState(0)
   const [suggestingVisual, setSuggestingVisual] = useState(false)
+  const [suggestingPersonality, setSuggestingPersonality] = useState(false)
+
+  const handleSuggestPersonality = async () => {
+    if (!form.name.trim() || suggestingPersonality) return
+    setSuggestingPersonality(true)
+    try {
+      const res = await fetch('/api/suggest-personality', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: form.name.trim(), emoji: form.emoji }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.personality) {
+        setForm(f => ({ ...f, personality: data.personality.slice(0, 100) }))
+      }
+    } catch {} finally {
+      setSuggestingPersonality(false)
+    }
+  }
 
   const handleSuggestVisual = async () => {
     if (!form.name.trim() || suggestingVisual) return
@@ -233,12 +253,23 @@ function CharacterForm({
       </div>
       <div className="form-row">
         <label>個性描述</label>
-        <input
-          value={form.personality}
-          onChange={e => setForm(f => ({ ...f, personality: e.target.value.slice(0, 100) }))}
-          placeholder="例：膽小但善良"
-          maxLength={100}
-        />
+        <div className="visual-desc-input-wrap">
+          <input
+            value={form.personality}
+            onChange={e => setForm(f => ({ ...f, personality: e.target.value.slice(0, 100) }))}
+            placeholder="例：膽小但善良"
+            maxLength={100}
+          />
+          <button
+            type="button"
+            className="btn-ai-visual"
+            onClick={handleSuggestPersonality}
+            disabled={!form.name.trim() || suggestingPersonality}
+            title={form.name.trim() ? 'AI 自動建議個性描述' : '請先填寫角色名稱'}
+          >
+            {suggestingPersonality ? <span className="spinner-sm" /> : '✨ AI'}
+          </button>
+        </div>
       </div>
       <div className="form-row">
         <label>

@@ -698,6 +698,87 @@ async def suggest_visual_description(req: SuggestVisualRequest, request: Request
     raise HTTPException(status_code=502, detail="外形描述生成失敗")
 
 
+# ── 端點：AI 角色個性描述生成 ─────────────────────────────────
+class SuggestPersonalityRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=30)
+    emoji: str = Field("", max_length=10)
+    style: str = Field("溫馨童趣", max_length=20)
+
+
+@app.post("/api/suggest-personality")
+async def suggest_personality(req: SuggestPersonalityRequest, request: Request):
+    """Generate a Chinese personality description for a character."""
+    if not _rl_suggest.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+    if not MINIMAX_API_KEY and not GROQ_API_KEY:
+        raise HTTPException(status_code=503, detail="服務未設定")
+
+    prompt = (
+        f"你是台灣兒童繪本作家。為以下角色設計一段個性描述（繁體中文）。\n\n"
+        f"角色名稱：{req.name} {req.emoji}\n"
+        f"故事風格：{req.style}\n\n"
+        "請寫出這個角色的個性特質，10-30 字，生動有趣，適合兒童繪本。"
+        "只輸出個性描述，不要任何多餘文字、標點符號結尾或引號。"
+    )
+
+    def _clean(raw: str) -> str:
+        cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+        return cleaned.strip("\"'。").strip()[:100]
+
+    async def _call_groq() -> str:
+        resp = await _http_client.post(
+            GROQ_CHAT_URL,
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": "llama-3.1-8b-instant",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.8,
+                "max_tokens": 80,
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
+        return _clean(resp.json()["choices"][0]["message"].get("content", ""))
+
+    async def _call_minimax() -> str:
+        resp = await _http_client.post(
+            f"{MINIMAX_BASE}/chat/completions",
+            headers=MINIMAX_HEADERS,
+            json={
+                "model": "MiniMax-M2.7",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.8,
+                "max_tokens": 80,
+            },
+            timeout=30,
+        )
+        resp.raise_for_status()
+        raw = resp.json()["choices"][0]["message"].get("content", "")
+        if isinstance(raw, list):
+            raw = " ".join(b.get("text", "") for b in raw if b.get("type") == "text")
+        return _clean(str(raw))
+
+    if GROQ_API_KEY:
+        try:
+            personality = await _call_groq()
+            if personality:
+                logger.info("suggest-personality via Groq: %s", personality)
+                return {"personality": personality}
+        except Exception as e:
+            logger.warning("suggest-personality Groq failed: %s", e)
+
+    if MINIMAX_API_KEY:
+        try:
+            personality = await _call_minimax()
+            if personality:
+                logger.info("suggest-personality via MiniMax: %s", personality)
+                return {"personality": personality}
+        except Exception as e:
+            logger.warning("suggest-personality MiniMax failed: %s", e)
+
+    raise HTTPException(status_code=502, detail="個性描述生成失敗")
+
+
 # ── 端點：下一幕靈感建議 ──────────────────────────────────────
 class SuggestNextSceneRequest(BaseModel):
     characters: Annotated[List[Character], Field(min_length=1, max_length=6)]
