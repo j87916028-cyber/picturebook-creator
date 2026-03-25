@@ -2407,13 +2407,53 @@ def _export_pdf(project_name: str, scenes: list, char_color_map: dict | None = N
         else:
             pdf.set_font("Helvetica", style=style, size=size)
 
-    # Cover page
+    # ── Cover page ───────────────────────────────────────────────────────
     pdf.add_page()
+
+    # Title — centred vertically in the top half of the page
     set_font_safe(28, "B")
-    pdf.set_y(100)
+    pdf.set_y(90)
     pdf.cell(0, 14, project_name, align="C", new_x="LMARGIN", new_y="NEXT")
+
     set_font_safe(12)
-    pdf.cell(0, 10, "繪本有聲書", align="C")
+    pdf.cell(0, 10, "繪本有聲書", align="C", new_x="LMARGIN", new_y="NEXT")
+
+    # ── Story metadata ──────────────────────────────────────────────────
+    total_lines = sum(len(s.get("lines", [])) for s in scenes)
+    set_font_safe(10)
+    pdf.set_text_color(120, 120, 120)
+    pdf.ln(6)
+    pdf.cell(0, 7, f"共 {len(scenes)} 幕  ·  {total_lines} 句台詞", align="C",
+             new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(0, 0, 0)
+
+    # ── Character list ──────────────────────────────────────────────────
+    # Build name list from char_color_map keys; fallback to scanning scenes.
+    char_names: list[str] = list(char_color_map.keys()) if char_color_map else []
+    if not char_names:
+        seen: set[str] = set()
+        for s in scenes:
+            for ln in s.get("lines", []):
+                n = ln.get("character_name", "")
+                if n and n not in seen:
+                    seen.add(n)
+                    char_names.append(n)
+    if char_names:
+        pdf.ln(4)
+        set_font_safe(9)
+        pdf.set_text_color(100, 100, 100)
+        char_line = "角色：" + "、".join(char_names[:8])
+        if len(char_names) > 8:
+            char_line += f" 等 {len(char_names)} 位"
+        pdf.cell(0, 7, char_line, align="C", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_text_color(0, 0, 0)
+
+    # ── Footer note ─────────────────────────────────────────────────────
+    set_font_safe(8)
+    pdf.set_text_color(180, 180, 180)
+    pdf.set_y(-20)
+    pdf.cell(0, 5, "由「繪本有聲書創作工坊」匯出", align="C")
+    pdf.set_text_color(0, 0, 0)
 
     # Scene pages
     for i, scene in enumerate(scenes):
