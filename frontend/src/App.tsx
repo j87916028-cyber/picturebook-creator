@@ -963,13 +963,24 @@ export default function App() {
     const sceneIndex = scenes.findIndex(s => s.id === sceneId)
     const storyContext = buildStoryContext(scenes, sceneIndex)
 
+    // Determine which characters to send for regen:
+    // 1. If the user has characters in the drop zone, use those (explicit intent).
+    // 2. Otherwise reconstruct from the original scene's lines — avoids injecting
+    //    unrelated characters that happen to exist in the character list.
+    // 3. Final fallback: all characters (e.g. when original lines are empty).
+    const sceneCharIds = new Set(oldScene.lines.map(l => l.character_id).filter(Boolean))
+    const sceneChars = characters.filter(c => sceneCharIds.has(c.id))
+    const charsForRegen = droppedCharacters.length > 0 ? droppedCharacters
+      : sceneChars.length > 0 ? sceneChars
+      : characters
+
     try {
       const scriptRes = await fetch('/api/generate-script', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           scene_description: newDescription,
-          characters: droppedCharacters.length > 0 ? droppedCharacters : characters,
+          characters: charsForRegen,
           style,
           story_context: storyContext,
           line_length: effectiveLineLength,
