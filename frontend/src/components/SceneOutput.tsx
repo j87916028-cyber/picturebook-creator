@@ -251,6 +251,8 @@ function SceneCard({
   const [playingIndex, setPlayingIndex] = useState<number | null>(null)
   const [playProgress, setPlayProgress] = useState(0)  // 0–100 percent
   const audioRefs = useRef<(HTMLAudioElement | null)[]>([])
+  const linesLengthRef = useRef(scene.lines.length)
+  const playLineRef = useRef<((i: number) => void) | null>(null)
 
   // Attach timeupdate listener whenever the active line changes
   useEffect(() => {
@@ -328,6 +330,9 @@ function SceneCard({
     return () => window.removeEventListener('keydown', handler)
   }, [expandedImage])
 
+  // Keep linesLengthRef current so onended always sees the latest count
+  useEffect(() => { linesLengthRef.current = scene.lines.length }, [scene.lines.length])
+
   const playLine = useCallback((index: number) => {
     audioRefs.current.forEach((a, i) => {
       if (a && i !== index) { a.pause(); a.currentTime = 0 }
@@ -343,13 +348,16 @@ function SceneCard({
       audio.play()
       audio.onended = () => {
         setPlayingIndex(null)
-        if (index + 1 < scene.lines.length) {
-          setTimeout(() => playLine(index + 1), 300)
+        if (index + 1 < linesLengthRef.current) {
+          setTimeout(() => playLineRef.current?.(index + 1), 300)
         }
       }
       return index
     })
-  }, [scene.lines])
+  }, [])
+
+  // Always point the ref at the latest playLine (stable identity, so this is just a formality)
+  playLineRef.current = playLine
 
   const playAll = () => {
     if (scene.lines.length > 0) playLine(0)
