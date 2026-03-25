@@ -1265,6 +1265,21 @@ body {
   text-overflow: ellipsis;
 }
 
+.btn-duplicate-project {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: #bbb;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+.btn-duplicate-project:hover:not(:disabled) { color: #667eea; background: #eef0ff; }
+.btn-duplicate-project:disabled { opacity: 0.4; cursor: default; }
+
 .btn-delete-project {
   flex-shrink: 0;
   background: none;

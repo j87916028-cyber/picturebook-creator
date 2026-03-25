@@ -28,6 +28,7 @@ export default function ProjectPanel({
   const editInputRef = useRef<HTMLInputElement>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
 
   const fetchProjects = async () => {
     try {
@@ -105,6 +106,19 @@ export default function ProjectPanel({
     setEditName(name)
   }
 
+  const handleDuplicate = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    if (duplicatingId) return
+    setDuplicatingId(id)
+    try {
+      const res = await fetch(`/api/projects/${id}/duplicate`, { method: 'POST' })
+      if (!res.ok) return
+      await fetchProjects()
+    } catch {} finally {
+      setDuplicatingId(null)
+    }
+  }
+
   const commitEdit = async (id: string) => {
     const trimmed = editName.trim()
     if (!trimmed) { setEditingId(null); return }
@@ -175,6 +189,12 @@ export default function ProjectPanel({
                 {p.scene_count} 幕・{formatDate(p.updated_at)}
               </span>
             </div>
+            <button
+              className="btn-duplicate-project"
+              onClick={e => handleDuplicate(e, p.id)}
+              disabled={!!duplicatingId}
+              title="複製此作品"
+            >{duplicatingId === p.id ? <span className="spinner-sm" /> : '📋'}</button>
             <button
               className={`btn-delete-project${confirmDeleteId === p.id ? ' confirm' : ''}`}
               onClick={e => handleDelete(e, p.id)}

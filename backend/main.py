@@ -1963,6 +1963,77 @@ async def create_project(req: CreateProjectRequest, request: Request):
     }
 
 
+# ── POST /api/projects/{project_id}/duplicate ─────────────────
+@app.post("/api/projects/{project_id}/duplicate", status_code=201)
+async def duplicate_project(project_id: str, request: Request):
+    """Deep-copy a project: all scenes, characters, images, and cover thumbnail."""
+    if not _rl_project.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+    _db_required()
+    _validate_uuid(project_id)
+
+    def _to_json(v: Any) -> str:
+        return v if isinstance(v, str) else json.dumps(v or [], ensure_ascii=False)
+
+    async with _db_pool.acquire() as conn:
+        proj = await conn.fetchrow(
+            "SELECT name, characters, cover_image FROM projects WHERE id = $1",
+            project_id,
+        )
+        if proj is None:
+            raise HTTPException(status_code=404, detail="專案不存在")
+
+        scene_rows = await conn.fetch(
+            "SELECT idx, description, style, line_length, script, lines, image "
+            "FROM scenes WHERE project_id = $1 ORDER BY idx",
+            project_id,
+        )
+
+        new_name = f"副本 - {proj['name']}"[:100]
+
+        async with conn.transaction():
+            new_proj = await conn.fetchrow(
+                """
+                INSERT INTO projects (name, characters, cover_image)
+                VALUES ($1, $2::jsonb, $3)
+                RETURNING id, name, created_at, updated_at
+                """,
+                new_name,
+                _to_json(proj["characters"]),
+                proj["cover_image"],
+            )
+            new_id = new_proj["id"]
+
+            if scene_rows:
+                await conn.executemany(
+                    """
+                    INSERT INTO scenes
+                      (project_id, idx, description, style, line_length, script, lines, image)
+                    VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8)
+                    """,
+                    [
+                        (
+                            new_id,
+                            row["idx"],
+                            row["description"],
+                            row["style"],
+                            row["line_length"] or "standard",
+                            _to_json(row["script"]),
+                            _to_json(row["lines"]),
+                            row["image"],
+                        )
+                        for row in scene_rows
+                    ],
+                )
+
+    return {
+        "id": str(new_proj["id"]),
+        "name": new_name,
+        "created_at": new_proj["created_at"].isoformat(),
+        "updated_at": new_proj["updated_at"].isoformat(),
+    }
+
+
 # ── GET /api/projects/{project_id} ───────────────────────────
 @app.get("/api/projects/{project_id}")
 async def get_project(project_id: str, request: Request):
