@@ -592,6 +592,12 @@ function SceneCard({
               約 {Math.floor(sceneSecs / 60)}:{String(sceneSecs % 60).padStart(2, '0')}
             </span>
           )}
+          {scene.line_length === 'short' && (
+            <span className="scene-length-badge scene-length-short" title="幼兒模式（≤12字/句）">👶 幼兒</span>
+          )}
+          {scene.line_length === 'long' && (
+            <span className="scene-length-badge scene-length-long" title="進階模式（≤35字/句）">🧒 進階</span>
+          )}
         </span>
         {editingDesc ? (
           <input

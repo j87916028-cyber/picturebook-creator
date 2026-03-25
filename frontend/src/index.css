@@ -1267,6 +1267,23 @@ body {
   padding: 1px 7px;
   letter-spacing: 0.02em;
 }
+.scene-length-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 1px 7px;
+  letter-spacing: 0.02em;
+}
+.scene-length-short {
+  color: #d97706;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+}
+.scene-length-long {
+  color: #0369a1;
+  background: #f0f9ff;
+  border: 1px solid #7dd3fc;
+}
 .scene-desc-wrap {
   display: flex;
   align-items: center;
