@@ -1190,11 +1190,7 @@ export default function App() {
     const audioPct    = totalLines > 0 ? Math.round((audioLines / totalLines) * 100) : 0
     const totalChars  = scenes.reduce((n, s) => n + s.lines.reduce((m, l) => m + l.text.length, 0), 0)
     const readMinutes = totalChars > 0 ? Math.max(1, Math.round(totalChars / 200)) : 0
-    const charLineCounts: Record<string, number> = {}
-    scenes.forEach(s => s.lines.forEach(l => {
-      if (l.character_id) charLineCounts[l.character_id] = (charLineCounts[l.character_id] ?? 0) + 1
-    }))
-    return { totalLines, audioLines, imagesDone, audioPct, totalChars, readMinutes, charLineCounts }
+    return { totalLines, audioLines, imagesDone, audioPct, totalChars, readMinutes }
   }, [scenes])
 
   return (
@@ -1395,10 +1391,10 @@ export default function App() {
             )}
 
             {storyStats && (() => {
-              const { totalLines, audioLines, imagesDone, audioPct, totalChars, readMinutes, charLineCounts } = storyStats
+              const { totalLines, audioLines, imagesDone, audioPct, totalChars, readMinutes } = storyStats
               const activeChars = characters
-                .filter(c => (charLineCounts[c.id] ?? 0) > 0)
-                .sort((a, b) => (charLineCounts[b.id] ?? 0) - (charLineCounts[a.id] ?? 0))
+                .filter(c => (lineCountsByCharId[c.id] ?? 0) > 0)
+                .sort((a, b) => (lineCountsByCharId[b.id] ?? 0) - (lineCountsByCharId[a.id] ?? 0))
               return (
                 <>
                   <div className="story-stats-strip">
@@ -1437,7 +1433,7 @@ export default function App() {
                     <div className="char-balance-strip">
                       <span className="char-balance-label">台詞比重</span>
                       {activeChars.map(c => {
-                        const count = charLineCounts[c.id] ?? 0
+                        const count = lineCountsByCharId[c.id] ?? 0
                         const pct   = Math.round((count / totalLines) * 100)
                         return (
                           <div key={c.id} className="char-balance-item" title={`${c.name}：${count} 句（${pct}%）`}>
