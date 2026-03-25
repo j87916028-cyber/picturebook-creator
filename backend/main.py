@@ -3119,13 +3119,17 @@ def _export_mp3_zip(project_name: str, scenes: list) -> bytes:
                 char_name = line.get("character_name", "")
                 text = line.get("text", "")
                 audio_b64 = line.get("audio_base64")
+                # audio_format is "mp3" for iFlytek/Edge TTS and "wav" for Groq Orpheus fallback.
+                # Using the wrong extension (e.g. ".mp3" for a WAV file) causes playback failures
+                # in media players that trust the file extension over the stream header.
+                audio_fmt = (line.get("audio_format") or "mp3").lower()
                 readme_lines.append(f"  行{j+1:02d} {char_name}：{text}")
                 if audio_b64:
                     try:
                         audio_bytes = base64.b64decode(audio_b64)
                         # Sanitise char_name for filename
                         safe_name = re.sub(r'[\\/:*?"<>|]', "_", char_name)
-                        filename = f"{folder}/{folder}_行{j+1:02d}_{safe_name}.mp3"
+                        filename = f"{folder}/{folder}_行{j+1:02d}_{safe_name}.{audio_fmt}"
                         zf.writestr(filename, audio_bytes)
                         has_any_audio = True
                     except Exception as e:
