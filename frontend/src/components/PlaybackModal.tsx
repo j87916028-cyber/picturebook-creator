@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { Scene, Character } from '../types'
 
 const EMOTION_LABELS: Record<string, string> = {
@@ -44,7 +44,8 @@ function buildPlaylist(scenes: Scene[]): PlayItem[] {
 }
 
 export default function PlaybackModal({ scenes, characters, onClose, initialSceneIdx = 0 }: Props) {
-  const playlist = buildPlaylist(scenes)
+  // Memoize so goToScene / keyboard effect don't re-run on every timeupdate render
+  const playlist = useMemo(() => buildPlaylist(scenes), [scenes])
 
   // Find the first playlist entry at or after the requested scene
   const startCursor = (() => {
