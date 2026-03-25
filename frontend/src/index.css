@@ -1676,6 +1676,15 @@ body {
   box-shadow: 0 6px 20px rgba(102,126,234,0.35);
   border-color: #667eea;
 }
+.scene-nav-chip.active {
+  border-color: #e94560;
+  background: linear-gradient(135deg, #fff0f3 0%, #ffe4ea 100%);
+  box-shadow: 0 2px 10px rgba(233,69,96,0.22);
+}
+.scene-nav-chip.active .scene-nav-num {
+  color: #e94560;
+  font-weight: 700;
+}
 .scene-nav-drag-handle {
   cursor: grab;
   color: #bbb;

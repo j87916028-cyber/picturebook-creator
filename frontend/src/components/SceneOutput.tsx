@@ -32,10 +32,12 @@ const EMOTION_LABELS: Record<string, string> = {
 function SortableNavChip({
   scene,
   index,
+  isActive,
   onClick,
 }: {
   scene: Scene
   index: number
+  isActive: boolean
   onClick: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: scene.id })
@@ -58,7 +60,7 @@ function SortableNavChip({
   return (
     <div
       ref={setNodeRef}
-      className={`scene-nav-chip${isDragging ? ' dragging' : ''}`}
+      className={`scene-nav-chip${isDragging ? ' dragging' : ''}${isActive ? ' active' : ''}`}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       {...attributes}
     >
@@ -1099,6 +1101,33 @@ export default function SceneOutput({
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([])
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
+  // Track which scene card is currently in view to highlight the nav chip
+  const [activeSceneId, setActiveSceneId] = useState<string | null>(null)
+  const intersectingIdsRef = useRef(new Set<string>())
+  useEffect(() => {
+    if (scenes.length < 2) { setActiveSceneId(null); return }
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        const id = (e.target as HTMLElement).dataset.sceneId
+        if (!id) return
+        if (e.isIntersecting) intersectingIdsRef.current.add(id)
+        else intersectingIdsRef.current.delete(id)
+      })
+      // Highlight the topmost visible scene (first in scenes array order)
+      const activeId = scenes.find(s => intersectingIdsRef.current.has(s.id))?.id ?? null
+      setActiveSceneId(activeId)
+    }, { rootMargin: '-80px 0px -75% 0px', threshold: 0 })
+
+    intersectingIdsRef.current.clear()
+    sceneRefs.current.forEach((ref, i) => {
+      if (ref && scenes[i]) {
+        ref.dataset.sceneId = scenes[i].id
+        observer.observe(ref)
+      }
+    })
+    return () => { observer.disconnect(); intersectingIdsRef.current.clear() }
+  }, [scenes])
+
   // Auto-scroll to newly added scene (length increase only, not on initial load)
   const prevSceneCountRef = useRef(scenes.length)
   useEffect(() => {
@@ -1194,6 +1223,7 @@ export default function SceneOutput({
                     key={scene.id}
                     scene={scene}
                     index={i}
+                    isActive={scene.id === activeSceneId}
                     onClick={() => scrollToScene(i)}
                   />
                 ))}
