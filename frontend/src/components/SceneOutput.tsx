@@ -186,6 +186,7 @@ function SceneCard({
   const [rephraseSuggestions, setRephraseSuggestions] = useState<string[]>([])
   const [regenImage, setRegenImage] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null)
   const imageUploadRef = useRef<HTMLInputElement>(null)
   const [showPromptEdit, setShowPromptEdit] = useState(false)
   const [editedPrompt, setEditedPrompt] = useState(scene.script.scene_prompt || '')
@@ -379,8 +380,9 @@ function SceneCard({
     const file = e.target.files?.[0]
     if (imageUploadRef.current) imageUploadRef.current.value = ''
     if (!file) return
+    setImageUploadError(null)
     if (file.size > 4 * 1024 * 1024) {
-      alert('圖片檔案請勿超過 4 MB')
+      setImageUploadError('圖片檔案請勿超過 4 MB')
       return
     }
     setUploadingImage(true)
@@ -496,6 +498,9 @@ function SceneCard({
         >
           {uploadingImage ? <><span className="spinner-sm" /> 載入中...</> : '📁 上傳插圖'}
         </button>
+        {imageUploadError && (
+          <span className="image-upload-error">{imageUploadError}</span>
+        )}
         {scene.image && (
           <button
             className="btn-scene-action btn-download-image"

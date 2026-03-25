@@ -1235,6 +1235,12 @@ body {
   color: #b7830a;
 }
 
+.image-upload-error {
+  font-size: 0.78rem;
+  color: #e53e3e;
+  align-self: center;
+}
+
 .btn-scene-delete {
   border-color: #ffcdd2;
   color: #e57373;
