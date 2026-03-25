@@ -56,6 +56,8 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
   const [cursor, setCursor] = useState(startCursor)  // index into playlist
   const [playing, setPlaying] = useState(true)
   const [speed, setSpeed] = useState(1.0)
+  const [loop, setLoop] = useState(false)
+  const loopRef = useRef(false)
   const [showHelp, setShowHelp] = useState(false)
   const [audioProgress, setAudioProgress] = useState(0)   // 0–100 within current line
   const [audioDuration, setAudioDuration] = useState(0)   // seconds
@@ -165,10 +167,16 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
     activeLineRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [cursor])
 
-  // Auto-advance when audio ends
+  // Keep loopRef in sync so handleEnded always reads the latest value
+  useEffect(() => { loopRef.current = loop }, [loop])
+
+  // Auto-advance when audio ends; restart from beginning when loop is on
   const handleEnded = useCallback(() => {
     if (cursor < playlist.length - 1) {
       setCursor(c => c + 1)
+    } else if (loopRef.current) {
+      setCursor(0)
+      setPlaying(true)
     } else {
       setPlaying(false)
     }
@@ -184,6 +192,7 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
       else if (e.key === 'PageDown') { e.preventDefault(); if (current) goToScene(current.sceneIdx + 1) }
       else if (e.key === 'PageUp')   { e.preventDefault(); if (current) goToScene(current.sceneIdx - 1) }
       else if (e.key === 'f' || e.key === 'F') toggleFullscreen()
+      else if (e.key === 'L') setLoop(v => !v)
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -243,6 +252,7 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
                 <tr><td><kbd>PageDown</kbd></td><td>跳至下一幕</td></tr>
                 <tr><td><kbd>PageUp</kbd></td><td>跳至上一幕</td></tr>
                 <tr><td><kbd>F</kbd></td><td>全螢幕切換</td></tr>
+                <tr><td><kbd>Shift+L</kbd></td><td>循環播放切換</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>關閉播放器</td></tr>
               </tbody>
             </table>
@@ -385,7 +395,7 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
           </div>
         </div>
 
-        {/* Speed control */}
+        {/* Speed + Loop controls */}
         <div className="playback-speed-row">
           <span className="playback-speed-label">播放速度</span>
           <div className="playback-speed-btns">
@@ -400,6 +410,13 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
               </button>
             ))}
           </div>
+          <button
+            className={`playback-loop-btn${loop ? ' active' : ''}`}
+            onClick={() => setLoop(v => !v)}
+            title={loop ? '關閉循環播放 (Shift+L)' : '開啟循環播放 (Shift+L)'}
+          >
+            🔁
+          </button>
         </div>
       </div>
     </div>
