@@ -305,11 +305,11 @@ function SceneCard({
 
   const handleStartEditLine = (index: number, text: string) => {
     setEditingLineIndex(index)
-    setEditLineText(text)
+    setEditLineText(text.slice(0, 200))
   }
 
   const handleConfirmEditLine = async (index: number) => {
-    const newText = editLineText.trim()
+    const newText = editLineText.trim().slice(0, 200)
     if (!newText) return
     // Close edit form immediately, then show voice-loading while regen runs
     setEditingLineIndex(null)
@@ -788,10 +788,14 @@ function SceneCard({
                         <textarea
                           className="line-edit-textarea"
                           value={editLineText}
-                          onChange={e => { setEditLineText(e.target.value); setRephraseSuggestions([]) }}
+                          onChange={e => { setEditLineText(e.target.value.slice(0, 200)); setRephraseSuggestions([]) }}
+                          maxLength={200}
                           rows={2}
                           autoFocus
                         />
+                        <p className="line-char-count" style={{ color: editLineText.length >= 180 ? '#e53e3e' : editLineText.length >= 150 ? '#e07b00' : '#bbb' }}>
+                          {editLineText.length} / 200
+                        </p>
                         <div className="line-edit-btns">
                           <button
                             className="btn-scene-action"
@@ -843,7 +847,7 @@ function SceneCard({
                               <button
                                 key={si}
                                 className="rephrase-chip"
-                                onClick={() => { setEditLineText(s); setRephraseSuggestions([]) }}
+                                onClick={() => { setEditLineText(s.slice(0, 200)); setRephraseSuggestions([]) }}
                                 title="點擊套用此版本"
                               >{s}</button>
                             ))}

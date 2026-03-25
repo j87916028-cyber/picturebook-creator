@@ -1394,6 +1394,12 @@ body {
   line-height: 1.5;
 }
 .line-edit-textarea:focus { border-color: #764ba2; }
+.line-char-count {
+  font-size: 0.72rem;
+  text-align: right;
+  margin-top: -2px;
+  line-height: 1;
+}
 
 .line-edit-btns {
   display: flex;
