@@ -17,6 +17,7 @@ function resolveImgSrc(image: string): string {
 }
 
 const STYLES = ['溫馨童趣', '奇幻冒險', '搞笑幽默', '感動溫情', '懸疑神秘']
+const IMAGE_STYLES = ['水彩繪本', '粉彩卡通', '鉛筆素描', '宮崎駿風', '3D 卡通']
 
 const EMOTION_LABELS: Record<string, string> = {
   happy:     '😄 開心',
@@ -202,7 +203,7 @@ interface Props {
   onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
   onImageUpload: (sceneId: string, dataUrl: string) => void
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
-  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string) => Promise<void>
+  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string) => Promise<void>
   onBatchRegenVoice: () => void
   batchRegenStatus: { done: number; total: number } | null
   onBatchRegenImages: () => void
@@ -231,7 +232,7 @@ interface SceneCardProps {
   onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
   onImageUpload: (sceneId: string, dataUrl: string) => void
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
-  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string) => Promise<void>
+  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string) => Promise<void>
   onPlayFromScene: (sceneIndex: number) => void
   onLinesReorder: (sceneId: string, newLines: ScriptLine[]) => void
 }
@@ -336,6 +337,9 @@ function SceneCard({
   const [regenStyle, setRegenStyle] = useState(scene.style)
   const [regenLineLength, setRegenLineLength] = useState<'short' | 'standard' | 'long'>(
     (scene.line_length as 'short' | 'standard' | 'long') || 'standard'
+  )
+  const [regenImageStyle, setRegenImageStyle] = useState<string>(
+    () => localStorage.getItem('scene_image_style') || '水彩繪本'
   )
   const [regenLoading, setRegenLoading] = useState(false)
   const [regenError, setRegenError] = useState<string | null>(null)
@@ -556,7 +560,7 @@ function SceneCard({
     setRegenLoading(true)
     setRegenError(null)
     try {
-      await onSceneRegen(scene.id, regenDesc.trim(), regenStyle, regenLineLength)
+      await onSceneRegen(scene.id, regenDesc.trim(), regenStyle, regenLineLength, regenImageStyle)
       setShowRegenForm(false)
     } catch (e) {
       setRegenError(e instanceof Error ? e.message : '重新生成失敗，請稍後重試')
@@ -849,6 +853,19 @@ function SceneCard({
                   onClick={() => setRegenLineLength(opt.value)}
                   type="button"
                 >{opt.label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="style-row" style={{ marginTop: '6px' }}>
+            <label style={{ fontSize: '0.8rem', color: '#888', whiteSpace: 'nowrap' }}>插圖風格</label>
+            <div className="style-buttons">
+              {IMAGE_STYLES.map(s => (
+                <button
+                  key={s}
+                  className={`style-btn ${regenImageStyle === s ? 'active' : ''}`}
+                  onClick={() => setRegenImageStyle(s)}
+                  type="button"
+                >{s}</button>
               ))}
             </div>
           </div>
