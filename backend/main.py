@@ -612,6 +612,92 @@ async def generate_title(req: GenerateTitleRequest, request: Request):
 
     raise HTTPException(status_code=502, detail="書名生成失敗")
 
+
+# ── 端點：AI 角色外形描述生成 ─────────────────────────────────
+class SuggestVisualRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=30)
+    personality: str = Field("", max_length=100)
+    emoji: str = Field("", max_length=10)
+    style: str = Field("溫馨童趣", max_length=20)
+
+
+@app.post("/api/suggest-visual-description")
+async def suggest_visual_description(req: SuggestVisualRequest, request: Request):
+    """Generate an English visual description for a character suitable for image generation."""
+    if not _rl_suggest.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+    if not MINIMAX_API_KEY and not GROQ_API_KEY:
+        raise HTTPException(status_code=503, detail="服務未設定")
+
+    prompt = (
+        f"Generate a concise English visual description for a children's picture book character.\n\n"
+        f"Character name: {req.name} {req.emoji}\n"
+        f"Personality: {req.personality or 'friendly'}\n"
+        f"Story style: {req.style}\n\n"
+        "Write ONE sentence (15-40 words) describing only the character's appearance: "
+        "species/type, physical features, clothing, and color scheme. "
+        "Keep it vivid, specific, and suitable for an AI image generator. "
+        "Output the description only, no quotes, no extra text."
+    )
+
+    def _clean(raw: str) -> str:
+        cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+        return cleaned.strip("\"'")[:200]
+
+    async def _call_groq() -> str:
+        resp = await _http_client.post(
+            GROQ_CHAT_URL,
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": "llama-3.1-8b-instant",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.7,
+                "max_tokens": 100,
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
+        return _clean(resp.json()["choices"][0]["message"].get("content", ""))
+
+    async def _call_minimax() -> str:
+        resp = await _http_client.post(
+            f"{MINIMAX_BASE}/chat/completions",
+            headers=MINIMAX_HEADERS,
+            json={
+                "model": "MiniMax-M2.7",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.7,
+                "max_tokens": 100,
+            },
+            timeout=30,
+        )
+        resp.raise_for_status()
+        raw = resp.json()["choices"][0]["message"].get("content", "")
+        if isinstance(raw, list):
+            raw = " ".join(b.get("text", "") for b in raw if b.get("type") == "text")
+        return _clean(str(raw))
+
+    if GROQ_API_KEY:
+        try:
+            desc = await _call_groq()
+            if desc:
+                logger.info("suggest-visual via Groq: %s", desc[:80])
+                return {"description": desc}
+        except Exception as e:
+            logger.warning("suggest-visual Groq failed: %s", e)
+
+    if MINIMAX_API_KEY:
+        try:
+            desc = await _call_minimax()
+            if desc:
+                logger.info("suggest-visual via MiniMax: %s", desc[:80])
+                return {"description": desc}
+        except Exception as e:
+            logger.warning("suggest-visual MiniMax failed: %s", e)
+
+    raise HTTPException(status_code=502, detail="外形描述生成失敗")
+
+
 # ── 端點：下一幕靈感建議 ──────────────────────────────────────
 class SuggestNextSceneRequest(BaseModel):
     characters: Annotated[List[Character], Field(min_length=1, max_length=6)]

@@ -220,6 +220,26 @@ body {
 
 .form-row { display: flex; flex-direction: column; gap: 4px; }
 .form-row label { font-size: 0.75rem; color: #888; font-weight: 600; }
+.visual-desc-input-wrap { display: flex; gap: 6px; align-items: center; }
+.visual-desc-input-wrap input { flex: 1; min-width: 0; }
+.btn-ai-visual {
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.btn-ai-visual:hover:not(:disabled) { opacity: 0.85; }
+.btn-ai-visual:disabled { opacity: 0.4; cursor: default; }
 .form-row input, .form-row select {
   border: 1.5px solid #e0e0e0;
   border-radius: 8px;

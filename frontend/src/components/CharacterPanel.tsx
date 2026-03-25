@@ -166,6 +166,30 @@ function CharacterForm({
 }) {
   const [form, setForm] = useState<FormState>(initial)
   const [emojiTab, setEmojiTab] = useState(0)
+  const [suggestingVisual, setSuggestingVisual] = useState(false)
+
+  const handleSuggestVisual = async () => {
+    if (!form.name.trim() || suggestingVisual) return
+    setSuggestingVisual(true)
+    try {
+      const res = await fetch('/api/suggest-visual-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          personality: form.personality.trim(),
+          emoji: form.emoji,
+        }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.description) {
+        setForm(f => ({ ...f, visual_description: data.description.slice(0, 200) }))
+      }
+    } catch {} finally {
+      setSuggestingVisual(false)
+    }
+  }
 
   return (
     <div className="add-form">
@@ -219,12 +243,23 @@ function CharacterForm({
           外形描述
           <span style={{ fontSize: '0.7rem', color: '#aaa', marginLeft: 4 }}>（影響插圖一致性）</span>
         </label>
-        <input
-          value={form.visual_description}
-          onChange={e => setForm(f => ({ ...f, visual_description: e.target.value.slice(0, 200) }))}
-          placeholder="例：白色小兔，穿粉紅圍裙，有長耳朵"
-          maxLength={200}
-        />
+        <div className="visual-desc-input-wrap">
+          <input
+            value={form.visual_description}
+            onChange={e => setForm(f => ({ ...f, visual_description: e.target.value.slice(0, 200) }))}
+            placeholder="例：white rabbit in pink apron, long ears..."
+            maxLength={200}
+          />
+          <button
+            type="button"
+            className="btn-ai-visual"
+            onClick={handleSuggestVisual}
+            disabled={!form.name.trim() || suggestingVisual}
+            title={form.name.trim() ? 'AI 自動生成英文外形描述' : '請先填寫角色名稱'}
+          >
+            {suggestingVisual ? <span className="spinner-sm" /> : '✨ AI'}
+          </button>
+        </div>
       </div>
       <div className="form-row">
         <label>角色顏色</label>
