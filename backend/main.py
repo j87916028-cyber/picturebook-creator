@@ -1476,7 +1476,11 @@ def _generate_scene_image_pillow(prompt: str, width: int = 800, height: int = 60
         raise RuntimeError("Pillow not installed")
 
     p   = prompt.lower()
-    rng = random.Random(hash(prompt) & 0xFFFFFF)
+    # Use a stable, PYTHONHASHSEED-independent seed so the same prompt always
+    # produces the same fallback image across container restarts.
+    # Python's built-in hash() is randomised by default (PYTHONHASHSEED), which
+    # would generate a different image on every deploy for the same scene.
+    rng = random.Random(int(hashlib.md5(prompt.encode()).hexdigest()[:8], 16))
 
     # ── scene detection ───────────────────────────────────────────────
     is_night  = any(w in p for w in ['night', 'moon', '夜', '晚', '星', 'star', 'dark'])
