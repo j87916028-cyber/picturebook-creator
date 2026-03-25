@@ -328,6 +328,16 @@ _LINE_LENGTH_RULES = {
     "long":     "- 台詞可長達 35 字/句，可使用較豐富的描述與詞彙",
 }
 
+# Maps Chinese art-style names (sent from the frontend) to English equivalents
+# used inside the English scene_prompt instruction sent to image generation APIs.
+_IMAGE_STYLE_EN: dict[str, str] = {
+    "水彩繪本": "watercolor children's book illustration",
+    "粉彩卡通": "pastel cartoon illustration",
+    "鉛筆素描": "pencil sketch illustration",
+    "宮崎駿風": "Studio Ghibli inspired anime style",
+    "3D 卡通":  "3D cartoon animation style",
+}
+
 
 def _xfyun_auth_url() -> str:
     """Build HMAC-SHA256 signed WebSocket URL for iFlytek TTS API."""
@@ -451,7 +461,6 @@ class GenerateVoiceRequest(BaseModel):
 
 class GenerateImageRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=1000)
-    style: Optional[str] = Field("繪本插畫", max_length=20)
 
 class ScriptLine(BaseModel):
     character_name: str
@@ -1133,7 +1142,8 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
 
     line_length_rule = _LINE_LENGTH_RULES.get(req.line_length or "standard", _LINE_LENGTH_RULES["standard"])
 
-    _img_style = (req.image_style or "").strip() or "watercolor children's book illustration"
+    _raw_style = (req.image_style or "").strip()
+    _img_style = _IMAGE_STYLE_EN.get(_raw_style, _raw_style) or "watercolor children's book illustration"
 
     prompt = f"""你是一位台灣繪本故事作家。請根據以下場景和角色，生成一段繪本對話劇本。
 
@@ -1755,7 +1765,7 @@ def _generate_scene_image_pillow(prompt: str, width: int = 800, height: int = 60
 async def generate_image(req: GenerateImageRequest, request: Request):
     if not _rl_image.is_allowed(_client_ip(request)):
         raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
-    full_prompt = f"{req.prompt}, {req.style} style, soft colors, child-friendly, high quality"
+    full_prompt = f"{req.prompt}, soft colors, child-friendly, high quality"
 
     # ── 優先：HuggingFace Inference API（HUGGINGFACE_API_KEY）────
     if HUGGINGFACE_API_KEY:
