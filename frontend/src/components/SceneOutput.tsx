@@ -93,6 +93,65 @@ function SortableNavChip({
   )
 }
 
+// ── Storyboard card — compact read-only scene overview ───────────
+function StoryboardCard({
+  scene,
+  index,
+  characters,
+  onClick,
+}: {
+  scene: Scene
+  index: number
+  characters: Character[]
+  onClick: () => void
+}) {
+  const imageStatus: 'ok' | 'err' | 'pending' =
+    scene.image === 'error' ? 'err' : scene.image ? 'ok' : 'pending'
+  const linesWithAudio = scene.lines.filter(l => l.audio_base64).length
+  const totalLines     = scene.lines.length
+  const audioStatus: 'ok' | 'partial' | 'pending' =
+    totalLines === 0              ? 'pending'  :
+    linesWithAudio === totalLines ? 'ok'       :
+    linesWithAudio > 0            ? 'partial'  : 'pending'
+  const previewLines = scene.lines.slice(0, 3)
+
+  return (
+    <div className="storyboard-card" onClick={onClick} title="點擊進入編輯此幕">
+      <div className="storyboard-thumb-wrap">
+        {scene.image && scene.image !== 'error' ? (
+          <img src={resolveImgSrc(scene.image)} className="storyboard-thumb" alt={`第${index + 1}幕`} />
+        ) : (
+          <div className="storyboard-thumb-placeholder">🎭</div>
+        )}
+        <span className="storyboard-num">第 {index + 1} 幕</span>
+        <div className="storyboard-status">
+          <span className={`nav-status-dot img-dot dot-${imageStatus}`} title={imageStatus === 'ok' ? '插圖完成' : imageStatus === 'err' ? '插圖失敗' : '插圖生成中'} />
+          <span className={`nav-status-dot aud-dot dot-${audioStatus}`} title={audioStatus === 'ok' ? '配音完整' : audioStatus === 'partial' ? `配音 ${linesWithAudio}/${totalLines}` : '配音生成中'} />
+        </div>
+      </div>
+      <div className="storyboard-info">
+        <p className="storyboard-desc">{scene.description}</p>
+        {previewLines.length > 0 && (
+          <div className="storyboard-lines">
+            {previewLines.map((line, i) => {
+              const char = characters.find(c => c.id === line.character_id)
+              return (
+                <div key={i} className="storyboard-line" style={{ borderLeftColor: char?.color || '#ccc' }}>
+                  <span className="storyboard-char">{char?.emoji || '🎭'}</span>
+                  <span className="storyboard-text">{line.text}</span>
+                </div>
+              )
+            })}
+            {scene.lines.length > 3 && (
+              <div className="storyboard-more">還有 {scene.lines.length - 3} 句...</div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 interface Props {
   scenes: Scene[]
   characters: Character[]
@@ -1159,6 +1218,7 @@ export default function SceneOutput({
 }: Props) {
   const [showPlayback, setShowPlayback] = useState(false)
   const [playbackStartScene, setPlaybackStartScene] = useState(0)
+  const [viewMode, setViewMode] = useState<'detail' | 'storyboard'>('detail')
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([])
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
@@ -1287,8 +1347,8 @@ export default function SceneOutput({
           </div>
         )}
 
-        {/* Scene navigation strip — sortable, only shown when there are 2+ scenes */}
-        {scenes.length > 1 && (
+        {/* Scene navigation strip — sortable, hidden in storyboard mode */}
+        {scenes.length > 1 && viewMode === 'detail' && (
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -1318,17 +1378,28 @@ export default function SceneOutput({
           </DndContext>
         )}
 
-        {/* Story stats: character line distribution */}
-        {charStats.length > 0 && (
+        {/* Story stats bar: always show when 2+ scenes so the view-mode toggle is accessible */}
+        {(charStats.length > 0 || scenes.length >= 2) && (
           <div className="story-stats-bar">
             <span className="stats-summary">{scenes.length} 幕 · {totalLines} 句</span>
-            <div className="stats-chars">
-              {charStats.map(c => (
-                <span key={c.id} className="stats-char-badge" style={{ borderColor: c.color, color: c.color }} title={`${c.name} 共 ${c.count} 句`}>
-                  {c.emoji} {c.name} <strong>{c.count}</strong>
-                </span>
-              ))}
-            </div>
+            {charStats.length > 0 && (
+              <div className="stats-chars">
+                {charStats.map(c => (
+                  <span key={c.id} className="stats-char-badge" style={{ borderColor: c.color, color: c.color }} title={`${c.name} 共 ${c.count} 句`}>
+                    {c.emoji} {c.name} <strong>{c.count}</strong>
+                  </span>
+                ))}
+              </div>
+            )}
+            {scenes.length >= 2 && (
+              <button
+                className={`btn-view-toggle${viewMode === 'storyboard' ? ' active' : ''}`}
+                onClick={() => setViewMode(v => v === 'detail' ? 'storyboard' : 'detail')}
+                title={viewMode === 'storyboard' ? '返回詳細編輯視圖' : '切換為故事板概覽（只讀）'}
+              >
+                {viewMode === 'storyboard' ? '📝 編輯模式' : '🗺️ 故事板'}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -1342,31 +1413,48 @@ export default function SceneOutput({
         />
       )}
 
-      {scenes.map((scene, i) => (
-        <div key={scene.id} ref={el => { sceneRefs.current[i] = el }}>
-          <SceneCard
-            scene={scene}
-            sceneIndex={i}
-            totalScenes={scenes.length}
-            characters={characters}
-            onSceneDelete={onSceneDelete}
-            onSceneMove={onSceneMove}
-            onSceneDuplicate={onSceneDuplicate}
-            onLineMove={onLineMove}
-            onLineEditConfirm={onLineEditConfirm}
-            onLineDelete={onLineDelete}
-            onLineAdd={onLineAdd}
-            onLineVoiceRegen={onLineVoiceRegen}
-            onLineEmotionChange={onLineEmotionChange}
-            onLineCharacterChange={onLineCharacterChange}
-            onImageRegen={onImageRegen}
-            onImageUpload={onImageUpload}
-            onSceneDescriptionUpdate={onSceneDescriptionUpdate}
-            onSceneRegen={onSceneRegen}
-            onPlayFromScene={handlePlayFromScene}
-          />
+      {viewMode === 'storyboard' ? (
+        <div className="storyboard-grid">
+          {scenes.map((scene, i) => (
+            <StoryboardCard
+              key={scene.id}
+              scene={scene}
+              index={i}
+              characters={characters}
+              onClick={() => {
+                setViewMode('detail')
+                setTimeout(() => scrollToScene(i), 60)
+              }}
+            />
+          ))}
         </div>
-      ))}
+      ) : (
+        scenes.map((scene, i) => (
+          <div key={scene.id} ref={el => { sceneRefs.current[i] = el }}>
+            <SceneCard
+              scene={scene}
+              sceneIndex={i}
+              totalScenes={scenes.length}
+              characters={characters}
+              onSceneDelete={onSceneDelete}
+              onSceneMove={onSceneMove}
+              onSceneDuplicate={onSceneDuplicate}
+              onLineMove={onLineMove}
+              onLineEditConfirm={onLineEditConfirm}
+              onLineDelete={onLineDelete}
+              onLineAdd={onLineAdd}
+              onLineVoiceRegen={onLineVoiceRegen}
+              onLineEmotionChange={onLineEmotionChange}
+              onLineCharacterChange={onLineCharacterChange}
+              onImageRegen={onImageRegen}
+              onImageUpload={onImageUpload}
+              onSceneDescriptionUpdate={onSceneDescriptionUpdate}
+              onSceneRegen={onSceneRegen}
+              onPlayFromScene={handlePlayFromScene}
+            />
+          </div>
+        ))
+      )}
     </div>
   )
 }
