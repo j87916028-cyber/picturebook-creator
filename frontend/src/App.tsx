@@ -15,16 +15,28 @@ import ProjectPanel from './components/ProjectPanel'
 function buildStoryContext(scenes: Scene[], endIndex?: number): string | undefined {
   const relevant = endIndex !== undefined ? scenes.slice(0, endIndex) : scenes
   if (relevant.length === 0) return undefined
-  return relevant.map((s, i) => {
+
+  // All `story_context` backend fields are capped at 5000 chars (Pydantic max_length).
+  // For long stories, including every scene can exceed this limit and cause 422 errors.
+  // Keep only the most recent 8 scenes — they provide the most useful continuity signal;
+  // earlier scenes add little narrative value and inflate the context size rapidly.
+  const MAX_SCENES = 8
+  const offset = relevant.length > MAX_SCENES ? relevant.length - MAX_SCENES : 0
+  const recent  = relevant.slice(-MAX_SCENES)
+
+  const context = recent.map((s, i) => {
     const lines = s.lines.filter(l => l.text)
     const first = lines[0]
-    const last = lines.length > 1 ? lines[lines.length - 1] : null
+    const last  = lines.length > 1 ? lines[lines.length - 1] : null
     const snippets = [first, last]
       .filter((l): l is NonNullable<typeof l> => l != null)
       .map(l => `${l.character_name}：「${l.text}」`)
       .join('…')
-    return `第${i + 1}幕（${s.description}）：${snippets || '（生成中）'}`
+    return `第${offset + i + 1}幕（${s.description}）：${snippets || '（生成中）'}`
   }).join('\n')
+
+  // Hard safety cap: description / line text can be long; truncate rather than 422.
+  return context.length > 4800 ? context.slice(0, 4800) : context
 }
 
 /**
