@@ -391,37 +391,45 @@ async def _generate_voice_xfyun(text: str, voice_id: str, emotion: Optional[str]
     vol = _pct_to_xfyun(p.get("volume", "+0%"))
 
     url = _xfyun_auth_url()
-    audio_chunks: list[bytes] = []
 
-    async with _ws.connect(url) as ws:
-        await ws.send(json.dumps({
-            "common":   {"app_id": XFYUN_APP_ID},
-            "business": {
-                "aue": "lame",   # MP3
-                "sfl": 1,        # 流式合成
-                "tte": "utf8",
-                "vcn": vcn,
-                "spd": spd,
-                "vol": vol,
-            },
-            "data": {
-                "status": 2,     # 2 = complete single-shot request
-                "text": base64.b64encode(text.encode("utf-8")).decode(),
-            },
-        }))
+    async def _do_ws() -> bytes:
+        audio_chunks: list[bytes] = []
+        async with _ws.connect(url) as ws:
+            await ws.send(json.dumps({
+                "common":   {"app_id": XFYUN_APP_ID},
+                "business": {
+                    "aue": "lame",   # MP3
+                    "sfl": 1,        # 流式合成
+                    "tte": "utf8",
+                    "vcn": vcn,
+                    "spd": spd,
+                    "vol": vol,
+                },
+                "data": {
+                    "status": 2,     # 2 = complete single-shot request
+                    "text": base64.b64encode(text.encode("utf-8")).decode(),
+                },
+            }))
 
-        async for message in ws:
-            resp = json.loads(message)
-            code = resp.get("code", -1)
-            if code != 0:
-                raise RuntimeError(f"iFlytek error {code}: {resp.get('message', '')}")
-            d = resp.get("data", {})
-            if d.get("audio"):
-                audio_chunks.append(base64.b64decode(d["audio"]))
-            if d.get("status") == 2:   # 2 = last frame
-                break
+            async for message in ws:
+                resp = json.loads(message)
+                code = resp.get("code", -1)
+                if code != 0:
+                    raise RuntimeError(f"iFlytek error {code}: {resp.get('message', '')}")
+                d = resp.get("data", {})
+                if d.get("audio"):
+                    audio_chunks.append(base64.b64decode(d["audio"]))
+                if d.get("status") == 2:   # 2 = last frame
+                    break
+        return b"".join(audio_chunks)
 
-    return b"".join(audio_chunks)
+    # Guard against a hanging iFlytek connection — without this, a slow or
+    # unresponsive server would hold the async worker indefinitely, starving
+    # other concurrent voice-generation requests.
+    try:
+        return await asyncio.wait_for(_do_ws(), timeout=30)
+    except asyncio.TimeoutError:
+        raise RuntimeError("iFlytek TTS timeout (30 s)")
 
 
 # ── Models ───────────────────────────────────────────────────
