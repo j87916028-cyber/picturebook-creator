@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { Character } from '../types'
@@ -22,9 +22,42 @@ export default function CharacterCard({ character, onDelete, onEdit, onDuplicate
 
   const [confirmDelete, setConfirmDelete] = useState(false)
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [previewing, setPreviewing] = useState(false)
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null)
 
-  // Clean up timer on unmount
-  useEffect(() => () => { if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current) }, [])
+  // Clean up timer and audio on unmount
+  useEffect(() => () => {
+    if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+    previewAudioRef.current?.pause()
+  }, [])
+
+  const handlePreview = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    // Stop any currently playing preview
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause()
+      previewAudioRef.current = null
+      if (previewing) { setPreviewing(false); return }
+    }
+    setPreviewing(true)
+    try {
+      const res = await fetch('/api/generate-voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: `你好，我是${character.name}。`, voice_id: character.voice_id }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      const fmt = data.format || 'wav'
+      const audio = new Audio(`data:audio/${fmt};base64,${data.audio_base64}`)
+      previewAudioRef.current = audio
+      audio.onended = () => { setPreviewing(false); previewAudioRef.current = null }
+      audio.onerror = () => { setPreviewing(false); previewAudioRef.current = null }
+      audio.play().catch(() => setPreviewing(false))
+    } catch {
+      setPreviewing(false)
+    }
+  }, [character.name, character.voice_id, previewing])
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -82,6 +115,12 @@ export default function CharacterCard({ character, onDelete, onEdit, onDuplicate
             title="下移角色"
           >▼</button>
         )}
+        <button
+          className={`card-preview${previewing ? ' playing' : ''}`}
+          onClick={handlePreview}
+          title={previewing ? '停止試聽' : '試聽角色聲音'}
+          disabled={previewing && !previewAudioRef.current}
+        >{previewing ? '⏹' : '🔊'}</button>
         <button
           className="card-edit"
           onClick={() => onEdit(character.id)}

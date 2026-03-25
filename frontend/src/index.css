@@ -181,6 +181,18 @@ body {
   transition: color 0.15s;
 }
 .card-move:hover { color: #667eea; }
+.card-preview {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.85rem; padding: 2px 3px; line-height: 1;
+  opacity: 0.55; transition: opacity 0.15s;
+}
+.card-preview:hover { opacity: 1; }
+.card-preview.playing { opacity: 1; animation: pulse-preview 1s ease-in-out infinite; }
+.card-preview:disabled { cursor: wait; }
+@keyframes pulse-preview {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
 .card-edit {
   background: none; border: none; cursor: pointer;
   font-size: 0.85rem; padding: 2px 4px; line-height: 1;
