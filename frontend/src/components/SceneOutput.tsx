@@ -256,6 +256,7 @@ function SceneCard({
   onPlayFromScene,
   onLinesReorder,
 }: SceneCardProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false)
   const [playingIndex, setPlayingIndex] = useState<number | null>(null)
   const [playProgress, setPlayProgress] = useState(0)  // 0–100 percent
   const audioRefs = useRef<(HTMLAudioElement | null)[]>([])
@@ -576,7 +577,7 @@ function SceneCard({
   )
 
   return (
-    <div className="scene-card">
+    <div className={`scene-card${isCollapsed ? ' scene-card-collapsed' : ''}`}>
       <div className="scene-card-header">
         <span className="scene-card-title">
           第 {sceneIndex + 1} 幕
@@ -633,6 +634,11 @@ function SceneCard({
               ▶ 從此幕
             </button>
           )}
+          <button
+            className="btn-scene-collapse"
+            onClick={() => setIsCollapsed(v => !v)}
+            title={isCollapsed ? '展開此幕' : '收合此幕'}
+          >{isCollapsed ? '▼ 展開' : '▲ 收合'}</button>
           <div className="scene-move-btns">
             <button
               className="btn-scene-move"
@@ -649,6 +655,8 @@ function SceneCard({
           </div>
         </div>
       </div>
+
+      {isCollapsed ? null : (<>
 
       {/* Action buttons row */}
       <div className="scene-card-actions">
@@ -1336,6 +1344,8 @@ function SceneCard({
           )}
         </div>
       )}
+
+      </>)}
     </div>
   )
 }
