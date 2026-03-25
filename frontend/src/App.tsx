@@ -997,6 +997,7 @@ export default function App() {
           style,
           story_context: storyContext,
           line_length: effectiveLineLength,
+          image_style: localStorage.getItem('scene_image_style') || undefined,
         }),
       })
       if (!scriptRes.ok) {
