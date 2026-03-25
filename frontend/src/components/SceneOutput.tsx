@@ -3,10 +3,10 @@ import {
   DndContext, DragEndEvent, PointerSensor, useSensor, useSensors, closestCenter,
 } from '@dnd-kit/core'
 import {
-  SortableContext, useSortable, horizontalListSortingStrategy, arrayMove,
+  SortableContext, useSortable, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Scene, Character } from '../types'
+import { Scene, Character, ScriptLine } from '../types'
 import PlaybackModal from './PlaybackModal'
 
 // Resolve image src: use data URI if base64 blob, else bare URL
@@ -152,6 +152,31 @@ function StoryboardCard({
   )
 }
 
+// ── Sortable dialogue line — drag-to-reorder wrapper ─────────────
+function SortableLine({
+  id,
+  disabled,
+  children,
+}: {
+  id: string
+  disabled: boolean
+  children: React.ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled })
+  return (
+    <div
+      ref={setNodeRef}
+      className={`dialogue-sortable${isDragging ? ' dragging-line' : ''}`}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+    >
+      {!disabled && (
+        <span className="line-drag-handle" {...attributes} {...listeners} title="拖曳調整台詞順序">⠿</span>
+      )}
+      <div className="dialogue-sortable-content">{children}</div>
+    </div>
+  )
+}
+
 interface Props {
   scenes: Scene[]
   characters: Character[]
@@ -174,6 +199,7 @@ interface Props {
   batchRegenStatus: { done: number; total: number } | null
   onBatchRegenImages: () => void
   batchImageStatus: { done: number; total: number } | null
+  onLinesReorder: (sceneId: string, newLines: ScriptLine[]) => void
 }
 
 interface SceneCardProps {
@@ -196,6 +222,7 @@ interface SceneCardProps {
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string) => Promise<void>
   onPlayFromScene: (sceneIndex: number) => void
+  onLinesReorder: (sceneId: string, newLines: ScriptLine[]) => void
 }
 
 function SceneCard({
@@ -218,6 +245,7 @@ function SceneCard({
   onSceneDescriptionUpdate,
   onSceneRegen,
   onPlayFromScene,
+  onLinesReorder,
 }: SceneCardProps) {
   const [playingIndex, setPlayingIndex] = useState<number | null>(null)
   const [playProgress, setPlayProgress] = useState(0)  // 0–100 percent
@@ -358,6 +386,18 @@ function SceneCard({
   }
 
   const isGenerating = scene.lines.length === 0
+
+  // Drag-to-reorder for dialogue lines
+  const lineSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
+  const isDragDisabled = isGenerating || regenLoading || editingLineIndex !== null || showAddLine ||
+    regenVoiceIndex !== null || emotionRegenIndex !== null || charChangeIndex !== null
+  const handleLineDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = parseInt(String(active.id))
+    const newIndex = parseInt(String(over.id))
+    onLinesReorder(scene.id, arrayMove(scene.lines, oldIndex, newIndex))
+  }
 
   const handleDeleteScene = () => {
     if (!confirmDeleteScene) {
@@ -804,19 +844,22 @@ function SceneCard({
             <button className="btn-play-all" onClick={playAll}>▶ 全部播放</button>
           </div>
 
-          <div className="dialogue-list">
-            {scene.lines.map((line, i) => {
-              const char = getCharacter(line.character_id)
-              const color = char?.color || '#888'
-              const isPlaying = playingIndex === i
-              const isEditingThis = editingLineIndex === i
-              const isRegenVoice = regenVoiceIndex === i
+          <DndContext sensors={lineSensors} collisionDetection={closestCenter} onDragEnd={handleLineDragEnd}>
+            <SortableContext items={scene.lines.map((_, j) => String(j))} strategy={verticalListSortingStrategy}>
+              <div className="dialogue-list">
+                {scene.lines.map((line, i) => {
+                  const char = getCharacter(line.character_id)
+                  const color = char?.color || '#888'
+                  const isPlaying = playingIndex === i
+                  const isEditingThis = editingLineIndex === i
+                  const isRegenVoice = regenVoiceIndex === i
 
-              return (
-                <Fragment key={i}>
-                <div
-                  className={`dialogue-line ${isPlaying ? 'playing' : ''}`}
-                  style={{ borderLeftColor: color }}
+                  return (
+                    <Fragment key={i}>
+                    <SortableLine id={String(i)} disabled={isDragDisabled}>
+                    <div
+                      className={`dialogue-line ${isPlaying ? 'playing' : ''}`}
+                      style={{ borderLeftColor: color }}
                 >
                   <div className="dialogue-speaker">
                     <span className="speaker-emoji">{char?.emoji || '🎭'}</span>
@@ -1043,25 +1086,28 @@ function SceneCard({
                     </div>
                   </div>
                 </div>
-                {/* Insert-between button: shown between consecutive lines */}
-                {i < scene.lines.length - 1 && !showAddLine && (
-                  <div className="insert-line-divider">
-                    <button
-                      className="btn-insert-between"
-                      onClick={() => {
-                        setInsertAfterIndex(i)
-                        setAddCharId(line.character_id)
-                        setAddLineText('')
-                        setShowAddLine(true)
-                      }}
-                      title={`在第 ${i + 1} 句之後插入新台詞`}
-                    >＋ 插入</button>
-                  </div>
-                )}
-              </Fragment>
-              )
-            })}
-          </div>
+                    </SortableLine>
+                    {/* Insert-between button: shown between consecutive lines */}
+                    {i < scene.lines.length - 1 && !showAddLine && (
+                      <div className="insert-line-divider">
+                        <button
+                          className="btn-insert-between"
+                          onClick={() => {
+                            setInsertAfterIndex(i)
+                            setAddCharId(line.character_id)
+                            setAddLineText('')
+                            setShowAddLine(true)
+                          }}
+                          title={`在第 ${i + 1} 句之後插入新台詞`}
+                        >＋ 插入</button>
+                      </div>
+                    )}
+                    </Fragment>
+                  )
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
 
           {/* Add new line */}
           {showAddLine ? (
@@ -1215,6 +1261,7 @@ export default function SceneOutput({
   batchRegenStatus,
   onBatchRegenImages,
   batchImageStatus,
+  onLinesReorder,
 }: Props) {
   const [showPlayback, setShowPlayback] = useState(false)
   const [playbackStartScene, setPlaybackStartScene] = useState(0)
@@ -1451,6 +1498,7 @@ export default function SceneOutput({
               onSceneDescriptionUpdate={onSceneDescriptionUpdate}
               onSceneRegen={onSceneRegen}
               onPlayFromScene={handlePlayFromScene}
+              onLinesReorder={onLinesReorder}
             />
           </div>
         ))

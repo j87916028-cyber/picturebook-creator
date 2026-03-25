@@ -569,6 +569,12 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
+  const handleLinesReorder = (sceneId: string, newLines: ScriptLine[]) => {
+    const next = scenes.map(s => s.id === sceneId ? { ...s, lines: newLines } : s)
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
+  }
+
   const handleLineDelete = (sceneId: string, lineIndex: number) => {
     const scene = scenes.find(s => s.id === sceneId)
     if (!scene) return
@@ -1452,6 +1458,7 @@ export default function App() {
               batchRegenStatus={batchRegenStatus}
               onBatchRegenImages={handleBatchRegenImages}
               batchImageStatus={batchImageStatus}
+              onLinesReorder={handleLinesReorder}
             />
           </div>
         </main>

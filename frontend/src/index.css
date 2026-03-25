@@ -2497,3 +2497,35 @@ kbd {
   .script-line { gap: 8px; }
   .line-text { font-size: 0.88rem; }
 }
+
+/* ── Dialogue line drag-to-reorder ───────────────────────────────── */
+.dialogue-sortable {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+}
+.dialogue-sortable-content {
+  flex: 1;
+  min-width: 0;
+}
+.line-drag-handle {
+  cursor: grab;
+  color: #d0d0d8;
+  padding: 18px 1px 0;
+  font-size: 1.05rem;
+  line-height: 1;
+  flex-shrink: 0;
+  user-select: none;
+  touch-action: none;
+  transition: color 0.15s;
+}
+.line-drag-handle:hover {
+  color: #8888a8;
+}
+.dialogue-sortable.dragging-line {
+  z-index: 100;
+  opacity: 0.85;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+}
