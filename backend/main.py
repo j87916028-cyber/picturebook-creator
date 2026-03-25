@@ -53,13 +53,21 @@ class _RateLimiter:
         if len(bucket) >= self.max_calls:
             return False
         bucket.append(now)
-        # Periodically evict empty buckets to prevent unbounded memory growth.
-        # Without this, each unique client IP (including spoofed X-Forwarded-For
-        # values) leaves a permanent entry in the dict.
+        # Periodically evict stale buckets to prevent unbounded memory growth.
+        # Without this, IPs that made requests and then went quiet keep their
+        # expired timestamps (and their bucket entries) in memory forever.
+        # The earlier check only pops timestamps for the *current* IP; all other
+        # inactive IPs still hold expired timestamps until this prune runs.
         if now - self._last_prune > 300:  # every 5 minutes
             self._last_prune = now
-            stale = [k for k, v in self._calls.items() if not v]
-            for k in stale:
+            stale_keys = []
+            for k, v in self._calls.items():
+                # Drain expired timestamps from every bucket, not just the caller's.
+                while v and v[0] < cutoff:
+                    v.popleft()
+                if not v:
+                    stale_keys.append(k)
+            for k in stale_keys:
                 del self._calls[k]
         return True
 
