@@ -111,6 +111,21 @@ export default function SceneEditor({
     }
   }, [sceneCount, storyContext]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // When the story style changes, existing suggestions were generated for the old
+  // style and may be misleading.  Clear them immediately and re-fetch after a short
+  // debounce so rapid style-switching doesn't spam the backend.
+  const styleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (droppedCharacters.length === 0) return
+    setSuggestions([])
+    setSuggestError(false)
+    if (styleDebounceRef.current) clearTimeout(styleDebounceRef.current)
+    styleDebounceRef.current = setTimeout(() => {
+      fetchSuggestions()
+    }, 600)
+    return () => { if (styleDebounceRef.current) clearTimeout(styleDebounceRef.current) }
+  }, [style]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Clear suggestions when description is filled manually
   const handleDescChange = (val: string) => {
     setDescription(val.slice(0, 500))
