@@ -27,6 +27,27 @@ const DEFAULT_VOICES: Voice[] = [
   { id: 'elderly_man',        label: '老爺爺音',    emoji: '👴', group: '男聲' },
 ]
 
+// ── Quick character presets ──────────────────────────────────────────────────
+interface CharacterPreset {
+  emoji: string
+  name: string
+  personality: string
+  visual_description: string
+  voice_id: string
+  color: string
+}
+
+const CHARACTER_PRESETS: CharacterPreset[] = [
+  { emoji: '🐰', name: '小兔子', personality: '活潑好奇、膽小但善良', visual_description: '白色小兔，穿粉紅圍裙，有長耳朵和短尾巴', voice_id: 'cn-child-girl', color: '#ff90b0' },
+  { emoji: '🦊', name: '狐狸',   personality: '聰明機靈、有點調皮',   visual_description: '橘色狐狸，有蓬鬆大尾巴，眼睛閃亮', voice_id: 'male-qn-qingse', color: '#ff8c42' },
+  { emoji: '🐻', name: '小熊',   personality: '憨厚善良、愛吃蜂蜜',   visual_description: '棕色小熊，戴紅色帽子，肚子圓滾滾', voice_id: 'cute_boy', color: '#a0522d' },
+  { emoji: '👧', name: '小女孩', personality: '溫柔善良、富有同情心', visual_description: '穿黃色洋裝，綁長辮子，戴花圈', voice_id: 'cn-girl-clear', color: '#f6c90e' },
+  { emoji: '👦', name: '小男孩', personality: '勇敢冒險、充滿好奇心', visual_description: '穿藍色條紋衣服，短黑髮，背著小背包', voice_id: 'male-qn-qingse', color: '#4a90d9' },
+  { emoji: '👴', name: '老爺爺', personality: '智慧慈祥、說話幽默',   visual_description: '白鬍子老人，穿長袍，拄著木杖', voice_id: 'elderly_man', color: '#7c6f64' },
+  { emoji: '🧙', name: '魔法師', personality: '神秘莫測、法力高強',   visual_description: '穿星星圖案長袍，戴尖頂帽，手持魔杖', voice_id: 'audiobook_male_2', color: '#6c5ce7' },
+  { emoji: '🐉', name: '小龍',   personality: '熱情開朗、偶爾噴火',   visual_description: '綠色小龍，有翅膀和小角，噴出五彩泡泡', voice_id: 'cn-story-male', color: '#2ecc71' },
+]
+
 const EMOJI_GROUPS = [
   {
     label: '🐾 動物',
@@ -253,6 +274,7 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
   const [voices, setVoices] = useState<Voice[]>(DEFAULT_VOICES)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [showPresets, setShowPresets] = useState(false)
 
   useEffect(() => {
     fetch('/api/voices')
@@ -289,6 +311,21 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
     if (editingId === id) setEditingId(null)
   }
 
+  const handleAddPreset = (preset: CharacterPreset) => {
+    // Skip if a character with the same name already exists
+    if (characters.some(c => c.name === preset.name)) return
+    const newChar: Character = {
+      id: `char_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      name: preset.name,
+      personality: preset.personality,
+      visual_description: preset.visual_description,
+      voice_id: preset.voice_id,
+      color: preset.color,
+      emoji: preset.emoji,
+    }
+    onChange([...characters, newChar])
+  }
+
   return (
     <div className="character-panel">
       <div className="panel-header">
@@ -321,6 +358,37 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
         )}
       </div>
 
+      {/* Quick preset section */}
+      <div className="preset-section">
+        <button
+          className="btn-preset-toggle"
+          onClick={() => setShowPresets(v => !v)}
+          title="從常用角色範本快速新增"
+        >
+          {showPresets ? '▲' : '▼'} 快速角色範本
+        </button>
+        {showPresets && (
+          <div className="preset-chips">
+            {CHARACTER_PRESETS.map(p => {
+              const added = characters.some(c => c.name === p.name)
+              return (
+                <button
+                  key={p.name}
+                  className={`preset-chip${added ? ' added' : ''}`}
+                  onClick={() => handleAddPreset(p)}
+                  disabled={added}
+                  title={added ? `「${p.name}」已在角色列表中` : `新增 ${p.name}（${p.personality}）`}
+                  style={{ borderColor: p.color, color: added ? '#aaa' : p.color }}
+                >
+                  {p.emoji} {p.name}
+                  {added && <span className="preset-chip-check">✓</span>}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
       {showAddForm ? (
         <CharacterForm
           initial={{ name: '', personality: '', visual_description: '', voice_id: DEFAULT_VOICES[0].id, emoji: EMOJI_GROUPS[0].emojis[0], color: CHARACTER_COLORS[characters.length % CHARACTER_COLORS.length] }}
@@ -331,7 +399,7 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
         />
       ) : (
         <button className="btn-add-character" onClick={() => { setShowAddForm(true); setEditingId(null) }}>
-          ＋ 新增角色
+          ＋ 自訂角色
         </button>
       )}
     </div>

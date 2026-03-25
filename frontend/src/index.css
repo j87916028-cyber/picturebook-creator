@@ -326,6 +326,61 @@ body {
 }
 .btn-add-character:hover { background: #eef0ff; border-color: #7986cb; }
 
+/* ── Character preset section ──────────────────── */
+.preset-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.btn-preset-toggle {
+  width: 100%;
+  background: none;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 7px 12px;
+  color: #888;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-align: left;
+  transition: all 0.15s;
+}
+.btn-preset-toggle:hover { background: #f5f5f5; border-color: #bbb; color: #555; }
+.preset-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+}
+.preset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1.5px solid;
+  background: white;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.preset-chip:hover:not(:disabled) {
+  background: #f0f0ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+.preset-chip.added {
+  border-color: #ccc !important;
+  background: #f5f5f5;
+  cursor: default;
+}
+.preset-chip-check {
+  font-size: 0.72rem;
+  margin-left: 2px;
+  color: #aaa;
+}
+
 /* ── Right Panel ─────────────────────────────── */
 .right-panel { flex: 1; display: flex; flex-direction: column; gap: 16px; }
 
