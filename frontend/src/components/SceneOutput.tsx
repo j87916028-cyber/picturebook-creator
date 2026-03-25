@@ -386,6 +386,23 @@ function SceneCard({
     }
   }
 
+  const [copied, setCopied] = useState(false)
+  const handleCopyScript = () => {
+    const lines = scene.lines
+      .filter(l => l.text)
+      .map(l => {
+        const char = getCharacter(l.character_id)
+        const emoji = char?.emoji || '🎭'
+        return `${emoji}${l.character_name}：「${l.text}」`
+      })
+      .join('\n')
+    const text = `第${sceneIndex + 1}幕：${scene.description}\n${lines}`
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }).catch(() => {})
+  }
+
   const isGenerating = scene.lines.length === 0
 
   // Drag-to-reorder for dialogue lines
@@ -845,7 +862,14 @@ function SceneCard({
         <div className="scene-card-dialogue">
           <div className="output-header">
             <h4>對話劇本</h4>
-            <button className="btn-play-all" onClick={playAll}>▶ 全部播放</button>
+            <div className="output-header-actions">
+              <button
+                className={`btn-copy-script${copied ? ' copied' : ''}`}
+                onClick={handleCopyScript}
+                title="複製此幕劇本文字"
+              >{copied ? '✓ 已複製' : '📄 複製'}</button>
+              <button className="btn-play-all" onClick={playAll}>▶ 全部播放</button>
+            </div>
           </div>
 
           <DndContext sensors={lineSensors} collisionDetection={closestCenter} onDragEnd={handleLineDragEnd}>
