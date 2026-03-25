@@ -923,6 +923,109 @@ async def rephrase_line(req: RephraseLineRequest, request: Request):
 
 
 # ── 端點：生成劇本 ────────────────────────────────────────────
+class SuggestLineRequest(BaseModel):
+    character_name: str = Field(..., max_length=30)
+    personality: str = Field("", max_length=100)
+    scene_description: str = Field(..., max_length=500)
+    style: str = Field("溫馨童趣", max_length=20)
+    previous_lines: List[Dict[str, Any]] = Field(default_factory=list, max_length=20)
+    line_length: Optional[Literal["short", "standard", "long"]] = "standard"
+
+
+@app.post("/api/suggest-line")
+async def suggest_line(req: SuggestLineRequest, request: Request):
+    """Return 3 suggested next lines for a given character in the scene context."""
+    if not _rl_suggest.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+    if not MINIMAX_API_KEY and not GROQ_API_KEY:
+        raise HTTPException(status_code=503, detail="服務未設定")
+
+    personality_note = f"（個性：{req.personality}）" if req.personality else ""
+    prev_context = ""
+    if req.previous_lines:
+        lines_text = "\n".join(
+            f"- {l.get('character_name', '?')}：「{l.get('text', '')}」"
+            for l in req.previous_lines[-6:]   # last 6 lines for context
+        )
+        prev_context = f"\n目前已有台詞：\n{lines_text}"
+
+    _line_limit = {"short": "不超過 12 字", "long": "不超過 35 字"}.get(
+        req.line_length or "standard", "不超過 20 字"
+    )
+    prompt = f"""你是台灣兒童繪本對話作家。
+場景：{req.scene_description}
+風格：{req.style}
+角色：{req.character_name}{personality_note}{prev_context}
+
+請為角色「{req.character_name}」生成 3 條風格各異、自然口語的下一句台詞建議。
+
+要求：
+- 使用台灣繁體中文，符合台灣用語
+- 每條台詞{_line_limit}，適合大聲朗讀
+- 符合角色個性，且自然銜接前面的對話
+- 直接輸出 JSON，不要任何說明：
+{{"suggestions": ["台詞1", "台詞2", "台詞3"]}}"""
+
+    async def _call_groq() -> list[str]:
+        resp = await _http_client.post(
+            GROQ_CHAT_URL,
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": "llama-3.1-8b-instant",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.9,
+                "max_tokens": 250,
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
+        raw = resp.json()["choices"][0]["message"].get("content", "")
+        return _parse_suggestions(str(raw))
+
+    async def _call_minimax() -> list[str]:
+        resp = await _http_client.post(
+            f"{MINIMAX_BASE}/chat/completions",
+            headers=MINIMAX_HEADERS,
+            json={
+                "model": "MiniMax-M2.7",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.9,
+                "max_tokens": 250,
+            },
+            timeout=30,
+        )
+        resp.raise_for_status()
+        message = resp.json()["choices"][0]["message"]
+        raw = message.get("content", "")
+        if isinstance(raw, list):
+            raw = " ".join(b.get("text", "") for b in raw if b.get("type") == "text")
+        return _parse_suggestions(str(raw))
+
+    last_error: Exception | None = None
+    if GROQ_API_KEY:
+        try:
+            suggestions = await _call_groq()
+            if suggestions:
+                logger.info("suggest-line via Groq: %s", suggestions)
+                return {"suggestions": suggestions}
+        except Exception as e:
+            logger.warning("suggest-line Groq failed: %s", e)
+            last_error = e
+
+    if MINIMAX_API_KEY:
+        try:
+            suggestions = await _call_minimax()
+            if suggestions:
+                logger.info("suggest-line via MiniMax: %s", suggestions)
+                return {"suggestions": suggestions}
+        except Exception as e:
+            logger.warning("suggest-line MiniMax failed: %s", e)
+            last_error = e
+
+    logger.warning("suggest-line all providers failed: %s", last_error)
+    raise HTTPException(status_code=502, detail="台詞建議生成失敗")
+
+
 @app.post("/api/generate-script", response_model=ScriptResponse)
 async def generate_script(req: GenerateScriptRequest, request: Request):
     if not _rl_script.is_allowed(_client_ip(request)):

@@ -177,6 +177,8 @@ function SceneCard({
   const [addCharId, setAddCharId] = useState('')
   const [addLineText, setAddLineText] = useState('')
   const [addLineLoading, setAddLineLoading] = useState(false)
+  const [lineSuggestLoading, setLineSuggestLoading] = useState(false)
+  const [lineSuggestions, setLineSuggestions] = useState<string[]>([])
   // null = append to end; number = insert after that line index
   const [insertAfterIndex, setInsertAfterIndex] = useState<number | null>(null)
 
@@ -951,7 +953,7 @@ function SceneCard({
               <select
                 className="add-line-char-select"
                 value={addCharId}
-                onChange={e => setAddCharId(e.target.value)}
+                onChange={e => { setAddCharId(e.target.value); setLineSuggestions([]) }}
                 disabled={addLineLoading}
               >
                 <option value="">選擇角色...</option>
@@ -962,7 +964,7 @@ function SceneCard({
               <textarea
                 className="line-edit-textarea"
                 value={addLineText}
-                onChange={e => setAddLineText(e.target.value.slice(0, 100))}
+                onChange={e => { setAddLineText(e.target.value.slice(0, 100)); setLineSuggestions([]) }}
                 placeholder="輸入台詞（最多100字）"
                 rows={2}
                 disabled={addLineLoading}
@@ -980,6 +982,7 @@ function SceneCard({
                       setAddCharId('')
                       setAddLineText('')
                       setInsertAfterIndex(null)
+                      setLineSuggestions([])
                     } finally {
                       setAddLineLoading(false)
                     }
@@ -988,14 +991,65 @@ function SceneCard({
                   {addLineLoading ? <><span className="spinner-sm" /> 配音生成中...</> : '✓ 新增台詞'}
                 </button>
                 <button
+                  className="btn-rephrase"
+                  disabled={!addCharId || lineSuggestLoading || addLineLoading}
+                  title="根據場景與角色個性，AI 建議下一句台詞"
+                  onClick={async () => {
+                    const char = getCharacter(addCharId)
+                    if (!char) return
+                    setLineSuggestLoading(true)
+                    setLineSuggestions([])
+                    try {
+                      const contextLines = insertAfterIndex !== null
+                        ? scene.lines.slice(0, insertAfterIndex + 1)
+                        : scene.lines
+                      const res = await fetch('/api/suggest-line', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          character_name: char.name,
+                          personality: char.personality || '',
+                          scene_description: scene.description,
+                          style: scene.style || '溫馨童趣',
+                          previous_lines: contextLines.map(l => ({
+                            character_name: l.character_name,
+                            text: l.text,
+                          })),
+                          line_length: scene.line_length || 'standard',
+                        }),
+                      })
+                      if (res.ok) {
+                        const data = await res.json()
+                        setLineSuggestions(data.suggestions ?? [])
+                      }
+                    } catch {}
+                    finally { setLineSuggestLoading(false) }
+                  }}
+                >
+                  {lineSuggestLoading ? <><span className="spinner-sm" /> 生成中...</> : '✨ AI 建議台詞'}
+                </button>
+                <button
                   className="btn-ghost"
-                  onClick={() => { setShowAddLine(false); setAddCharId(''); setAddLineText(''); setInsertAfterIndex(null) }}
+                  onClick={() => { setShowAddLine(false); setAddCharId(''); setAddLineText(''); setInsertAfterIndex(null); setLineSuggestions([]) }}
                   disabled={addLineLoading}
                   style={{ fontSize: '0.8rem', padding: '4px 10px' }}
                 >
                   取消
                 </button>
               </div>
+              {lineSuggestions.length > 0 && (
+                <div className="rephrase-suggestions">
+                  <span className="rephrase-suggestions-label">選一條台詞填入：</span>
+                  {lineSuggestions.map((s, si) => (
+                    <button
+                      key={si}
+                      className="rephrase-chip"
+                      onClick={() => { setAddLineText(s); setLineSuggestions([]) }}
+                      title="點擊套用此台詞"
+                    >{s}</button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <button
