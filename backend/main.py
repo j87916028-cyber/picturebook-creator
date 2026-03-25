@@ -2419,12 +2419,26 @@ def _export_pdf(project_name: str, scenes: list, char_color_map: dict | None = N
     pdf.cell(0, 10, "繪本有聲書", align="C", new_x="LMARGIN", new_y="NEXT")
 
     # ── Story metadata ──────────────────────────────────────────────────
-    total_lines = sum(len(s.get("lines", [])) for s in scenes)
+    all_lines = [ln for s in scenes for ln in s.get("lines", [])]
+    total_lines = len(all_lines)
+    # Estimate listening time the same way the frontend does: ~4 Chinese chars/second.
+    total_chars = sum(len(ln.get("text", "")) for ln in all_lines)
+    audio_secs  = total_chars // 4
     set_font_safe(10)
     pdf.set_text_color(120, 120, 120)
     pdf.ln(6)
-    pdf.cell(0, 7, f"共 {len(scenes)} 幕  ·  {total_lines} 句台詞", align="C",
+    pdf.cell(0, 7, f"共 {len(scenes)} 幕  ·  {total_lines} 句台詞  ·  {total_chars} 字", align="C",
              new_x="LMARGIN", new_y="NEXT")
+    if audio_secs >= 5:
+        mins = audio_secs // 60
+        secs = audio_secs % 60
+        time_str = (
+            f"預估聆聽時長：約 {mins} 分 {secs:02d} 秒"
+            if mins > 0
+            else f"預估聆聽時長：約 {secs} 秒"
+        )
+        set_font_safe(9)
+        pdf.cell(0, 6, time_str, align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.set_text_color(0, 0, 0)
 
     # ── Character list ──────────────────────────────────────────────────
