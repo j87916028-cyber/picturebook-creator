@@ -746,6 +746,74 @@ def _parse_suggestions(raw: str) -> list[str]:
 
     return suggestions[:3]
 
+
+async def _llm_suggestions(
+    prompt: str,
+    *,
+    temperature: float = 0.9,
+    max_tokens: int = 250,
+    groq_timeout: float = 20,
+    minimax_timeout: float = 30,
+    endpoint_name: str = "llm",
+) -> list[str]:
+    """Call Groq then MiniMax (fallback); parse and return suggestion list.
+
+    Returns an empty list if both providers fail (caller decides error handling).
+    """
+    last_error: Exception | None = None
+
+    if GROQ_API_KEY:
+        try:
+            resp = await _http_client.post(
+                GROQ_CHAT_URL,
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+                json={
+                    "model": "llama-3.1-8b-instant",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                },
+                timeout=groq_timeout,
+            )
+            resp.raise_for_status()
+            raw = resp.json()["choices"][0]["message"].get("content", "")
+            suggestions = _parse_suggestions(str(raw))
+            if suggestions:
+                logger.info("%s via Groq: %s", endpoint_name, suggestions)
+                return suggestions
+        except Exception as e:
+            logger.warning("%s Groq failed: %s", endpoint_name, e)
+            last_error = e
+
+    if MINIMAX_API_KEY:
+        try:
+            resp = await _http_client.post(
+                f"{MINIMAX_BASE}/chat/completions",
+                headers=MINIMAX_HEADERS,
+                json={
+                    "model": "MiniMax-M2.7",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                },
+                timeout=minimax_timeout,
+            )
+            resp.raise_for_status()
+            raw_content = resp.json()["choices"][0]["message"].get("content", "")
+            if isinstance(raw_content, list):
+                raw_content = " ".join(b.get("text", "") for b in raw_content if b.get("type") == "text")
+            suggestions = _parse_suggestions(str(raw_content))
+            if suggestions:
+                logger.info("%s via MiniMax: %s", endpoint_name, suggestions)
+                return suggestions
+        except Exception as e:
+            logger.warning("%s MiniMax failed: %s", endpoint_name, e)
+            last_error = e
+
+    logger.warning("%s all providers failed: %s", endpoint_name, last_error)
+    return []
+
+
 @app.post("/api/suggest-next-scene")
 async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
     if not _rl_suggest.is_allowed(_client_ip(request)):
@@ -792,67 +860,16 @@ async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
 - 每個描述都要包含角色名字
 - 簡潔生動，讓兒童一聽就感興趣"""
 
-    async def _call_groq() -> list[str]:
-        resp = await _http_client.post(
-            GROQ_CHAT_URL,
-            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": "llama-3.1-8b-instant",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.8,
-                "max_tokens": 400,
-            },
-            timeout=30,
-        )
-        resp.raise_for_status()
-        raw = resp.json()["choices"][0]["message"].get("content", "")
-        return _parse_suggestions(str(raw))
-
-    async def _call_minimax() -> list[str]:
-        resp = await _http_client.post(
-            f"{MINIMAX_BASE}/chat/completions",
-            headers=MINIMAX_HEADERS,
-            json={
-                "model": "MiniMax-M2.7",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.8,
-                "max_tokens": 400,
-            },
-            timeout=30,
-        )
-        resp.raise_for_status()
-        message = resp.json()["choices"][0]["message"]
-        raw_content = message.get("content", "")
-        if isinstance(raw_content, list):
-            raw = " ".join(b.get("text", "") for b in raw_content if b.get("type") == "text").strip()
-        else:
-            raw = str(raw_content)
-        return _parse_suggestions(raw)
-
-    last_error: Exception | None = None
-    # Try Groq first (faster, higher rate limits, no think-block issues)
-    if GROQ_API_KEY:
-        try:
-            suggestions = await _call_groq()
-            if suggestions:
-                logger.info("suggest via Groq: %s", suggestions)
-                return {"suggestions": suggestions}
-        except Exception as e:
-            logger.warning("suggest Groq failed: %s", e)
-            last_error = e
-
-    # Fall back to MiniMax
-    if MINIMAX_API_KEY:
-        try:
-            suggestions = await _call_minimax()
-            if suggestions:
-                logger.info("suggest via MiniMax: %s", suggestions)
-                return {"suggestions": suggestions}
-        except Exception as e:
-            logger.warning("suggest MiniMax failed: %s", e)
-            last_error = e
-
-    logger.warning("suggest-next-scene all providers failed: %s", last_error)
+    suggestions = await _llm_suggestions(
+        prompt,
+        temperature=0.8,
+        max_tokens=400,
+        groq_timeout=30,
+        minimax_timeout=30,
+        endpoint_name="suggest-next-scene",
+    )
+    if suggestions:
+        return {"suggestions": suggestions}
     raise HTTPException(status_code=502, detail="靈感生成失敗")
 
 
@@ -881,63 +898,16 @@ async def suggest_title(req: SuggestTitleRequest, request: Request):
 
 注意：使用台灣繁體中文"""
 
-    async def _call_groq() -> list[str]:
-        resp = await _http_client.post(
-            GROQ_CHAT_URL,
-            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": "llama-3.1-8b-instant",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.9,
-                "max_tokens": 200,
-            },
-            timeout=30,
-        )
-        resp.raise_for_status()
-        raw = resp.json()["choices"][0]["message"].get("content", "")
-        return _parse_suggestions(str(raw))
-
-    async def _call_minimax() -> list[str]:
-        resp = await _http_client.post(
-            f"{MINIMAX_BASE}/chat/completions",
-            headers=MINIMAX_HEADERS,
-            json={
-                "model": "MiniMax-M2.7",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.9,
-                "max_tokens": 200,
-            },
-            timeout=30,
-        )
-        resp.raise_for_status()
-        message = resp.json()["choices"][0]["message"]
-        raw_content = message.get("content", "")
-        if isinstance(raw_content, list):
-            raw = " ".join(b.get("text", "") for b in raw_content if b.get("type") == "text").strip()
-        else:
-            raw = str(raw_content)
-        return _parse_suggestions(raw)
-
-    last_error: Exception | None = None
-    if GROQ_API_KEY:
-        try:
-            suggestions = await _call_groq()
-            if suggestions:
-                return {"suggestions": suggestions}
-        except Exception as e:
-            logger.warning("suggest-title Groq failed: %s", e)
-            last_error = e
-
-    if MINIMAX_API_KEY:
-        try:
-            suggestions = await _call_minimax()
-            if suggestions:
-                return {"suggestions": suggestions}
-        except Exception as e:
-            logger.warning("suggest-title MiniMax failed: %s", e)
-            last_error = e
-
-    logger.warning("suggest-title all providers failed: %s", last_error)
+    suggestions = await _llm_suggestions(
+        prompt,
+        temperature=0.9,
+        max_tokens=200,
+        groq_timeout=30,
+        minimax_timeout=30,
+        endpoint_name="suggest-title",
+    )
+    if suggestions:
+        return {"suggestions": suggestions}
     raise HTTPException(status_code=502, detail="書名建議生成失敗")
 
 
@@ -972,63 +942,16 @@ async def rephrase_line(req: RephraseLineRequest, request: Request):
 - 直接輸出 JSON，不要任何說明：
 {{"suggestions": ["版本1", "版本2", "版本3"]}}"""
 
-    async def _call_groq() -> list[str]:
-        resp = await _http_client.post(
-            GROQ_CHAT_URL,
-            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": "llama-3.1-8b-instant",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.9,
-                "max_tokens": 250,
-            },
-            timeout=20,
-        )
-        resp.raise_for_status()
-        raw = resp.json()["choices"][0]["message"].get("content", "")
-        return _parse_suggestions(str(raw))
-
-    async def _call_minimax() -> list[str]:
-        resp = await _http_client.post(
-            f"{MINIMAX_BASE}/chat/completions",
-            headers=MINIMAX_HEADERS,
-            json={
-                "model": "MiniMax-M2.7",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.9,
-                "max_tokens": 250,
-            },
-            timeout=30,
-        )
-        resp.raise_for_status()
-        message = resp.json()["choices"][0]["message"]
-        raw = message.get("content", "")
-        if isinstance(raw, list):
-            raw = " ".join(b.get("text", "") for b in raw if b.get("type") == "text")
-        return _parse_suggestions(str(raw))
-
-    last_error: Exception | None = None
-    if GROQ_API_KEY:
-        try:
-            suggestions = await _call_groq()
-            if suggestions:
-                logger.info("rephrase-line via Groq: %s", suggestions)
-                return {"suggestions": suggestions}
-        except Exception as e:
-            logger.warning("rephrase-line Groq failed: %s", e)
-            last_error = e
-
-    if MINIMAX_API_KEY:
-        try:
-            suggestions = await _call_minimax()
-            if suggestions:
-                logger.info("rephrase-line via MiniMax: %s", suggestions)
-                return {"suggestions": suggestions}
-        except Exception as e:
-            logger.warning("rephrase-line MiniMax failed: %s", e)
-            last_error = e
-
-    logger.warning("rephrase-line all providers failed: %s", last_error)
+    suggestions = await _llm_suggestions(
+        prompt,
+        temperature=0.9,
+        max_tokens=250,
+        groq_timeout=20,
+        minimax_timeout=30,
+        endpoint_name="rephrase-line",
+    )
+    if suggestions:
+        return {"suggestions": suggestions}
     raise HTTPException(status_code=502, detail="潤色建議生成失敗")
 
 
@@ -1076,63 +999,16 @@ async def suggest_line(req: SuggestLineRequest, request: Request):
 - 直接輸出 JSON，不要任何說明：
 {{"suggestions": ["台詞1", "台詞2", "台詞3"]}}"""
 
-    async def _call_groq() -> list[str]:
-        resp = await _http_client.post(
-            GROQ_CHAT_URL,
-            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": "llama-3.1-8b-instant",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.9,
-                "max_tokens": 250,
-            },
-            timeout=20,
-        )
-        resp.raise_for_status()
-        raw = resp.json()["choices"][0]["message"].get("content", "")
-        return _parse_suggestions(str(raw))
-
-    async def _call_minimax() -> list[str]:
-        resp = await _http_client.post(
-            f"{MINIMAX_BASE}/chat/completions",
-            headers=MINIMAX_HEADERS,
-            json={
-                "model": "MiniMax-M2.7",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.9,
-                "max_tokens": 250,
-            },
-            timeout=30,
-        )
-        resp.raise_for_status()
-        message = resp.json()["choices"][0]["message"]
-        raw = message.get("content", "")
-        if isinstance(raw, list):
-            raw = " ".join(b.get("text", "") for b in raw if b.get("type") == "text")
-        return _parse_suggestions(str(raw))
-
-    last_error: Exception | None = None
-    if GROQ_API_KEY:
-        try:
-            suggestions = await _call_groq()
-            if suggestions:
-                logger.info("suggest-line via Groq: %s", suggestions)
-                return {"suggestions": suggestions}
-        except Exception as e:
-            logger.warning("suggest-line Groq failed: %s", e)
-            last_error = e
-
-    if MINIMAX_API_KEY:
-        try:
-            suggestions = await _call_minimax()
-            if suggestions:
-                logger.info("suggest-line via MiniMax: %s", suggestions)
-                return {"suggestions": suggestions}
-        except Exception as e:
-            logger.warning("suggest-line MiniMax failed: %s", e)
-            last_error = e
-
-    logger.warning("suggest-line all providers failed: %s", last_error)
+    suggestions = await _llm_suggestions(
+        prompt,
+        temperature=0.9,
+        max_tokens=250,
+        groq_timeout=20,
+        minimax_timeout=30,
+        endpoint_name="suggest-line",
+    )
+    if suggestions:
+        return {"suggestions": suggestions}
     raise HTTPException(status_code=502, detail="台詞建議生成失敗")
 
 
