@@ -13,6 +13,7 @@ type LineLength = 'short' | 'standard' | 'long'
 interface Props {
   droppedCharacters: Character[]
   onRemoveCharacter: (id: string) => void
+  onReorderDropped: (fromIdx: number, toIdx: number) => void
   onGenerate: (description: string, style: string, lineLength: LineLength, isEnding?: boolean, imageStyle?: string) => void
   onCancel: () => void
   isLoading: boolean
@@ -40,6 +41,7 @@ const IMAGE_STYLES: ImageStyleOption[] = [
 export default function SceneEditor({
   droppedCharacters,
   onRemoveCharacter,
+  onReorderDropped,
   onGenerate,
   onCancel,
   isLoading,
@@ -447,18 +449,34 @@ export default function SceneEditor({
             </div>
           ) : (
             <div className="dropped-chars">
-              {droppedCharacters.map(c => (
+              {droppedCharacters.map((c, i) => (
                 <div
                   key={c.id}
                   className="dropped-char-chip"
                   style={{ borderColor: c.color, background: `${c.color}22` }}
                 >
+                  {droppedCharacters.length > 1 && (
+                    <div className="char-reorder-btns">
+                      <button
+                        className="btn-char-reorder"
+                        onClick={() => onReorderDropped(i, i - 1)}
+                        disabled={i === 0}
+                        title="向左移（調整對話順序）"
+                      >‹</button>
+                      <button
+                        className="btn-char-reorder"
+                        onClick={() => onReorderDropped(i, i + 1)}
+                        disabled={i === droppedCharacters.length - 1}
+                        title="向右移（調整對話順序）"
+                      >›</button>
+                    </div>
+                  )}
                   <span>{c.emoji}</span>
                   <span style={{ color: c.color }}>{c.name}</span>
-                  <button onClick={() => onRemoveCharacter(c.id)}>×</button>
+                  <button onClick={() => onRemoveCharacter(c.id)} title="移除角色">×</button>
                 </div>
               ))}
-              <div className="drop-more-hint">可繼續拖入更多角色</div>
+              <div className="drop-more-hint">可繼續拖入角色 · 順序影響對話結構</div>
             </div>
           )}
         </div>

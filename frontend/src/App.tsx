@@ -278,6 +278,17 @@ export default function App() {
     abortControllerRef.current?.abort()
   }
 
+  // Reorder dropped characters in the scene editor (affects dialogue generation order)
+  const handleReorderDropped = (fromIdx: number, toIdx: number) => {
+    if (toIdx < 0 || toIdx >= droppedCharacters.length) return
+    setDroppedCharacters(prev => {
+      const arr = [...prev]
+      const [moved] = arr.splice(fromIdx, 1)
+      arr.splice(toIdx, 0, moved)
+      return arr
+    })
+  }
+
   // Duplicate a scene: clone with new ID, insert immediately after the original
   const handleSceneDuplicate = (sceneId: string) => {
     const idx = scenes.findIndex(s => s.id === sceneId)
@@ -1401,6 +1412,7 @@ export default function App() {
               <SceneEditor
                 droppedCharacters={droppedCharacters}
                 onRemoveCharacter={removeDropped}
+                onReorderDropped={handleReorderDropped}
                 onGenerate={handleGenerate}
                 onCancel={handleCancelGeneration}
                 isLoading={isLoading}
