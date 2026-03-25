@@ -114,6 +114,7 @@ function StoryboardCard({
     linesWithAudio === totalLines ? 'ok'       :
     linesWithAudio > 0            ? 'partial'  : 'pending'
   const previewLines = scene.lines.slice(0, 3)
+  const sceneSecs = Math.round(scene.lines.reduce((m, l) => m + l.text.length, 0) / 4)
 
   return (
     <div className="storyboard-card" onClick={onClick} title="點擊進入編輯此幕">
@@ -130,7 +131,14 @@ function StoryboardCard({
         </div>
       </div>
       <div className="storyboard-info">
-        <p className="storyboard-desc">{scene.description}</p>
+        <div className="storyboard-desc-row">
+          <p className="storyboard-desc">{scene.description}</p>
+          {sceneSecs >= 5 && (
+            <span className="storyboard-duration" title="依台詞字數估算播放時長">
+              ⏱ {Math.floor(sceneSecs / 60)}:{String(sceneSecs % 60).padStart(2, '0')}
+            </span>
+          )}
+        </div>
         {previewLines.length > 0 && (
           <div className="storyboard-lines">
             {previewLines.map((line, i) => {
@@ -561,10 +569,26 @@ function SceneCard({
   const isAudioFailed = (line: { audio_base64?: string }) =>
     (hasAudio || !!scene.voices_attempted) && !line.audio_base64
 
+  // Estimated duration for this scene (~4 Chinese chars per second)
+  const sceneSecs = useMemo(
+    () => Math.round(scene.lines.reduce((m, l) => m + l.text.length, 0) / 4),
+    [scene.lines]
+  )
+
   return (
     <div className="scene-card">
       <div className="scene-card-header">
-        <span className="scene-card-title">第 {sceneIndex + 1} 幕</span>
+        <span className="scene-card-title">
+          第 {sceneIndex + 1} 幕
+          {sceneSecs >= 5 && (
+            <span
+              className="scene-duration-badge"
+              title="依台詞字數估算播放時長（約 4 字/秒）"
+            >
+              約 {Math.floor(sceneSecs / 60)}:{String(sceneSecs % 60).padStart(2, '0')}
+            </span>
+          )}
+        </span>
         {editingDesc ? (
           <input
             className="scene-desc-edit-input"
