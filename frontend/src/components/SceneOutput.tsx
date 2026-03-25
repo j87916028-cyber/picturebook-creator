@@ -74,7 +74,7 @@ interface Props {
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
   onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
-  onSceneRegen: (sceneId: string, newDescription: string, style: string) => Promise<void>
+  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string) => Promise<void>
   onBatchRegenVoice: () => void
   batchRegenStatus: { done: number; total: number } | null
   onBatchRegenImages: () => void
@@ -96,7 +96,7 @@ interface SceneCardProps {
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
   onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
-  onSceneRegen: (sceneId: string, newDescription: string, style: string) => Promise<void>
+  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string) => Promise<void>
   onPlayFromScene: (sceneIndex: number) => void
 }
 
@@ -159,6 +159,9 @@ function SceneCard({
   }, [scene.script.scene_prompt])
   const [regenDesc, setRegenDesc] = useState(scene.description)
   const [regenStyle, setRegenStyle] = useState(scene.style)
+  const [regenLineLength, setRegenLineLength] = useState<'short' | 'standard' | 'long'>(
+    (scene.line_length as 'short' | 'standard' | 'long') || 'standard'
+  )
   const [regenLoading, setRegenLoading] = useState(false)
   const [regenError, setRegenError] = useState<string | null>(null)
   const [expandedImage, setExpandedImage] = useState(false)
@@ -307,7 +310,7 @@ function SceneCard({
     setRegenLoading(true)
     setRegenError(null)
     try {
-      await onSceneRegen(scene.id, regenDesc.trim(), regenStyle)
+      await onSceneRegen(scene.id, regenDesc.trim(), regenStyle, regenLineLength)
       setShowRegenForm(false)
     } catch (e) {
       setRegenError(e instanceof Error ? e.message : '重新生成失敗，請稍後重試')
@@ -491,6 +494,23 @@ function SceneCard({
                   onClick={() => setRegenStyle(s)}
                   type="button"
                 >{s}</button>
+              ))}
+            </div>
+          </div>
+          <div className="style-row" style={{ marginTop: '6px' }}>
+            <label style={{ fontSize: '0.8rem', color: '#888', whiteSpace: 'nowrap' }}>台詞長度</label>
+            <div className="style-buttons">
+              {([
+                { value: 'short',    label: '幼兒（≤12字）' },
+                { value: 'standard', label: '標準（≤20字）' },
+                { value: 'long',     label: '進階（≤35字）' },
+              ] as { value: 'short' | 'standard' | 'long'; label: string }[]).map(opt => (
+                <button
+                  key={opt.value}
+                  className={`style-btn ${regenLineLength === opt.value ? 'active' : ''}`}
+                  onClick={() => setRegenLineLength(opt.value)}
+                  type="button"
+                >{opt.label}</button>
               ))}
             </div>
           </div>

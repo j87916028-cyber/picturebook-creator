@@ -35,6 +35,7 @@ export interface Scene {
   id: string
   description: string
   style: string
+  line_length?: 'short' | 'standard' | 'long'
   script: ScriptResponse
   lines: ScriptLine[]
   image: string

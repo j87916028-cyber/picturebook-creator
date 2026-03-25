@@ -287,6 +287,7 @@ export default function App() {
       id: newSceneId,
       description,
       style,
+      line_length: lineLength,
       script: { lines: [], scene_prompt: '', sfx_description: '' },
       lines: [],
       image: '',
@@ -760,14 +761,20 @@ export default function App() {
   }
 
   // Re-generate entire scene
-  const handleSceneRegen = async (sceneId: string, newDescription: string, style: string) => {
+  const handleSceneRegen = async (sceneId: string, newDescription: string, style: string, lineLength?: string) => {
     // Snapshot the old scene BEFORE clearing — needed for rollback on failure.
     // `scenes` here refers to the closure-captured state at call time (correct).
     const oldScene = scenes.find(s => s.id === sceneId)
     if (!oldScene) return
 
+    // Determine the line_length to use: prefer the new value from the regen form,
+    // fall back to the scene's stored value, then 'standard' as the global default.
+    const effectiveLineLength = lineLength ?? oldScene.line_length ?? 'standard'
+
     setScenes(prev => prev.map(s =>
-      s.id === sceneId ? { ...s, description: newDescription, style, lines: [], image: '', script: { lines: [], scene_prompt: '', sfx_description: '' } } : s
+      s.id === sceneId
+        ? { ...s, description: newDescription, style, line_length: effectiveLineLength as Scene['line_length'], lines: [], image: '', script: { lines: [], scene_prompt: '', sfx_description: '' } }
+        : s
     ))
 
     // Build story context from ALL scenes before this one (compact summary per scene)
@@ -783,6 +790,7 @@ export default function App() {
           characters: droppedCharacters.length > 0 ? droppedCharacters : characters,
           style,
           story_context: storyContext,
+          line_length: effectiveLineLength,
         }),
       })
       if (!scriptRes.ok) {
