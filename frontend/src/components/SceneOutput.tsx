@@ -251,6 +251,7 @@ function SceneCard({
   const [playingIndex, setPlayingIndex] = useState<number | null>(null)
   const [playProgress, setPlayProgress] = useState(0)  // 0–100 percent
   const audioRefs = useRef<(HTMLAudioElement | null)[]>([])
+  const lineItemRefs = useRef<(HTMLDivElement | null)[]>([])
   const linesLengthRef = useRef(scene.lines.length)
   const playLineRef = useRef<((i: number) => void) | null>(null)
 
@@ -264,6 +265,12 @@ function SceneCard({
     }
     audio.addEventListener('timeupdate', onTime)
     return () => audio.removeEventListener('timeupdate', onTime)
+  }, [playingIndex])
+
+  // Auto-scroll the playing line into view so users can follow along
+  useEffect(() => {
+    if (playingIndex === null) return
+    lineItemRefs.current[playingIndex]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [playingIndex])
 
   // Edit state
@@ -898,6 +905,7 @@ function SceneCard({
                     <Fragment key={i}>
                     <SortableLine id={String(i)} disabled={isDragDisabled}>
                     <div
+                      ref={el => { lineItemRefs.current[i] = el }}
                       className={`dialogue-line ${isPlaying ? 'playing' : ''}`}
                       style={{ borderLeftColor: color }}
                 >
