@@ -2958,10 +2958,7 @@ def _export_html_zip(
 </body>
 </html>"""
 
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("index.html", html_doc.encode("utf-8"))
-    return buf.getvalue()
+    return html_doc.encode("utf-8")
 
 
 def _export_mp3_zip(project_name: str, scenes: list) -> bytes:
@@ -3069,8 +3066,8 @@ async def export_project(
         filename = f"{project_name}.epub"
     elif format == "html":
         data = await loop.run_in_executor(None, _export_html_zip, project_name, scenes, char_color_map, raw_chars)
-        media_type = "application/zip"
-        filename = f"{project_name}_web.zip"
+        media_type = "text/html; charset=utf-8"
+        filename = f"{project_name}.html"
     else:  # "mp3"
         data = await loop.run_in_executor(None, _export_mp3_zip, project_name, scenes)
         media_type = "application/zip"

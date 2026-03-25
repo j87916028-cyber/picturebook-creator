@@ -1108,7 +1108,7 @@ export default function App() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      const extMap: Record<string, string> = { pdf: 'pdf', epub: 'epub', html: 'zip', mp3: 'zip' }
+      const extMap: Record<string, string> = { pdf: 'pdf', epub: 'epub', html: 'html', mp3: 'zip' }
       const ext = extMap[format] || format
       a.download = `${projectName || '繪本'}.${ext}`
       a.click()
