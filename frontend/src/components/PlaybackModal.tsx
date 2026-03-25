@@ -56,8 +56,14 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
 
   const [cursor, setCursor] = useState(startCursor)  // index into playlist
   const [playing, setPlaying] = useState(true)
-  const [speed, setSpeed] = useState(1.0)
-  const [volume, setVolume] = useState(1.0)   // 0–1
+  const [speed, setSpeed] = useState<number>(() => {
+    const saved = parseFloat(localStorage.getItem('pb_speed') ?? '')
+    return SPEED_OPTIONS.includes(saved) ? saved : 1.0
+  })
+  const [volume, setVolume] = useState<number>(() => {
+    const saved = parseFloat(localStorage.getItem('pb_volume') ?? '')
+    return isFinite(saved) && saved >= 0 && saved <= 1 ? saved : 1.0
+  })
   const [muted, setMuted] = useState(false)
   const [loop, setLoop] = useState(false)
   const loopRef = useRef(false)
@@ -125,14 +131,16 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
     }
   }, [cursor]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Apply speed change to live audio immediately
+  // Apply speed change to live audio immediately; persist preference
   useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = speed
+    localStorage.setItem('pb_speed', String(speed))
   }, [speed])
 
-  // Apply volume / mute changes to live audio immediately
+  // Apply volume / mute changes to live audio immediately; persist volume preference
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = muted ? 0 : volume
+    localStorage.setItem('pb_volume', String(volume))
   }, [volume, muted])
 
   // Per-line audio progress tracking
