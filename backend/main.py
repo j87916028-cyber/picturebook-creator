@@ -2681,6 +2681,10 @@ def _export_html_zip(
           {audio_tag}
         </div>"""
 
+        back_link = (
+            '<a href="#toc" class="scene-back-link">↑ 回目次</a>'
+            if len(scenes) >= 2 else ""
+        )
         scene_htmls.append(f"""
   <section class="scene-card" id="scene-{i}">
     <h2 class="scene-title">第{i+1}幕</h2>
@@ -2688,6 +2692,7 @@ def _export_html_zip(
     {img_tag}
     <div class="dialogue-block">{line_divs}
     </div>
+    {back_link}
   </section>""")
 
     scenes_joined = "\n".join(scene_htmls)
@@ -2712,6 +2717,29 @@ def _export_html_zip(
     <h2 class="char-intro-title">✨ 認識角色</h2>
     <div class="char-intro-grid">{char_cards}
     </div>
+  </section>"""
+
+    # ── Table of contents (only when there are 2+ scenes) ───────────────────
+    toc_html = ""
+    if len(scenes) >= 2:
+        toc_items = ""
+        for i, scene in enumerate(scenes):
+            desc = html.escape(scene.get("description", f"第{i+1}幕") or f"第{i+1}幕")
+            has_audio = any(line.get("audio_base64") for line in scene.get("lines", []))
+            audio_badge = ' <span class="toc-audio-badge">🔊</span>' if has_audio else ""
+            toc_items += f"""
+      <li class="toc-item">
+        <a href="#scene-{i}" class="toc-link">
+          <span class="toc-num">第 {i+1} 幕</span>
+          <span class="toc-desc">{desc}</span>
+          {audio_badge}
+        </a>
+      </li>"""
+        toc_html = f"""
+  <section class="toc-section" id="toc">
+    <h2 class="toc-title">📖 目次</h2>
+    <ol class="toc-list">{toc_items}
+    </ol>
   </section>"""
 
     escaped_project_name = html.escape(project_name)
@@ -2801,6 +2829,29 @@ def _export_html_zip(
     .char-intro-emoji {{ font-size: 2rem; line-height: 1.2; margin-bottom: 4px; }}
     .char-intro-name {{ font-weight: 800; font-size: 0.95rem; margin-bottom: 4px; }}
     .char-intro-personality {{ font-size: 0.75rem; color: #888; line-height: 1.4; max-width: 120px; }}
+    /* ── table of contents ── */
+    .toc-section {{
+      background: white; border-radius: 16px; padding: 24px 28px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    }}
+    .toc-title {{ font-size: 1.1rem; font-weight: 800; color: #667eea; margin-bottom: 14px; }}
+    .toc-list {{ list-style: none; display: flex; flex-direction: column; gap: 6px; }}
+    .toc-item {{ display: flex; }}
+    .toc-link {{
+      display: flex; align-items: baseline; gap: 10px; width: 100%;
+      text-decoration: none; color: #444; padding: 8px 12px; border-radius: 10px;
+      transition: background 0.15s;
+    }}
+    .toc-link:hover {{ background: #f0f4ff; color: #667eea; }}
+    .toc-num {{ font-weight: 800; color: #667eea; white-space: nowrap; min-width: 4em; }}
+    .toc-desc {{ flex: 1; font-size: 0.92rem; color: #666; }}
+    .toc-link:hover .toc-desc {{ color: #667eea; }}
+    .toc-audio-badge {{ font-size: 0.8rem; opacity: 0.6; }}
+    .scene-back-link {{
+      display: inline-block; margin-top: 16px; font-size: 0.8rem;
+      color: #aaa; text-decoration: none; transition: color 0.15s;
+    }}
+    .scene-back-link:hover {{ color: #667eea; }}
   </style>
 </head>
 <body>
@@ -2811,6 +2862,7 @@ def _export_html_zip(
   </header>
   <main>
 {char_intro_html}
+{toc_html}
 {scenes_joined}
   </main>
   <footer>由「繪本有聲書創作工坊」匯出</footer>
