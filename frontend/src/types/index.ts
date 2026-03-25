@@ -55,6 +55,7 @@ export interface ProjectMeta {
   created_at: string
   updated_at: string
   scene_count: number
+  line_count?: number
   cover_image?: string
 }
 

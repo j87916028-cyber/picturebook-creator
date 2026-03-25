@@ -2019,7 +2019,8 @@ async def list_projects(request: Request):
             """
             SELECT p.id, p.name, p.created_at, p.updated_at,
                    p.cover_image,
-                   COUNT(s.id)::int AS scene_count
+                   COUNT(s.id)::int AS scene_count,
+                   COALESCE(SUM(jsonb_array_length(s.lines)), 0)::int AS line_count
             FROM projects p
             LEFT JOIN scenes s ON s.project_id = p.id
             GROUP BY p.id
@@ -2033,6 +2034,7 @@ async def list_projects(request: Request):
             "created_at": r["created_at"].isoformat(),
             "updated_at": r["updated_at"].isoformat(),
             "scene_count": r["scene_count"],
+            "line_count": r["line_count"],
             "cover_image": r["cover_image"],
         }
         for r in rows

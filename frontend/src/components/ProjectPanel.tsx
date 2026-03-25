@@ -209,7 +209,7 @@ export default function ProjectPanel({
                 >{p.name}</span>
               )}
               <span className="project-meta">
-                {p.scene_count} 幕・{formatDate(p.updated_at)}
+                {p.scene_count} 幕{p.line_count != null && p.line_count > 0 ? `・${p.line_count} 句` : ''}・{formatDate(p.updated_at)}
               </span>
             </div>
             <button
