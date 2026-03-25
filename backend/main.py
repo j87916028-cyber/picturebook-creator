@@ -2078,6 +2078,22 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
         raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     _db_required()
     _validate_uuid(project_id)
+
+    # Compute the cover thumbnail BEFORE entering the transaction.
+    # _make_cover_thumbnail is CPU-bound (Pillow); running it inside the
+    # transaction keeps the DB connection acquired for the full thumbnail
+    # generation time, blocking pool slots for other requests.  Computing
+    # it up-front from the immutable request data lets us keep the
+    # transaction as short as possible.
+    cover_thumb: str | None = None
+    first_image = next(
+        (s.image for s in req.scenes if s.image and s.image != "error"), None
+    )
+    if first_image:
+        cover_thumb = await asyncio.get_running_loop().run_in_executor(
+            None, _make_cover_thumbnail, first_image
+        )
+
     async with _db_pool.acquire() as conn:
         proj = await conn.fetchrow("SELECT id FROM projects WHERE id = $1", project_id)
         if proj is None:
@@ -2105,17 +2121,6 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
                         for scene in req.scenes
                     ],
                 )
-            # Compute a small cover thumbnail from the first scene that has an image.
-            # Pillow is CPU-bound, so run it in a thread-pool executor.
-            cover_thumb: str | None = None
-            first_image = next(
-                (s.image for s in req.scenes if s.image and s.image != "error"), None
-            )
-            if first_image:
-                cover_thumb = await asyncio.get_running_loop().run_in_executor(
-                    None, _make_cover_thumbnail, first_image
-                )
-
             await conn.execute(
                 """
                 UPDATE projects
