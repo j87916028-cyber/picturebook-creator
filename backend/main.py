@@ -219,24 +219,6 @@ XFYUN_APP_ID     = os.getenv("XFYUN_APP_ID", "")
 XFYUN_API_KEY    = os.getenv("XFYUN_API_KEY", "")
 XFYUN_API_SECRET = os.getenv("XFYUN_API_SECRET", "")
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-
-# Initialise Gemini client once at startup (not per-request)
-_gemini_client = None
-_gemini_image_config = None
-if GEMINI_API_KEY:
-    try:
-        from google import genai as _genai
-        from google.genai import types as _gtypes
-        _gemini_client = _genai.Client(api_key=GEMINI_API_KEY)
-        # Use GenerateContentConfig for gemini image generation (Imagen requires paid billing)
-        _gemini_image_config = _gtypes.GenerateContentConfig(
-            response_modalities=["IMAGE", "TEXT"],
-        )
-        logger.info("Gemini client initialised")
-    except Exception as _e:
-        logger.warning("Gemini init failed: %s", _e)
-
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")
 HF_IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
 # HuggingFace moved from api-inference.huggingface.co (410 Gone) to router.huggingface.co
@@ -1538,35 +1520,14 @@ def _generate_scene_image_pillow(prompt: str, width: int = 800, height: int = 60
     return base64.b64encode(buf.getvalue()).decode('utf-8')
 
 
-# ── 端點：生成場景圖片（Gemini Flash → HuggingFace → Pollinations → Pillow）─
+# ── 端點：生成場景圖片（HuggingFace → Pollinations → Pillow）─────────
 @app.post("/api/generate-image")
 async def generate_image(req: GenerateImageRequest, request: Request):
     if not _rl_image.is_allowed(_client_ip(request)):
         raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     full_prompt = f"{req.prompt}, {req.style} style, soft colors, child-friendly, high quality"
 
-    # ── 優先：Gemini Flash Image（generateContent 模式，需開通 billing）────
-    if _gemini_client and _gemini_image_config:
-        try:
-            result = await asyncio.get_running_loop().run_in_executor(
-                None,
-                lambda: _gemini_client.models.generate_content(
-                    model="gemini-2.5-flash-image",
-                    contents=full_prompt,
-                    config=_gemini_image_config,
-                )
-            )
-            if result.candidates:
-                for part in result.candidates[0].content.parts:
-                    if hasattr(part, "inline_data") and part.inline_data:
-                        b64 = base64.b64encode(part.inline_data.data).decode("utf-8")
-                        mime = part.inline_data.mime_type or "image/png"
-                        logger.info("Gemini Flash Image success")
-                        return {"url": f"data:{mime};base64,{b64}"}
-        except Exception as e:
-            logger.warning("Gemini Flash Image exception: %s", e)
-
-    # ── 次要：HuggingFace Inference API（HUGGINGFACE_API_KEY）────
+    # ── 優先：HuggingFace Inference API（HUGGINGFACE_API_KEY）────
     if HUGGINGFACE_API_KEY:
         try:
             resp = await _http_client.post(
