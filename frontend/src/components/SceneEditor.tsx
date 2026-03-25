@@ -47,6 +47,21 @@ export default function SceneEditor({
   const [audioLoading, setAudioLoading] = useState(false)
   const [inputError, setInputError] = useState<string | null>(null)
 
+  // Elapsed-time counter for script generation step
+  const [scriptElapsed, setScriptElapsed] = useState(0)
+  const scriptTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    const isScriptStep = isLoading && genStatus?.step === 'script'
+    if (isScriptStep) {
+      setScriptElapsed(0)
+      scriptTimerRef.current = setInterval(() => setScriptElapsed(s => s + 1), 1000)
+    } else {
+      if (scriptTimerRef.current) { clearInterval(scriptTimerRef.current); scriptTimerRef.current = null }
+    }
+    return () => { if (scriptTimerRef.current) clearInterval(scriptTimerRef.current) }
+  }, [isLoading, genStatus?.step])
+
   // Suggestion state
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [suggestLoading, setSuggestLoading] = useState(false)
@@ -439,10 +454,20 @@ export default function SceneEditor({
         {isLoading && genStatus && (
           <div className="gen-progress">
             {genStatus.step === 'script' && (
-              <div className="gen-step">
-                <span className="gen-step-icon spinning">⟳</span>
-                <span>正在生成劇本...</span>
-              </div>
+              <>
+                <div className="gen-step">
+                  <span className="gen-step-icon spinning">⟳</span>
+                  <span>
+                    正在生成劇本...
+                    {scriptElapsed > 0 && (
+                      <span className="gen-elapsed"> {scriptElapsed} 秒</span>
+                    )}
+                  </span>
+                </div>
+                <div className="gen-progress-bar">
+                  <div className="gen-progress-indeterminate" />
+                </div>
+              </>
             )}
             {genStatus.step === 'media' && (
               <>

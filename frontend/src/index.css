@@ -1145,6 +1145,20 @@ body {
   border-radius: 4px;
   transition: width 0.4s ease;
 }
+@keyframes indeterminate-slide {
+  0%   { transform: translateX(-100%); width: 40%; }
+  50%  { width: 60%; }
+  100% { transform: translateX(300%); width: 40%; }
+}
+.gen-progress-indeterminate {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #f093fb);
+  border-radius: 4px;
+  animation: indeterminate-slide 1.6s ease-in-out infinite;
+}
+.gen-elapsed {
+  font-size: 0.78rem; color: #a0aec0; margin-left: 4px;
+}
 
 /* ── Generate Row (button + reset) ──────────────── */
 .generate-row {
