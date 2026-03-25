@@ -94,6 +94,11 @@ export default function App() {
   const [titleSuggestLoading, setTitleSuggestLoading] = useState(false)
   const titleSuggestRef = useRef<HTMLDivElement>(null)
 
+  // Inline title-editing state
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [editTitleValue, setEditTitleValue] = useState('')
+  const editTitleInputRef = useRef<HTMLInputElement>(null)
+
   // Close any open dropdown on outside click or Escape
   useEffect(() => {
     if (!exportOpen && !titleSuggestOpen) return
@@ -1068,6 +1073,26 @@ export default function App() {
     } catch {}
   }
 
+  const handleStartEditTitle = () => {
+    if (!currentProjectId) return
+    setEditTitleValue(projectName)
+    setEditingTitle(true)
+    // Focus after React renders the input
+    setTimeout(() => editTitleInputRef.current?.select(), 0)
+  }
+
+  const handleConfirmEditTitle = async () => {
+    const trimmed = editTitleValue.trim()
+    setEditingTitle(false)
+    if (!trimmed || trimmed === projectName) return
+    await handleApplyTitle(trimmed)
+  }
+
+  const handleEditTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { e.preventDefault(); handleConfirmEditTitle() }
+    if (e.key === 'Escape') { setEditingTitle(false) }
+  }
+
   const handleProjectLoad = (proj: ProjectDetail) => {
     loadProjectData(proj)
   }
@@ -1103,9 +1128,25 @@ export default function App() {
             {savedStatus === 'failed' && <span className="save-indicator failed">⚠️ 儲存失敗</span>}
             {currentProjectId && projectName && (
               <div className="title-suggest-wrap" ref={titleSuggestRef}>
-                <span className={`current-project-name${titleSparkle ? ' sparkle' : ''}`} title={projectName}>
-                  {titleSparkle ? '✨ ' : ''}{projectName}
-                </span>
+                {editingTitle ? (
+                  <input
+                    ref={editTitleInputRef}
+                    className="current-project-name-input"
+                    value={editTitleValue}
+                    onChange={e => setEditTitleValue(e.target.value)}
+                    onBlur={handleConfirmEditTitle}
+                    onKeyDown={handleEditTitleKeyDown}
+                    maxLength={60}
+                  />
+                ) : (
+                  <span
+                    className={`current-project-name editable${titleSparkle ? ' sparkle' : ''}`}
+                    title="點擊改名"
+                    onClick={handleStartEditTitle}
+                  >
+                    {titleSparkle ? '✨ ' : ''}{projectName} ✏️
+                  </span>
+                )}
                 {scenes.length > 0 && (
                   <button
                     className="btn-suggest-title"

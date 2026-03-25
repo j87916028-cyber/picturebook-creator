@@ -63,6 +63,30 @@ body {
   white-space: nowrap;
   transition: all 0.3s;
 }
+.current-project-name.editable {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+.current-project-name.editable:hover {
+  background: rgba(255,255,255,0.2);
+  opacity: 1;
+}
+.current-project-name-input {
+  font-size: 0.78rem;
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: 4px;
+  color: inherit;
+  padding: 1px 6px;
+  outline: none;
+  width: 140px;
+  max-width: 160px;
+}
+.current-project-name-input:focus {
+  background: rgba(255,255,255,0.28);
+  border-color: rgba(255,255,255,0.8);
+}
 .current-project-name.sparkle {
   opacity: 1;
   color: #ffe566;
