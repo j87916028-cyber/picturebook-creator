@@ -208,11 +208,12 @@ export default function App() {
         })),
         characters: data.characters,
       }
-      await fetch(`/api/projects/${data.projectId}/scenes`, {
+      const res = await fetch(`/api/projects/${data.projectId}/scenes`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setSavedStatus('saved')
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
       savedTimerRef.current = setTimeout(() => setSavedStatus('idle'), 2500)
