@@ -96,6 +96,7 @@ interface Props {
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
   onLineCharacterChange: (sceneId: string, lineIndex: number, newCharacterId: string) => Promise<void>
   onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
+  onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string) => Promise<void>
   onBatchRegenVoice: () => void
   batchRegenStatus: { done: number; total: number } | null
@@ -119,6 +120,7 @@ interface SceneCardProps {
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
   onLineCharacterChange: (sceneId: string, lineIndex: number, newCharacterId: string) => Promise<void>
   onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
+  onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string) => Promise<void>
   onPlayFromScene: (sceneIndex: number) => void
 }
@@ -139,6 +141,7 @@ function SceneCard({
   onLineEmotionChange,
   onLineCharacterChange,
   onImageRegen,
+  onSceneDescriptionUpdate,
   onSceneRegen,
   onPlayFromScene,
 }: SceneCardProps) {
@@ -186,6 +189,14 @@ function SceneCard({
   useEffect(() => {
     setEditedPrompt(scene.script.scene_prompt || '')
   }, [scene.script.scene_prompt])
+  // Inline description edit
+  const [editingDesc, setEditingDesc] = useState(false)
+  const [editDescText, setEditDescText] = useState(scene.description)
+  // Keep local text in sync if description changes externally (e.g. after full regen)
+  useEffect(() => {
+    if (!editingDesc) setEditDescText(scene.description)
+  }, [scene.description, editingDesc])
+
   const [regenDesc, setRegenDesc] = useState(scene.description)
   const [regenStyle, setRegenStyle] = useState(scene.style)
   const [regenLineLength, setRegenLineLength] = useState<'short' | 'standard' | 'long'>(
@@ -369,7 +380,40 @@ function SceneCard({
     <div className="scene-card">
       <div className="scene-card-header">
         <span className="scene-card-title">第 {sceneIndex + 1} 幕</span>
-        <span className="scene-card-desc">{scene.description}</span>
+        {editingDesc ? (
+          <input
+            className="scene-desc-edit-input"
+            value={editDescText}
+            maxLength={500}
+            autoFocus
+            onChange={e => setEditDescText(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                const v = editDescText.trim()
+                if (v) onSceneDescriptionUpdate(scene.id, v)
+                setEditingDesc(false)
+              }
+              if (e.key === 'Escape') {
+                setEditingDesc(false)
+                setEditDescText(scene.description)
+              }
+            }}
+            onBlur={() => {
+              const v = editDescText.trim()
+              if (v && v !== scene.description) onSceneDescriptionUpdate(scene.id, v)
+              setEditingDesc(false)
+            }}
+          />
+        ) : (
+          <div className="scene-desc-wrap">
+            <span className="scene-card-desc">{scene.description}</span>
+            <button
+              className="btn-edit-desc"
+              onClick={() => { setEditDescText(scene.description); setEditingDesc(true) }}
+              title="編輯場景描述（不重新生成）"
+            >✏️</button>
+          </div>
+        )}
         <div className="scene-header-right">
           {hasAudio && (
             <button
@@ -989,6 +1033,7 @@ export default function SceneOutput({
   onLineEmotionChange,
   onLineCharacterChange,
   onImageRegen,
+  onSceneDescriptionUpdate,
   onSceneRegen,
   onBatchRegenVoice,
   batchRegenStatus,
@@ -1129,6 +1174,7 @@ export default function SceneOutput({
             onLineEmotionChange={onLineEmotionChange}
             onLineCharacterChange={onLineCharacterChange}
             onImageRegen={onImageRegen}
+            onSceneDescriptionUpdate={onSceneDescriptionUpdate}
             onSceneRegen={onSceneRegen}
             onPlayFromScene={handlePlayFromScene}
           />

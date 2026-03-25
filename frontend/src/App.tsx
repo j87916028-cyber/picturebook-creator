@@ -419,6 +419,13 @@ export default function App() {
 
   // ── Edit callbacks ────────────────────────────────────────────
 
+  // Edit scene description label without re-generating
+  const handleSceneDescriptionUpdate = (sceneId: string, newDescription: string) => {
+    const next = scenes.map(s => s.id === sceneId ? { ...s, description: newDescription } : s)
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
+  }
+
   // Delete a scene
   const handleSceneDelete = (sceneId: string) => {
     const next = scenes.filter(s => s.id !== sceneId)
@@ -1290,6 +1297,7 @@ export default function App() {
               onLineEmotionChange={handleLineEmotionChange}
               onLineCharacterChange={handleLineCharacterChange}
               onImageRegen={handleImageRegen}
+              onSceneDescriptionUpdate={handleSceneDescriptionUpdate}
               onSceneRegen={handleSceneRegen}
               onBatchRegenVoice={handleBatchRegenVoice}
               batchRegenStatus={batchRegenStatus}

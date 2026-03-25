@@ -978,12 +978,42 @@ body {
   color: #667eea;
   white-space: nowrap;
 }
+.scene-desc-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
 .scene-card-desc {
   font-size: 0.875rem;
   color: #888;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.btn-edit-desc {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.78rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+.scene-card-header:hover .btn-edit-desc { opacity: 0.6; }
+.btn-edit-desc:hover { opacity: 1 !important; }
+.scene-desc-edit-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.875rem;
+  color: #555;
+  border: 1.5px solid #667eea;
+  border-radius: 6px;
+  padding: 3px 8px;
+  outline: none;
+  background: #f8f9ff;
 }
 
 .scene-card-image-wrap { width: 100%; }
