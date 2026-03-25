@@ -541,7 +541,9 @@ _VOICE_SAMPLE: dict[str, str] = {
 }
 
 @app.get("/api/voices/{voice_id}/preview")
-async def voice_preview(voice_id: str):
+async def voice_preview(voice_id: str, request: Request):
+    if not _rl_voice.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     if voice_id not in VALID_VOICE_IDS:
         raise HTTPException(status_code=404, detail="找不到此聲音")
     if voice_id in _voice_preview_cache:
