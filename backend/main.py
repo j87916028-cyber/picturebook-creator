@@ -2361,15 +2361,36 @@ def _export_pdf(project_name: str, scenes: list, char_color_map: dict | None = N
         char_color_map = {}
 
     font_path = _find_cjk_font()
+    _use_cjk = font_path is not None
 
-    pdf = FPDF(orientation="P", unit="mm", format="A4")
+    class _PicturebookPDF(FPDF):
+        """FPDF subclass that adds centered page numbers in the footer.
+
+        Page 1 is the cover — we skip its footer so it stays clean.
+        Scene pages are numbered starting from 1.
+        """
+        def footer(self) -> None:
+            if self.page <= 1:   # cover page — no footer
+                return
+            self.set_y(-10)
+            # Footer always uses regular weight to keep it subtle.
+            if _use_cjk:
+                self.set_font("NotoSansCJK", style="", size=8)
+            else:
+                self.set_font("Helvetica", style="", size=8)
+            self.set_text_color(160, 160, 160)
+            # page_no() counts from 1; subtract 1 so scene pages start at "第 1 頁".
+            self.cell(0, 5, f"— 第 {self.page_no() - 1} 頁 —", align="C")
+            self.set_text_color(0, 0, 0)
+
+    pdf = _PicturebookPDF(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=15)
 
     # Register CJK regular + bold fonts.
     # fpdf2 raises "Undefined font: notosanscjkB" if bold is requested but not
     # registered, which crashes the entire export.  Load the bold variant too
     # (NotoSansCJK-Bold.ttc ships alongside Regular in the Docker image).
-    use_cjk = font_path is not None
+    use_cjk = _use_cjk
     has_cjk_bold = False
     if use_cjk:
         pdf.add_font("NotoSansCJK", "", font_path)
