@@ -356,7 +356,7 @@ export default function App() {
         updateScene(s => ({ ...s, image: d.url }))
       }).catch(() => { updateScene(s => ({ ...s, image: 'error' })) })
 
-      const voicePromises = script.lines.map(async (line, index) => {
+      const voiceTasks = script.lines.map((line, index) => async () => {
         try {
           const res = await fetch('/api/generate-voice', {
             method: 'POST',
@@ -377,7 +377,10 @@ export default function App() {
         } catch {}
       })
 
-      await Promise.all([imagePromise, ...voicePromises])
+      await Promise.all([
+        imagePromise,
+        throttled(voiceTasks, 4),
+      ])
       setGenStatus({ step: 'done', done: totalLines, total: totalLines })
 
       // Auto-save after all generation completes (read latest state via setter, then save outside)
