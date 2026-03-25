@@ -2626,12 +2626,19 @@ def _hex_to_rgb(hex_color: str) -> tuple[int, int, int] | None:
         return None
 
 
-def _export_html_zip(project_name: str, scenes: list, char_color_map: dict | None = None) -> bytes:
+def _export_html_zip(
+    project_name: str,
+    scenes: list,
+    char_color_map: dict | None = None,
+    characters: list | None = None,
+) -> bytes:
     # Build a self-contained index.html with all scenes.
     # char_color_map: {character_name: hex_color} — used for per-character
     # dialogue border colours.  Falls back to the brand purple when absent.
     if char_color_map is None:
         char_color_map = {}
+    if characters is None:
+        characters = []
 
     scene_htmls = []
     for i, scene in enumerate(scenes):
@@ -2684,6 +2691,28 @@ def _export_html_zip(project_name: str, scenes: list, char_color_map: dict | Non
   </section>""")
 
     scenes_joined = "\n".join(scene_htmls)
+
+    # ── Character introduction section ──────────────────────────────────────
+    char_intro_html = ""
+    if characters:
+        char_cards = ""
+        for c in characters:
+            name       = html.escape(str(c.get("name", "")))
+            emoji      = html.escape(str(c.get("emoji", "🎭")))
+            personality = html.escape(str(c.get("personality", "")))
+            color      = _safe_css_color(c.get("color", ""), fallback="#667eea")
+            char_cards += f"""
+      <div class="char-intro-card" style="border-top-color:{color}">
+        <div class="char-intro-emoji">{emoji}</div>
+        <div class="char-intro-name" style="color:{color}">{name}</div>
+        {f'<div class="char-intro-personality">{personality}</div>' if personality else ''}
+      </div>"""
+        char_intro_html = f"""
+  <section class="char-intro-section">
+    <h2 class="char-intro-title">✨ 認識角色</h2>
+    <div class="char-intro-grid">{char_cards}
+    </div>
+  </section>"""
 
     escaped_project_name = html.escape(project_name)
     html_doc = f"""<!DOCTYPE html>
@@ -2752,6 +2781,26 @@ def _export_html_zip(project_name: str, scenes: list, char_color_map: dict | Non
       transition: box-shadow .15s;
     }}
     .header-play-btn:hover {{ box-shadow: 0 4px 16px rgba(0,0,0,.18); }}
+    /* ── character intro ── */
+    .char-intro-section {{
+      background: white; border-radius: 16px; padding: 24px 28px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08); margin-bottom: 0;
+    }}
+    .char-intro-title {{
+      font-size: 1.1rem; font-weight: 800; color: #667eea; margin-bottom: 16px;
+    }}
+    .char-intro-grid {{
+      display: flex; flex-wrap: wrap; gap: 14px;
+    }}
+    .char-intro-card {{
+      background: #fafbff; border-radius: 12px; padding: 14px 18px;
+      border-top: 4px solid #667eea; text-align: center;
+      min-width: 90px; flex: 0 0 auto;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    }}
+    .char-intro-emoji {{ font-size: 2rem; line-height: 1.2; margin-bottom: 4px; }}
+    .char-intro-name {{ font-weight: 800; font-size: 0.95rem; margin-bottom: 4px; }}
+    .char-intro-personality {{ font-size: 0.75rem; color: #888; line-height: 1.4; max-width: 120px; }}
   </style>
 </head>
 <body>
@@ -2761,6 +2810,7 @@ def _export_html_zip(project_name: str, scenes: list, char_color_map: dict | Non
     <button class="header-play-btn" onclick="startPlayAll()">▶ 播放全書</button>
   </header>
   <main>
+{char_intro_html}
 {scenes_joined}
   </main>
   <footer>由「繪本有聲書創作工坊」匯出</footer>
@@ -3018,7 +3068,7 @@ async def export_project(
         media_type = "application/epub+zip"
         filename = f"{project_name}.epub"
     elif format == "html":
-        data = await loop.run_in_executor(None, _export_html_zip, project_name, scenes, char_color_map)
+        data = await loop.run_in_executor(None, _export_html_zip, project_name, scenes, char_color_map, raw_chars)
         media_type = "application/zip"
         filename = f"{project_name}_web.zip"
     else:  # "mp3"
