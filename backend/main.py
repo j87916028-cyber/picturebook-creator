@@ -214,6 +214,7 @@ MINIMAX_HEADERS = {
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_TTS_URL = "https://api.groq.com/openai/v1/audio/speech"
+GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # ── 科大訊飛 TTS ────────────────────────────────────────────
 XFYUN_APP_ID     = os.getenv("XFYUN_APP_ID", "")
@@ -317,6 +318,14 @@ VOICE_TO_XFYUN: dict[str, str] = {
     "cute_boy":               "xiaoyu",
     "elderly_man":            "xiaoyu",
     "elderly_woman":          "xiaoyan",
+}
+
+# Dialogue line-length rules, keyed by the `line_length` request field.
+# Defined at module level so the dict is allocated once, not on every request.
+_LINE_LENGTH_RULES = {
+    "short":    "- 台詞不超過 12 字/句，用詞要非常簡單，讓幼兒也能聽懂",
+    "standard": "- 台詞不超過 20 字/句",
+    "long":     "- 台詞可長達 35 字/句，可使用較豐富的描述與詞彙",
 }
 
 
@@ -1122,13 +1131,6 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
         for c in req.characters
     ])
 
-    # Compute the line-length rule before the f-string so it can be interpolated directly.
-    # Previously this was computed AFTER the f-string, causing a NameError on every request.
-    _LINE_LENGTH_RULES = {
-        "short":    "- 台詞不超過 12 字/句，用詞要非常簡單，讓幼兒也能聽懂",
-        "standard": "- 台詞不超過 20 字/句",
-        "long":     "- 台詞可長達 35 字/句，可使用較豐富的描述與詞彙",
-    }
     line_length_rule = _LINE_LENGTH_RULES.get(req.line_length or "standard", _LINE_LENGTH_RULES["standard"])
 
     _img_style = (req.image_style or "").strip() or "watercolor children's book illustration"
@@ -1817,7 +1819,6 @@ async def generate_image(req: GenerateImageRequest, request: Request):
 IMAGE_MAX_BYTES = 4 * 1024 * 1024  # 4 MB
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
-GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 IMAGE_DESCRIBE_PROMPT = (
     "請用台灣繁體中文描述這張圖片的場景內容，100字以內，符合台灣語言習慣，適合作為兒童繪本的場景描述。"
 )
