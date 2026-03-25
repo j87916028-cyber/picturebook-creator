@@ -2873,6 +2873,26 @@ def _export_html_zip(
       color: #aaa; text-decoration: none; transition: color 0.15s;
     }}
     .scene-back-link:hover {{ color: #667eea; }}
+    /* ── print / save-as-PDF ── */
+    @media print {{
+      body {{ background: white; color: #222; }}
+      header {{ background: #667eea; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 20px 16px; }}
+      header h1 {{ font-size: 1.6rem; }}
+      .header-play-btn {{ display: none; }}
+      #player-bar {{ display: none !important; }}
+      footer {{ padding-bottom: 16px; }}
+      main {{ padding: 16px; gap: 20px; }}
+      .scene-card {{ box-shadow: none; border: 1px solid #dde; page-break-inside: avoid; break-inside: avoid; }}
+      .char-intro-section, .toc-section {{ box-shadow: none; border: 1px solid #dde; page-break-inside: avoid; break-inside: avoid; }}
+      .toc-link {{ color: #333; }}
+      .toc-link:hover {{ background: none; }}
+      .scene-img {{ max-height: 320px; object-fit: contain; }}
+      .dialogue-line {{ page-break-inside: avoid; break-inside: avoid; }}
+      .btn-play {{ display: none; }}
+      .no-audio {{ display: none; }}
+      .scene-back-link {{ display: none; }}
+      audio {{ display: none; }}
+    }}
   </style>
 </head>
 <body>
