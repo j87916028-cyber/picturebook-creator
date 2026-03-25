@@ -264,19 +264,38 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
       )}
 
       <div className="playback-body">
-        {/* Scene image */}
+        {/* Scene image — key forces remount on scene change for fade-in animation */}
         <div className="playback-image-wrap">
           {currentScene?.image && currentScene.image !== 'error' ? (
             <img
+              key={current?.sceneIdx}
               src={currentScene.image}
               alt={`第${(current?.sceneIdx ?? 0) + 1}幕`}
-              className="playback-image"
+              className="playback-image playback-image-fade"
             />
           ) : (
-            <div className="playback-image-placeholder">🖼️</div>
+            <div key={current?.sceneIdx} className="playback-image-placeholder">🖼️</div>
           )}
           <div className="playback-scene-badge">{sceneProgress}</div>
         </div>
+
+        {/* Speaking character indicator */}
+        {currentChar && playing && (
+          <div className="playback-speaker-bar">
+            <span className="playback-speaker-emoji" key={cursor}>{currentChar.emoji}</span>
+            <span className="playback-speaker-name" style={{ color: currentChar.color }}>
+              {currentChar.name}
+            </span>
+            {currentLine?.emotion && currentLine.emotion !== 'neutral' && (
+              <span className="playback-speaker-emotion">
+                {EMOTION_LABELS[currentLine.emotion]}
+              </span>
+            )}
+            <span className="playback-speaker-wave">
+              <span /><span /><span />
+            </span>
+          </div>
+        )}
 
         {/* Karaoke transcript — all lines in current scene */}
         <div className="playback-transcript">

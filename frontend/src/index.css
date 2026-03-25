@@ -2374,10 +2374,61 @@ kbd {
 .playback-image {
   width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;
 }
+@keyframes playback-fadein {
+  from { opacity: 0; transform: scale(1.015); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.playback-image-fade {
+  animation: playback-fadein 0.45s ease-out both;
+}
 .playback-image-placeholder {
   width: 100%; aspect-ratio: 16/9; background: #1e1e3a;
   display: flex; align-items: center; justify-content: center;
   font-size: 4rem; color: #444;
+  animation: playback-fadein 0.45s ease-out both;
+}
+/* Speaking character indicator */
+.playback-speaker-bar {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 40px;
+  padding: 6px 16px 6px 8px;
+  max-width: 520px; width: 100%;
+}
+.playback-speaker-emoji {
+  font-size: 2rem; line-height: 1;
+  animation: speaker-bounce 0.4s ease-out both;
+}
+@keyframes speaker-bounce {
+  0%   { transform: scale(0.7); }
+  60%  { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+.playback-speaker-name {
+  font-size: 1rem; font-weight: 700;
+}
+.playback-speaker-emotion {
+  font-size: 0.78rem; color: rgba(255,255,255,0.55);
+  background: rgba(255,255,255,0.08); border-radius: 12px;
+  padding: 2px 9px;
+}
+/* Three-bar sound wave animation */
+.playback-speaker-wave {
+  display: flex; align-items: center; gap: 3px;
+  margin-left: auto;
+}
+.playback-speaker-wave span {
+  display: inline-block;
+  width: 3px; background: rgba(255,255,255,0.4); border-radius: 2px;
+  animation: wave-bar 0.7s ease-in-out infinite alternate;
+}
+.playback-speaker-wave span:nth-child(1) { height: 10px; animation-delay: 0s; }
+.playback-speaker-wave span:nth-child(2) { height: 18px; animation-delay: 0.12s; }
+.playback-speaker-wave span:nth-child(3) { height: 12px; animation-delay: 0.24s; }
+@keyframes wave-bar {
+  from { transform: scaleY(0.3); }
+  to   { transform: scaleY(1); }
 }
 .playback-scene-badge {
   position: absolute; bottom: 10px; left: 12px;
