@@ -414,6 +414,7 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
               onMoveUp={characters.indexOf(c) > 0 ? () => handleMoveUp(c.id) : undefined}
               onMoveDown={characters.indexOf(c) < characters.length - 1 ? () => handleMoveDown(c.id) : undefined}
               lineCount={lineCountsByCharId[c.id]}
+              voiceLabel={voices.find(v => v.id === c.voice_id)?.label}
             />
             {editingId === c.id && (
               <CharacterForm

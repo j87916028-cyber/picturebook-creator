@@ -12,9 +12,10 @@ interface Props {
   onMoveDown?: () => void
   isDragging?: boolean
   lineCount?: number   // total dialogue lines this character has across all scenes
+  voiceLabel?: string  // display name of the assigned voice
 }
 
-export default function CharacterCard({ character, onDelete, onEdit, onDuplicate, onMoveUp, onMoveDown, isDragging = false, lineCount }: Props) {
+export default function CharacterCard({ character, onDelete, onEdit, onDuplicate, onMoveUp, onMoveDown, isDragging = false, lineCount, voiceLabel }: Props) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: character.id,
     data: { character },
@@ -24,6 +25,7 @@ export default function CharacterCard({ character, onDelete, onEdit, onDuplicate
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [previewing, setPreviewing] = useState(false)
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
+  const previewLoadingRef = useRef(false)
 
   // Clean up timer and audio on unmount
   useEffect(() => () => {
@@ -31,33 +33,35 @@ export default function CharacterCard({ character, onDelete, onEdit, onDuplicate
     previewAudioRef.current?.pause()
   }, [])
 
+  // Use the dedicated cached preview endpoint (GET /api/voices/{id}/preview)
+  // to avoid consuming the /api/generate-voice rate-limit quota.
   const handlePreview = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation()
-    // Stop any currently playing preview
     if (previewAudioRef.current) {
       previewAudioRef.current.pause()
       previewAudioRef.current = null
-      if (previewing) { setPreviewing(false); return }
+      setPreviewing(false)
+      return
     }
+    if (previewLoadingRef.current) return
+    previewLoadingRef.current = true
     setPreviewing(true)
     try {
-      const res = await fetch('/api/generate-voice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: `你好，我是${character.name}。`, voice_id: character.voice_id }),
-      })
-      if (!res.ok) return
+      const res = await fetch(`/api/voices/${character.voice_id}/preview`)
+      if (!res.ok) { setPreviewing(false); return }
       const data = await res.json()
-      const fmt = data.format || 'wav'
+      const fmt = data.format || 'mp3'
       const audio = new Audio(`data:audio/${fmt};base64,${data.audio_base64}`)
       previewAudioRef.current = audio
       audio.onended = () => { setPreviewing(false); previewAudioRef.current = null }
       audio.onerror = () => { setPreviewing(false); previewAudioRef.current = null }
-      audio.play().catch(() => setPreviewing(false))
+      audio.play().catch(() => { setPreviewing(false); previewAudioRef.current = null })
     } catch {
       setPreviewing(false)
+    } finally {
+      previewLoadingRef.current = false
     }
-  }, [character.name, character.voice_id, previewing])
+  }, [character.voice_id])
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -98,6 +102,9 @@ export default function CharacterCard({ character, onDelete, onEdit, onDuplicate
           {character.visual_description && (
             <div className="card-visual-desc" title="外形描述">👗 {character.visual_description}</div>
           )}
+          {voiceLabel && (
+            <div className="card-voice-label" title="配音聲音">🎙 {voiceLabel}</div>
+          )}
         </div>
       </div>
       <div className="card-actions">
@@ -119,7 +126,6 @@ export default function CharacterCard({ character, onDelete, onEdit, onDuplicate
           className={`card-preview${previewing ? ' playing' : ''}`}
           onClick={handlePreview}
           title={previewing ? '停止試聽' : '試聽角色聲音'}
-          disabled={previewing && !previewAudioRef.current}
         >{previewing ? '⏹' : '🔊'}</button>
         <button
           className="card-edit"
