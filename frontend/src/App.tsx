@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { DndContext, DragEndEvent } from '@dnd-kit/core'
 import { Character, ScriptLine, ScriptResponse, Scene, ProjectDetail } from './types'
 import CharacterPanel from './components/CharacterPanel'
@@ -1118,6 +1118,37 @@ export default function App() {
     setPlanWarning(null)
   }
 
+  // ── Memoized derived state ─────────────────────────────────────
+  // These run on every render that changes `scenes`; memoizing prevents
+  // them from recomputing during unrelated state updates (savedStatus,
+  // genStatus, batch regen progress, etc.).
+
+  const storyContext = useMemo(() => buildStoryContext(scenes), [scenes])
+
+  const lineCountsByCharId = useMemo(() =>
+    scenes.reduce<Record<string, number>>((acc, s) => {
+      s.lines.forEach(l => {
+        if (l.character_id) acc[l.character_id] = (acc[l.character_id] ?? 0) + 1
+      })
+      return acc
+    }, {}),
+  [scenes])
+
+  const storyStats = useMemo(() => {
+    if (scenes.length === 0) return null
+    const totalLines  = scenes.reduce((n, s) => n + s.lines.length, 0)
+    const audioLines  = scenes.reduce((n, s) => n + s.lines.filter(l => l.audio_base64).length, 0)
+    const imagesDone  = scenes.filter(s => s.image && s.image !== 'error').length
+    const audioPct    = totalLines > 0 ? Math.round((audioLines / totalLines) * 100) : 0
+    const totalChars  = scenes.reduce((n, s) => n + s.lines.reduce((m, l) => m + l.text.length, 0), 0)
+    const readMinutes = totalChars > 0 ? Math.max(1, Math.round(totalChars / 200)) : 0
+    const charLineCounts: Record<string, number> = {}
+    scenes.forEach(s => s.lines.forEach(l => {
+      if (l.character_id) charLineCounts[l.character_id] = (charLineCounts[l.character_id] ?? 0) + 1
+    }))
+    return { totalLines, audioLines, imagesDone, audioPct, totalChars, readMinutes, charLineCounts }
+  }, [scenes])
+
   return (
     <DndContext onDragEnd={handleDragEnd}>
       <div className="app">
@@ -1227,12 +1258,7 @@ export default function App() {
 
           <CharacterPanel
             characters={characters}
-            lineCountsByCharId={scenes.reduce<Record<string, number>>((acc, s) => {
-              s.lines.forEach(l => {
-                if (l.character_id) acc[l.character_id] = (acc[l.character_id] ?? 0) + 1
-              })
-              return acc
-            }, {})}
+            lineCountsByCharId={lineCountsByCharId}
             onChange={updated => {
               // Build a lookup of what changed from the current characters array
               const prevMap = new Map(characters.map(c => [c.id, c]))
@@ -1279,7 +1305,7 @@ export default function App() {
               genStatus={genStatus}
               sceneCount={scenes.length}
               onReset={handleReset}
-              storyContext={buildStoryContext(scenes)}
+              storyContext={storyContext}
             />
 
             {error && <div className="error-box">⚠️ {error}</div>}
@@ -1292,24 +1318,11 @@ export default function App() {
               </div>
             )}
 
-            {scenes.length > 0 && (() => {
-              const totalLines  = scenes.reduce((n, s) => n + s.lines.length, 0)
-              const audioLines  = scenes.reduce((n, s) => n + s.lines.filter(l => l.audio_base64).length, 0)
-              const imagesDone  = scenes.filter(s => s.image && s.image !== 'error').length
-              const audioPct    = totalLines > 0 ? Math.round((audioLines / totalLines) * 100) : 0
-              const totalChars  = scenes.reduce((n, s) => n + s.lines.reduce((m, l) => m + l.text.length, 0), 0)
-              // Children's read-aloud pace ≈ 200 Chinese chars / minute
-              const readMinutes = totalChars > 0 ? Math.max(1, Math.round(totalChars / 200)) : 0
-
-              // Per-character line counts for dialogue-balance bar
-              const charLineCounts: Record<string, number> = {}
-              scenes.forEach(s => s.lines.forEach(l => {
-                if (l.character_id) charLineCounts[l.character_id] = (charLineCounts[l.character_id] ?? 0) + 1
-              }))
+            {storyStats && (() => {
+              const { totalLines, audioLines, imagesDone, audioPct, totalChars, readMinutes, charLineCounts } = storyStats
               const activeChars = characters
                 .filter(c => (charLineCounts[c.id] ?? 0) > 0)
                 .sort((a, b) => (charLineCounts[b.id] ?? 0) - (charLineCounts[a.id] ?? 0))
-
               return (
                 <>
                   <div className="story-stats-strip">
