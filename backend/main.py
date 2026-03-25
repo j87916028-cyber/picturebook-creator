@@ -613,7 +613,7 @@ async def generate_title(req: GenerateTitleRequest, request: Request):
 # ── 端點：下一幕靈感建議 ──────────────────────────────────────
 class SuggestNextSceneRequest(BaseModel):
     characters: Annotated[List[Character], Field(min_length=1, max_length=6)]
-    story_context: str = Field(..., min_length=1, max_length=5000)
+    story_context: Optional[str] = Field(None, max_length=5000)  # None = first scene
     style: Optional[str] = Field("溫馨童趣", max_length=20)
 
 def _is_chinese_text(s: str) -> bool:
@@ -665,7 +665,13 @@ async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
     char_names = "、".join(c.name for c in req.characters)
-    prompt = f"""你是台灣繪本故事作家。根據以下故事脈絡，為下一幕提供 3 個不同方向的場景描述建議。
+    char_desc = "、".join(
+        f"{c.name}（{c.personality}）" for c in req.characters
+    )
+
+    if req.story_context:
+        # Continuation: suggest what happens next
+        prompt = f"""你是台灣繪本故事作家。根據以下故事脈絡，為下一幕提供 3 個不同方向的場景描述建議。
 
 角色：{char_names}
 風格：{req.style}
@@ -681,6 +687,22 @@ async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
 - 使用台灣繁體中文
 - 每個描述要能自然銜接前情
 - 簡潔生動，適合兒童繪本"""
+    else:
+        # First scene: suggest engaging opening scenarios
+        prompt = f"""你是台灣繪本故事作家。根據以下角色設定，為繪本的第一幕提供 3 個不同風格的開場場景描述建議。
+
+角色：{char_desc}
+故事風格：{req.style}
+
+請提供 3 個有趣的「開場場景描述」，每個約 20-50 字，風格各異（例如：奇幻相遇、日常生活、神秘事件、溫馨出發等），能自然引出角色並展開故事。
+
+直接輸出 JSON，格式如下，不要任何多餘說明：
+{{"suggestions": ["描述1", "描述2", "描述3"]}}
+
+注意：
+- 使用台灣繁體中文，符合台灣語言習慣
+- 每個描述都要包含角色名字
+- 簡潔生動，讓兒童一聽就感興趣"""
 
     async def _call_groq() -> list[str]:
         resp = await _http_client.post(

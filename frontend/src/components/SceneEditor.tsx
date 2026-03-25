@@ -56,7 +56,7 @@ export default function SceneEditor({
   const { setNodeRef, isOver } = useDroppable({ id: 'scene-drop-zone' })
 
   const fetchSuggestions = useCallback(async () => {
-    if (!storyContext || droppedCharacters.length === 0 || suggestLoading) return
+    if (droppedCharacters.length === 0 || suggestLoading) return
     setSuggestLoading(true)
     setSuggestError(false)
     try {
@@ -65,7 +65,7 @@ export default function SceneEditor({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           characters: droppedCharacters,
-          story_context: storyContext,
+          story_context: storyContext || null,  // null → first-scene prompt on backend
           style,
         }),
       })
@@ -80,6 +80,20 @@ export default function SceneEditor({
     }
   }, [storyContext, droppedCharacters, style, suggestLoading])
 
+  // Auto-fetch for first scene: trigger when characters are first dropped in
+  const prevCharCountRef = useRef(0)
+  useEffect(() => {
+    const cur = droppedCharacters.length
+    const prev = prevCharCountRef.current
+    prevCharCountRef.current = cur
+    // Fetch when the first character is added (prev=0 → cur>0) and this is scene 0
+    if (cur > 0 && prev === 0 && sceneCount === 0 && !suggestLoading) {
+      setSuggestions([])
+      setSuggestError(false)
+      fetchSuggestions()
+    }
+  }, [droppedCharacters.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Re-fetch suggestions every time sceneCount increases.
   // Previously this was gated on suggestions.length === 0, which meant after the
   // first fetch the suggestions never updated for subsequent scenes.
@@ -87,7 +101,6 @@ export default function SceneEditor({
     if (
       sceneCount > 0 &&
       sceneCount !== lastFetchedForCount.current &&
-      storyContext &&
       droppedCharacters.length > 0 &&
       !suggestLoading
     ) {
@@ -214,15 +227,17 @@ export default function SceneEditor({
           <div className="error-box" style={{ marginTop: '-8px' }}>{inputError}</div>
         )}
 
-        {/* ✨ 下一幕靈感建議（只在已有幕次時顯示） */}
-        {sceneCount > 0 && (
+        {/* ✨ 開場/下一幕靈感建議 */}
+        {droppedCharacters.length > 0 && (
           <div className="suggest-section">
             <div className="suggest-header">
-              <span className="suggest-title">✨ 下一幕靈感</span>
+              <span className="suggest-title">
+                {sceneCount === 0 ? '✨ 開場靈感' : '✨ 下一幕靈感'}
+              </span>
               <button
                 className="btn-suggest-refresh"
                 onClick={fetchSuggestions}
-                disabled={suggestLoading || droppedCharacters.length === 0}
+                disabled={suggestLoading}
                 title="換一批建議"
               >
                 {suggestLoading ? <span className="spinner-sm" /> : '🔄'}
