@@ -945,7 +945,7 @@ async def rephrase_line(req: RephraseLineRequest, request: Request):
 async def generate_script(req: GenerateScriptRequest, request: Request):
     if not _rl_script.is_allowed(_client_ip(request)):
         raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
-    if not MINIMAX_API_KEY:
+    if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未正確設定，請聯絡管理員")
 
     character_desc = "\n".join([
@@ -998,41 +998,74 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
     if req.story_context:
         prompt += f"\n前情提要（請確保本幕故事自然銜接前情，劇情持續發展，不重複前幕內容）：\n{req.story_context}\n"
 
-    try:
+    async def _call_minimax_script() -> str:
+        try:
+            resp = await _http_client.post(
+                f"{MINIMAX_BASE}/chat/completions",
+                headers=MINIMAX_HEADERS,
+                json={
+                    "model": "MiniMax-M2.7",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.8,
+                },
+                timeout=90,
+            )
+        except (httpx.TimeoutException, httpx.RequestError) as e:
+            raise RuntimeError(f"MiniMax network error: {e}") from e
+        if resp.status_code != 200:
+            raise RuntimeError(f"MiniMax HTTP {resp.status_code}")
+        try:
+            message = resp.json()["choices"][0]["message"]
+            if isinstance(message["content"], list):
+                return " ".join(
+                    block.get("text", "") for block in message["content"]
+                    if block.get("type") == "text"
+                )
+            return str(message["content"])
+        except (KeyError, IndexError) as e:
+            raise RuntimeError(f"MiniMax response format error: {e}") from e
+
+    async def _call_groq_script() -> str:
         resp = await _http_client.post(
-            f"{MINIMAX_BASE}/chat/completions",
-            headers=MINIMAX_HEADERS,
+            GROQ_CHAT_URL,
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
             json={
-                "model": "MiniMax-M2.7",
+                "model": "llama-3.3-70b-versatile",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.8,
+                "max_tokens": 1500,
             },
-            timeout=90,
+            timeout=60,
         )
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="請求逾時，請稍後重試")
-    except httpx.RequestError:
-        raise HTTPException(status_code=502, detail="無法連線至 AI 服務，請稍後重試")
+        resp.raise_for_status()
+        raw = resp.json()["choices"][0]["message"].get("content", "")
+        return str(raw)
 
-    if resp.status_code == 429:
-        raise HTTPException(status_code=429, detail="API 額度不足，請至 MiniMax 平台儲值後重試")
-    if resp.status_code != 200:
+    # Try MiniMax first (higher quality, handles Chinese natively).
+    # On any failure, fall back to Groq llama-3.3-70b-versatile.
+    content: str | None = None
+    last_error: Exception | None = None
+
+    if MINIMAX_API_KEY:
+        try:
+            content = await _call_minimax_script()
+            logger.info("generate-script via MiniMax (%d chars)", len(content))
+        except Exception as e:
+            logger.warning("generate-script MiniMax failed: %s — trying Groq fallback", e)
+            last_error = e
+
+    if content is None and GROQ_API_KEY:
+        try:
+            content = await _call_groq_script()
+            logger.info("generate-script via Groq fallback (%d chars)", len(content))
+        except Exception as e:
+            logger.warning("generate-script Groq fallback failed: %s", e)
+            last_error = e
+
+    if content is None:
+        if isinstance(last_error, httpx.TimeoutException):
+            raise HTTPException(status_code=504, detail="請求逾時，請稍後重試")
         raise HTTPException(status_code=502, detail="AI 服務暫時無法使用，請稍後重試")
-
-    try:
-        resp_json = resp.json()
-        logger.info("LLM response keys: %s", list(resp_json.get("choices", [{}])[0].get("message", {}).keys()))
-        message = resp_json["choices"][0]["message"]
-        # M2.7 thinking 模式：content 可能是 list，取 text 部分
-        if isinstance(message["content"], list):
-            content = " ".join(
-                block.get("text", "") for block in message["content"]
-                if block.get("type") == "text"
-            )
-        else:
-            content = message["content"]
-    except (KeyError, IndexError):
-        raise HTTPException(status_code=502, detail="AI 服務回應格式異常")
 
     # 移除 <think>...</think> 思考區塊
     # M2.7 sometimes places the entire answer inside <think>; save raw so we can search it as fallback
