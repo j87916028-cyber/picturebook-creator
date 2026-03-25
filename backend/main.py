@@ -100,6 +100,7 @@ _rl_suggest = _RateLimiter(max_calls=15,  window_secs=60)   # Scene suggestions
 _rl_title   = _RateLimiter(max_calls=15,  window_secs=60)   # Title gen
 _rl_upload  = _RateLimiter(max_calls=20,  window_secs=60)   # Image/audio upload
 _rl_export  = _RateLimiter(max_calls=5,   window_secs=60)   # Export (CPU-heavy)
+_rl_project = _RateLimiter(max_calls=60,  window_secs=60)   # Project CRUD (auto-save fires ~40×/min)
 
 # ── Optional asyncpg import (graceful if not installed) ──────────
 try:
@@ -1914,7 +1915,9 @@ def _validate_uuid(value: str) -> str:
 
 # ── GET /api/projects ─────────────────────────────────────────
 @app.get("/api/projects")
-async def list_projects():
+async def list_projects(request: Request):
+    if not _rl_project.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     _db_required()
     async with _db_pool.acquire() as conn:
         rows = await conn.fetch(
@@ -1943,7 +1946,9 @@ async def list_projects():
 
 # ── POST /api/projects ────────────────────────────────────────
 @app.post("/api/projects", status_code=201)
-async def create_project(req: CreateProjectRequest):
+async def create_project(req: CreateProjectRequest, request: Request):
+    if not _rl_project.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     _db_required()
     async with _db_pool.acquire() as conn:
         row = await conn.fetchrow(
@@ -1960,7 +1965,9 @@ async def create_project(req: CreateProjectRequest):
 
 # ── GET /api/projects/{project_id} ───────────────────────────
 @app.get("/api/projects/{project_id}")
-async def get_project(project_id: str):
+async def get_project(project_id: str, request: Request):
+    if not _rl_project.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     _db_required()
     _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
@@ -2003,8 +2010,10 @@ class SaveCharactersRequest(BaseModel):
     characters: List[CharacterIn] = Field(default_factory=list, max_length=20)
 
 @app.put("/api/projects/{project_id}/characters")
-async def save_project_characters(project_id: str, req: SaveCharactersRequest):
+async def save_project_characters(project_id: str, req: SaveCharactersRequest, request: Request):
     """Persist just the characters list for a project (lightweight, no scene touch)."""
+    if not _rl_project.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     _db_required()
     _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
@@ -2021,7 +2030,9 @@ async def save_project_characters(project_id: str, req: SaveCharactersRequest):
 
 # ── PATCH /api/projects/{project_id} ─────────────────────────
 @app.patch("/api/projects/{project_id}")
-async def rename_project(project_id: str, req: RenameProjectRequest):
+async def rename_project(project_id: str, req: RenameProjectRequest, request: Request):
+    if not _rl_project.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     _db_required()
     _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
@@ -2046,7 +2057,9 @@ async def rename_project(project_id: str, req: RenameProjectRequest):
 
 # ── DELETE /api/projects/{project_id} ────────────────────────
 @app.delete("/api/projects/{project_id}")
-async def delete_project(project_id: str):
+async def delete_project(project_id: str, request: Request):
+    if not _rl_project.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     _db_required()
     _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
@@ -2060,7 +2073,9 @@ async def delete_project(project_id: str):
 
 # ── PUT /api/projects/{project_id}/scenes ────────────────────
 @app.put("/api/projects/{project_id}/scenes")
-async def save_scenes(project_id: str, req: SaveScenesRequest):
+async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request):
+    if not _rl_project.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     _db_required()
     _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
