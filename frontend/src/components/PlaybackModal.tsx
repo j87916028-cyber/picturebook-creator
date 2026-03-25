@@ -60,9 +60,25 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
   const [audioProgress, setAudioProgress] = useState(0)   // 0–100 within current line
   const [audioDuration, setAudioDuration] = useState(0)   // seconds
   const [audioCurrentTime, setAudioCurrentTime] = useState(0)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const activeLineRef = useRef<HTMLDivElement | null>(null)
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen().catch(() => {})
+    } else {
+      document.exitFullscreen().catch(() => {})
+    }
+  }, [])
+
+  // Sync isFullscreen state with actual fullscreen status
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', handler)
+    return () => document.removeEventListener('fullscreenchange', handler)
+  }, [])
 
   const current = playlist[cursor]
   const currentScene = current ? scenes[current.sceneIdx] : null
@@ -167,10 +183,11 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
       else if (e.key === 'ArrowLeft'  || e.key === 'j') goTo(cursor - 1)
       else if (e.key === 'PageDown') { e.preventDefault(); if (current) goToScene(current.sceneIdx + 1) }
       else if (e.key === 'PageUp')   { e.preventDefault(); if (current) goToScene(current.sceneIdx - 1) }
+      else if (e.key === 'f' || e.key === 'F') toggleFullscreen()
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [cursor, showHelp, togglePlay, goTo, goToScene, onClose])
+  }, [cursor, showHelp, togglePlay, goTo, goToScene, onClose, toggleFullscreen])
 
   if (playlist.length === 0) {
     return (
@@ -199,6 +216,15 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
       {/* Close */}
       <button className="playback-close-btn" onClick={onClose} title="關閉 (Esc)">✕</button>
 
+      {/* Fullscreen toggle */}
+      <button
+        className="playback-fullscreen-btn"
+        onClick={toggleFullscreen}
+        title={isFullscreen ? '退出全螢幕 (F)' : '全螢幕 (F)'}
+      >
+        {isFullscreen ? '🗗' : '🗖'}
+      </button>
+
       {/* Help / keyboard shortcuts */}
       <button
         className={`playback-help-btn${showHelp ? ' active' : ''}`}
@@ -216,6 +242,7 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
                 <tr><td><kbd>←</kbd> / <kbd>J</kbd></td><td>上一句台詞</td></tr>
                 <tr><td><kbd>PageDown</kbd></td><td>跳至下一幕</td></tr>
                 <tr><td><kbd>PageUp</kbd></td><td>跳至上一幕</td></tr>
+                <tr><td><kbd>F</kbd></td><td>全螢幕切換</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>關閉播放器</td></tr>
               </tbody>
             </table>
