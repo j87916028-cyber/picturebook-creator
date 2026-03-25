@@ -132,6 +132,14 @@ export default function App() {
 
   const abortControllerRef = useRef<AbortController | null>(null)
 
+  // ── Sync browser tab title to current project name ─────────────
+  useEffect(() => {
+    const base = '繪本有聲書創作工坊'
+    document.title = projectName && projectName !== '未命名作品'
+      ? `${projectName} ✦ ${base}`
+      : base
+  }, [projectName])
+
   // ── Auto-init: fetch projects on mount, auto-load most recent ──
   useEffect(() => {
     const init = async () => {
