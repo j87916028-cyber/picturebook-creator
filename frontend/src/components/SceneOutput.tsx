@@ -216,6 +216,8 @@ interface SceneCardProps {
   sceneIndex: number
   totalScenes: number
   characters: Character[]
+  isCollapsed: boolean
+  onToggleCollapse: (sceneId: string) => void
   onSceneDelete: (sceneId: string) => void
   onSceneMove: (sceneId: string, direction: 'up' | 'down') => void
   onSceneDuplicate: (sceneId: string) => void
@@ -239,6 +241,8 @@ function SceneCard({
   sceneIndex,
   totalScenes,
   characters,
+  isCollapsed,
+  onToggleCollapse,
   onSceneDelete,
   onSceneMove,
   onSceneDuplicate,
@@ -256,7 +260,6 @@ function SceneCard({
   onPlayFromScene,
   onLinesReorder,
 }: SceneCardProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false)
   const [playingIndex, setPlayingIndex] = useState<number | null>(null)
   const [playProgress, setPlayProgress] = useState(0)  // 0–100 percent
   const audioRefs = useRef<(HTMLAudioElement | null)[]>([])
@@ -636,7 +639,7 @@ function SceneCard({
           )}
           <button
             className="btn-scene-collapse"
-            onClick={() => setIsCollapsed(v => !v)}
+            onClick={() => onToggleCollapse(scene.id)}
             title={isCollapsed ? '展開此幕' : '收合此幕'}
           >{isCollapsed ? '▼ 展開' : '▲ 收合'}</button>
           <div className="scene-move-btns">
@@ -1378,6 +1381,18 @@ export default function SceneOutput({
   const [showPlayback, setShowPlayback] = useState(false)
   const [playbackStartScene, setPlaybackStartScene] = useState(0)
   const [viewMode, setViewMode] = useState<'detail' | 'storyboard'>('detail')
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set())
+
+  const toggleCollapse = (sceneId: string) =>
+    setCollapsedIds(prev => {
+      const next = new Set(prev)
+      next.has(sceneId) ? next.delete(sceneId) : next.add(sceneId)
+      return next
+    })
+
+  const allCollapsed = scenes.length > 0 && scenes.every(s => collapsedIds.has(s.id))
+  const collapseAll = () => setCollapsedIds(new Set(scenes.map(s => s.id)))
+  const expandAll  = () => setCollapsedIds(new Set())
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([])
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
@@ -1567,6 +1582,15 @@ export default function SceneOutput({
                 ))}
               </div>
             )}
+            {scenes.length >= 2 && viewMode === 'detail' && (
+              <button
+                className="btn-view-toggle"
+                onClick={allCollapsed ? expandAll : collapseAll}
+                title={allCollapsed ? '展開所有場景' : '收合所有場景'}
+              >
+                {allCollapsed ? '▼ 全部展開' : '▲ 全部收合'}
+              </button>
+            )}
             {scenes.length >= 2 && (
               <button
                 className={`btn-view-toggle${viewMode === 'storyboard' ? ' active' : ''}`}
@@ -1612,6 +1636,8 @@ export default function SceneOutput({
               sceneIndex={i}
               totalScenes={scenes.length}
               characters={characters}
+              isCollapsed={collapsedIds.has(scene.id)}
+              onToggleCollapse={toggleCollapse}
               onSceneDelete={onSceneDelete}
               onSceneMove={onSceneMove}
               onSceneDuplicate={onSceneDuplicate}
