@@ -306,6 +306,10 @@ function SceneCard({
   }, [scene.description, editingDesc])
 
   const [regenDesc, setRegenDesc] = useState(scene.description)
+  // Keep regen form pre-fill in sync when description is edited inline (while form is closed)
+  useEffect(() => {
+    if (!showRegenForm) setRegenDesc(scene.description)
+  }, [scene.description, showRegenForm])
   const [regenStyle, setRegenStyle] = useState(scene.style)
   const [regenLineLength, setRegenLineLength] = useState<'short' | 'standard' | 'long'>(
     (scene.line_length as 'short' | 'standard' | 'long') || 'standard'
