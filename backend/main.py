@@ -452,8 +452,8 @@ class ScriptLine(BaseModel):
 
 class ScriptResponse(BaseModel):
     lines: List[ScriptLine]
-    scene_prompt: str
-    sfx_description: str
+    scene_prompt: str = ""
+    sfx_description: str = ""
 
 # ── 端點：取得聲音清單 ────────────────────────────────────────
 @app.get("/api/voices")
@@ -1170,6 +1170,14 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
     # Map each line back to canonical character data from req.characters.
     char_by_id   = {c.id: c for c in req.characters}
     char_by_name = {c.name.strip(): c for c in req.characters}
+
+    # Guard: ensure lines is a list and drop any entries missing text
+    raw_lines = data.get("lines")
+    if not isinstance(raw_lines, list):
+        data["lines"] = []
+    else:
+        data["lines"] = [l for l in raw_lines if isinstance(l, dict) and str(l.get("text", "")).strip()]
+
     for line in data.get("lines", []):
         char = char_by_id.get(str(line.get("character_id", "")))
         if char is None:
