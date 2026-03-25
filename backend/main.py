@@ -421,6 +421,7 @@ class GenerateScriptRequest(BaseModel):
     story_context: Optional[str] = Field(None, max_length=5000)
     line_length: Optional[str] = Field("standard", max_length=20)  # 'short' | 'standard' | 'long'
     is_ending: Optional[bool] = False  # True → inject ending guidance into prompt
+    image_style: Optional[str] = Field("watercolor children's book illustration", max_length=80)
 
 class GenerateLine(BaseModel):
     character_id: str
@@ -1130,6 +1131,8 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
     }
     line_length_rule = _LINE_LENGTH_RULES.get(req.line_length or "standard", _LINE_LENGTH_RULES["standard"])
 
+    _img_style = (req.image_style or "").strip() or "watercolor children's book illustration"
+
     prompt = f"""你是一位台灣繪本故事作家。請根據以下場景和角色，生成一段繪本對話劇本。
 
 場景描述：{req.scene_description}
@@ -1148,7 +1151,7 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
       "emotion": "happy|sad|surprised|angry|neutral 其中一個"
     }}
   ],
-  "scene_prompt": "用英文描述這個場景的畫面（含角色外形描述），適合用來生成繪本插圖，風格為watercolor children's book illustration",
+  "scene_prompt": "用英文描述這個場景的畫面（含角色外形描述），適合用來生成繪本插圖，風格為{_img_style}",
   "sfx_description": "建議的背景音效描述（例如：森林鳥鳴聲、輕柔鋼琴音樂）"
 }}
 

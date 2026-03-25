@@ -13,7 +13,7 @@ type LineLength = 'short' | 'standard' | 'long'
 interface Props {
   droppedCharacters: Character[]
   onRemoveCharacter: (id: string) => void
-  onGenerate: (description: string, style: string, lineLength: LineLength, isEnding?: boolean) => void
+  onGenerate: (description: string, style: string, lineLength: LineLength, isEnding?: boolean, imageStyle?: string) => void
   onCancel: () => void
   isLoading: boolean
   genStatus: GenStatus | null
@@ -24,6 +24,18 @@ interface Props {
 }
 
 const STYLES = ['溫馨童趣', '奇幻冒險', '搞笑幽默', '感動溫情', '懸疑神秘']
+
+interface ImageStyleOption {
+  label: string       // displayed in Chinese
+  value: string       // English value sent to the image API
+}
+const IMAGE_STYLES: ImageStyleOption[] = [
+  { label: '水彩繪本',   value: "watercolor children's book illustration" },
+  { label: '粉彩卡通',   value: 'soft pastel cartoon, cute kawaii style' },
+  { label: '鉛筆素描',   value: 'pencil sketch children illustration, warm tones' },
+  { label: '宮崎駿風',   value: 'Studio Ghibli anime style illustration' },
+  { label: '3D 卡通',   value: '3D render cartoon, Pixar style, vibrant colors' },
+]
 
 export default function SceneEditor({
   droppedCharacters,
@@ -59,13 +71,20 @@ export default function SceneEditor({
     const saved = localStorage.getItem('scene_line_length') as LineLength | null
     return saved && ['short', 'standard', 'long'].includes(saved) ? saved : 'standard'
   })
+
+  // Restore last-used image style from localStorage.
+  const [imageStyle, setImageStyle] = useState<string>(() => {
+    const saved = localStorage.getItem('scene_image_style') || ''
+    return IMAGE_STYLES.some(s => s.value === saved) ? saved : IMAGE_STYLES[0].value
+  })
   const [imageLoading, setImageLoading] = useState(false)
   const [audioLoading, setAudioLoading] = useState(false)
   const [inputError, setInputError] = useState<string | null>(null)
 
-  // Persist style and lineLength to localStorage whenever they change.
+  // Persist style, lineLength, and imageStyle to localStorage whenever they change.
   useEffect(() => { localStorage.setItem('scene_style', style) }, [style])
   useEffect(() => { localStorage.setItem('scene_line_length', lineLength) }, [lineLength])
+  useEffect(() => { localStorage.setItem('scene_image_style', imageStyle) }, [imageStyle])
 
   // Elapsed-time counter for script generation step
   const [scriptElapsed, setScriptElapsed] = useState(0)
@@ -237,7 +256,7 @@ export default function SceneEditor({
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
               e.preventDefault()
               if (!isLoading && droppedCharacters.length > 0 && description.trim()) {
-                onGenerate(description, style, lineLength)
+                onGenerate(description, style, lineLength, false, imageStyle)
               }
             }
           }}
@@ -400,6 +419,22 @@ export default function SceneEditor({
           </div>
         </div>
 
+        {/* 插圖風格 */}
+        <div className="style-row">
+          <label>插圖風格</label>
+          <div className="style-buttons">
+            {IMAGE_STYLES.map(opt => (
+              <button
+                key={opt.value}
+                className={`style-btn ${imageStyle === opt.value ? 'active' : ''}`}
+                onClick={() => setImageStyle(opt.value)}
+                title={opt.value}
+                type="button"
+              >{opt.label}</button>
+            ))}
+          </div>
+        </div>
+
         {/* 角色拖放區 */}
         <div
           ref={setNodeRef}
@@ -443,7 +478,7 @@ export default function SceneEditor({
             <>
               <button
                 className="btn-generate"
-                onClick={() => onGenerate(description, style, lineLength)}
+                onClick={() => onGenerate(description, style, lineLength, false, imageStyle)}
                 disabled={droppedCharacters.length === 0 || !description.trim()}
               >
                 {sceneCount > 0 ? `✨ 繼續第 ${sceneCount + 1} 幕` : '✨ 生成繪本場景'}
@@ -458,7 +493,7 @@ export default function SceneEditor({
                   className="btn-ending"
                   onClick={() => {
                     const desc = description.trim() || '故事結尾'
-                    onGenerate(desc, style, lineLength, true)
+                    onGenerate(desc, style, lineLength, true, imageStyle)
                   }}
                   disabled={droppedCharacters.length === 0}
                   title="讓 AI 自動為故事寫一個圓滿結尾"
