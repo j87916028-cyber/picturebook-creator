@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from 'react'
+import { useRef, useState, useCallback, useEffect, Fragment } from 'react'
 import {
   DndContext, DragEndEvent, PointerSensor, useSensor, useSensors, closestCenter,
 } from '@dnd-kit/core'
@@ -91,7 +91,7 @@ interface Props {
   onLineMove: (sceneId: string, lineIndex: number, direction: 'up' | 'down') => void
   onLineEditConfirm: (sceneId: string, lineIndex: number, newText: string) => Promise<void>
   onLineDelete: (sceneId: string, lineIndex: number) => void
-  onLineAdd: (sceneId: string, characterId: string, text: string) => Promise<void>
+  onLineAdd: (sceneId: string, characterId: string, text: string, insertAfterIndex?: number) => Promise<void>
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
   onLineCharacterChange: (sceneId: string, lineIndex: number, newCharacterId: string) => Promise<void>
@@ -114,7 +114,7 @@ interface SceneCardProps {
   onLineMove: (sceneId: string, lineIndex: number, direction: 'up' | 'down') => void
   onLineEditConfirm: (sceneId: string, lineIndex: number, newText: string) => Promise<void>
   onLineDelete: (sceneId: string, lineIndex: number) => void
-  onLineAdd: (sceneId: string, characterId: string, text: string) => Promise<void>
+  onLineAdd: (sceneId: string, characterId: string, text: string, insertAfterIndex?: number) => Promise<void>
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
   onLineCharacterChange: (sceneId: string, lineIndex: number, newCharacterId: string) => Promise<void>
@@ -174,6 +174,8 @@ function SceneCard({
   const [addCharId, setAddCharId] = useState('')
   const [addLineText, setAddLineText] = useState('')
   const [addLineLoading, setAddLineLoading] = useState(false)
+  // null = append to end; number = insert after that line index
+  const [insertAfterIndex, setInsertAfterIndex] = useState<number | null>(null)
 
   // Inline delete confirmation — avoids blocking window.confirm
   const [confirmDeleteScene, setConfirmDeleteScene] = useState(false)
@@ -648,8 +650,8 @@ function SceneCard({
               const isRegenVoice = regenVoiceIndex === i
 
               return (
+                <Fragment key={i}>
                 <div
-                  key={i}
                   className={`dialogue-line ${isPlaying ? 'playing' : ''}`}
                   style={{ borderLeftColor: color }}
                 >
@@ -874,6 +876,22 @@ function SceneCard({
                     </div>
                   </div>
                 </div>
+                {/* Insert-between button: shown between consecutive lines */}
+                {i < scene.lines.length - 1 && !showAddLine && (
+                  <div className="insert-line-divider">
+                    <button
+                      className="btn-insert-between"
+                      onClick={() => {
+                        setInsertAfterIndex(i)
+                        setAddCharId(line.character_id)
+                        setAddLineText('')
+                        setShowAddLine(true)
+                      }}
+                      title={`在第 ${i + 1} 句之後插入新台詞`}
+                    >＋ 插入</button>
+                  </div>
+                )}
+              </Fragment>
               )
             })}
           </div>
@@ -881,6 +899,11 @@ function SceneCard({
           {/* Add new line */}
           {showAddLine ? (
             <div className="add-line-form">
+              {insertAfterIndex !== null && (
+                <div className="add-line-position-label">
+                  插入位置：第 {insertAfterIndex + 1} 句之後
+                </div>
+              )}
               <select
                 className="add-line-char-select"
                 value={addCharId}
@@ -908,10 +931,11 @@ function SceneCard({
                   onClick={async () => {
                     setAddLineLoading(true)
                     try {
-                      await onLineAdd(scene.id, addCharId, addLineText)
+                      await onLineAdd(scene.id, addCharId, addLineText, insertAfterIndex ?? undefined)
                       setShowAddLine(false)
                       setAddCharId('')
                       setAddLineText('')
+                      setInsertAfterIndex(null)
                     } finally {
                       setAddLineLoading(false)
                     }
@@ -921,7 +945,7 @@ function SceneCard({
                 </button>
                 <button
                   className="btn-ghost"
-                  onClick={() => { setShowAddLine(false); setAddCharId(''); setAddLineText('') }}
+                  onClick={() => { setShowAddLine(false); setAddCharId(''); setAddLineText(''); setInsertAfterIndex(null) }}
                   disabled={addLineLoading}
                   style={{ fontSize: '0.8rem', padding: '4px 10px' }}
                 >
@@ -933,7 +957,9 @@ function SceneCard({
             <button
               className="btn-add-line"
               onClick={() => {
+                setInsertAfterIndex(null)
                 setAddCharId(scene.lines[0]?.character_id || '')
+                setAddLineText('')
                 setShowAddLine(true)
               }}
               disabled={isGenerating}

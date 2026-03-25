@@ -544,13 +544,14 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
-  // Append a new dialogue line and generate its voice
-  const handleLineAdd = async (sceneId: string, characterId: string, text: string) => {
+  // Append or insert a new dialogue line and generate its voice.
+  // insertAfterIndex: undefined = append; number = insert after that line index.
+  const handleLineAdd = async (sceneId: string, characterId: string, text: string, insertAfterIndex?: number) => {
     const character = characters.find(c => c.id === characterId)
     const scene = scenes.find(s => s.id === sceneId)
     if (!character || !scene || !text.trim()) return
 
-    const newIndex = scene.lines.length
+    const insertAt = insertAfterIndex !== undefined ? insertAfterIndex + 1 : scene.lines.length
     const newLine = {
       character_name: character.name,
       character_id: character.id,
@@ -558,9 +559,12 @@ export default function App() {
       text: text.trim(),
       emotion: 'neutral' as const,
     }
-    setScenes(prev => prev.map(s =>
-      s.id === sceneId ? { ...s, lines: [...s.lines, newLine] } : s
-    ))
+    setScenes(prev => prev.map(s => {
+      if (s.id !== sceneId) return s
+      const lines = [...s.lines]
+      lines.splice(insertAt, 0, newLine)
+      return { ...s, lines }
+    }))
     try {
       const res = await fetch('/api/generate-voice', {
         method: 'POST',
@@ -574,8 +578,8 @@ export default function App() {
         const next = prev.map(s => {
           if (s.id !== sceneId) return s
           const lines = [...s.lines]
-          if (lines[newIndex]) {
-            lines[newIndex] = { ...lines[newIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+          if (lines[insertAt]) {
+            lines[insertAt] = { ...lines[insertAt], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
           }
           return { ...s, lines }
         })

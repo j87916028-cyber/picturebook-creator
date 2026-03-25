@@ -1283,6 +1283,46 @@ body {
 }
 .btn-add-line:disabled { cursor: not-allowed; opacity: 0.4; }
 
+/* Insert-between-lines divider */
+.insert-line-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  margin: 1px 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.dialogue-list:hover .insert-line-divider,
+.insert-line-divider:focus-within {
+  opacity: 1;
+}
+.btn-insert-between {
+  background: none;
+  border: 1.5px dashed #b2c5f5;
+  border-radius: 14px;
+  padding: 2px 14px;
+  font-size: 0.75rem;
+  color: #667eea;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-weight: 600;
+}
+.btn-insert-between:hover {
+  background: #eef1ff;
+  border-color: #667eea;
+  border-style: solid;
+}
+
+.add-line-position-label {
+  font-size: 0.78rem;
+  color: #667eea;
+  font-weight: 600;
+  background: #eef1ff;
+  border-radius: 8px;
+  padding: 4px 10px;
+}
+
 .add-line-form {
   margin-top: 10px;
   display: flex;
