@@ -2575,7 +2575,7 @@ def _export_pdf(project_name: str, scenes: list, char_color_map: dict | None = N
     return pdf.output()
 
 
-def _export_epub(project_name: str, scenes: list, char_color_map: dict | None = None) -> bytes:
+def _export_epub(project_name: str, scenes: list, char_color_map: dict | None = None, project_id: str | None = None) -> bytes:
     try:
         from ebooklib import epub
     except ImportError:
@@ -2587,7 +2587,16 @@ def _export_epub(project_name: str, scenes: list, char_color_map: dict | None = 
     book = epub.EpubBook()
     book.set_title(project_name)
     book.set_language("zh-TW")
-    book.set_identifier(f"picturebook-{hash(project_name)}")
+    # Use the project UUID when available — it is stable across container restarts
+    # (unlike hash(), which is randomised by PYTHONHASHSEED) and globally unique.
+    # The urn:uuid: prefix is the EPUB3 standard format for UUID identifiers.
+    # Fall back to an MD5-based identifier so exports still work without a project_id
+    # (e.g. in tests or if the function is called directly).
+    if project_id:
+        book.set_identifier(f"urn:uuid:{project_id}")
+    else:
+        stable_hash = hashlib.md5(project_name.encode()).hexdigest()[:16]
+        book.set_identifier(f"picturebook-{stable_hash}")
 
     css_content = """
 body { font-family: 'Noto Sans CJK TC', 'Microsoft JhengHei', sans-serif; margin: 2em; line-height: 1.8; color: #333; }
@@ -3321,7 +3330,7 @@ async def export_project(
         media_type = "application/pdf"
         filename = f"{project_name}.pdf"
     elif format == "epub":
-        data = await loop.run_in_executor(None, _export_epub, project_name, scenes, char_color_map)
+        data = await loop.run_in_executor(None, _export_epub, project_name, scenes, char_color_map, project_id)
         media_type = "application/epub+zip"
         filename = f"{project_name}.epub"
     elif format == "html":
