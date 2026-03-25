@@ -1130,76 +1130,78 @@ export default function SceneOutput({
 
   return (
     <div className="scene-output-panel">
-      {(hasAudio || missingAudioCount > 0 || missingImageCount > 0) && (
-        <div className="playbook-bar">
-          {hasAudio && (
-            <button className="btn-playbook" onClick={() => { setPlaybackStartScene(0); setShowPlayback(true) }}>
-              🎬 播放全書
-            </button>
-          )}
-          {missingAudioCount > 0 && (
-            <button
-              className="btn-batch-regen"
-              onClick={onBatchRegenVoice}
-              disabled={batchRegenStatus !== null || batchImageStatus !== null}
-              title={`補齊 ${missingAudioCount} 條缺失配音`}
-            >
+      <div className="scene-sticky-bar">
+        {(hasAudio || missingAudioCount > 0 || missingImageCount > 0) && (
+          <div className="playbook-bar">
+            {hasAudio && (
+              <button className="btn-playbook" onClick={() => { setPlaybackStartScene(0); setShowPlayback(true) }}>
+                🎬 播放全書
+              </button>
+            )}
+            {missingAudioCount > 0 && (
+              <button
+                className="btn-batch-regen"
+                onClick={onBatchRegenVoice}
+                disabled={batchRegenStatus !== null || batchImageStatus !== null}
+                title={`補齊 ${missingAudioCount} 條缺失配音`}
+              >
+                {batchRegenStatus
+                  ? `🎤 配音中 ${batchRegenStatus.done}/${batchRegenStatus.total}…`
+                  : `🎤 補齊配音（${missingAudioCount}）`}
+              </button>
+            )}
+            {missingImageCount > 0 && (
+              <button
+                className="btn-batch-regen btn-batch-image"
+                onClick={onBatchRegenImages}
+                disabled={batchImageStatus !== null || batchRegenStatus !== null}
+                title={`補齊 ${missingImageCount} 幕缺失插圖`}
+              >
+                {batchImageStatus
+                  ? `🖼️ 插圖中 ${batchImageStatus.done}/${batchImageStatus.total}…`
+                  : `🖼️ 補齊插圖（${missingImageCount}）`}
+              </button>
+            )}
+            <span className="playbook-hint">
               {batchRegenStatus
-                ? `🎤 配音中 ${batchRegenStatus.done}/${batchRegenStatus.total}…`
-                : `🎤 補齊配音（${missingAudioCount}）`}
-            </button>
-          )}
-          {missingImageCount > 0 && (
-            <button
-              className="btn-batch-regen btn-batch-image"
-              onClick={onBatchRegenImages}
-              disabled={batchImageStatus !== null || batchRegenStatus !== null}
-              title={`補齊 ${missingImageCount} 幕缺失插圖`}
-            >
-              {batchImageStatus
-                ? `🖼️ 插圖中 ${batchImageStatus.done}/${batchImageStatus.total}…`
-                : `🖼️ 補齊插圖（${missingImageCount}）`}
-            </button>
-          )}
-          <span className="playbook-hint">
-            {batchRegenStatus
-              ? `正在生成配音 ${batchRegenStatus.done}/${batchRegenStatus.total}`
-              : batchImageStatus
-              ? `正在生成插圖 ${batchImageStatus.done}/${batchImageStatus.total}`
-              : '全螢幕朗讀模式・各幕可單獨播放 ▶'}
-          </span>
-        </div>
-      )}
+                ? `正在生成配音 ${batchRegenStatus.done}/${batchRegenStatus.total}`
+                : batchImageStatus
+                ? `正在生成插圖 ${batchImageStatus.done}/${batchImageStatus.total}`
+                : '全螢幕朗讀模式・各幕可單獨播放 ▶'}
+            </span>
+          </div>
+        )}
 
-      {/* Scene navigation strip — sortable, only shown when there are 2+ scenes */}
-      {scenes.length > 1 && (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={(event: DragEndEvent) => {
-            const { active, over } = event
-            if (over && active.id !== over.id) {
-              const ids = scenes.map(s => s.id)
-              const oldIndex = ids.indexOf(active.id as string)
-              const newIndex = ids.indexOf(over.id as string)
-              onScenesReorder(arrayMove(ids, oldIndex, newIndex))
-            }
-          }}
-        >
-          <SortableContext items={scenes.map(s => s.id)} strategy={horizontalListSortingStrategy}>
-            <div className="scene-nav-strip">
-              {scenes.map((scene, i) => (
-                <SortableNavChip
-                  key={scene.id}
-                  scene={scene}
-                  index={i}
-                  onClick={() => scrollToScene(i)}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
-      )}
+        {/* Scene navigation strip — sortable, only shown when there are 2+ scenes */}
+        {scenes.length > 1 && (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={(event: DragEndEvent) => {
+              const { active, over } = event
+              if (over && active.id !== over.id) {
+                const ids = scenes.map(s => s.id)
+                const oldIndex = ids.indexOf(active.id as string)
+                const newIndex = ids.indexOf(over.id as string)
+                onScenesReorder(arrayMove(ids, oldIndex, newIndex))
+              }
+            }}
+          >
+            <SortableContext items={scenes.map(s => s.id)} strategy={horizontalListSortingStrategy}>
+              <div className="scene-nav-strip">
+                {scenes.map((scene, i) => (
+                  <SortableNavChip
+                    key={scene.id}
+                    scene={scene}
+                    index={i}
+                    onClick={() => scrollToScene(i)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        )}
+      </div>
 
       {showPlayback && (
         <PlaybackModal

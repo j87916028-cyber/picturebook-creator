@@ -1760,6 +1760,15 @@ body {
 .aud-dot.dot-pending { background: #cbd5e0; }   /* grey   – none yet */
 
 /* ── Playbook bar ─────────────────────────────── */
+.scene-sticky-bar {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  background: rgba(248, 249, 252, 0.97);
+  backdrop-filter: blur(6px);
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+}
 .playbook-bar {
   display: flex; align-items: center; gap: 12px;
   padding: 10px 16px; margin-bottom: 8px;
