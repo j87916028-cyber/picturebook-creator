@@ -677,6 +677,70 @@ export default function App() {
     } catch { restoreOldAudio() }
   }
 
+  // Change character for a single line and auto-regen voice with new voice_id
+  const handleLineCharacterChange = async (sceneId: string, lineIndex: number, newCharacterId: string) => {
+    const scene = scenes.find(s => s.id === sceneId)
+    const newChar = characters.find(c => c.id === newCharacterId)
+    if (!scene || !newChar) return
+    const line = scene.lines[lineIndex]
+    // Snapshot old character state for rollback on failure
+    const prevCharId   = line.character_id
+    const prevCharName = line.character_name
+    const prevVoiceId  = line.voice_id
+    const prevAudio    = line.audio_base64
+    const prevFormat   = line.audio_format
+    // Apply new character + clear stale audio immediately
+    setScenes(prev => prev.map(s => {
+      if (s.id !== sceneId) return s
+      const lines = [...s.lines]
+      lines[lineIndex] = {
+        ...lines[lineIndex],
+        character_id: newChar.id,
+        character_name: newChar.name,
+        voice_id: newChar.voice_id,
+        audio_base64: undefined,
+        audio_format: undefined,
+      }
+      return { ...s, lines }
+    }))
+    const restoreOldState = () => {
+      setScenes(prev => prev.map(s => {
+        if (s.id !== sceneId) return s
+        const lines = [...s.lines]
+        lines[lineIndex] = {
+          ...lines[lineIndex],
+          character_id: prevCharId,
+          character_name: prevCharName,
+          voice_id: prevVoiceId,
+          audio_base64: prevAudio,
+          audio_format: prevFormat,
+        }
+        return { ...s, lines }
+      }))
+    }
+    try {
+      const res = await fetch('/api/generate-voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: line.text, voice_id: newChar.voice_id, emotion: line.emotion }),
+      })
+      if (!res.ok) { restoreOldState(); return }
+      const data = await res.json()
+      let saved: Scene[] | null = null
+      setScenes(prev => {
+        const next = prev.map(s => {
+          if (s.id !== sceneId) return s
+          const lines = [...s.lines]
+          lines[lineIndex] = { ...lines[lineIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+          return { ...s, lines }
+        })
+        saved = next
+        return next
+      })
+      if (saved && currentProjectId) autoSave(currentProjectId, saved, characters)
+    } catch { restoreOldState() }
+  }
+
   // Re-generate scene image (optionally with a custom prompt)
   const handleImageRegen = async (sceneId: string, customPrompt?: string) => {
     const scene = scenes.find(s => s.id === sceneId)
@@ -1220,6 +1284,7 @@ export default function App() {
               onLineAdd={handleLineAdd}
               onLineVoiceRegen={handleLineVoiceRegen}
               onLineEmotionChange={handleLineEmotionChange}
+              onLineCharacterChange={handleLineCharacterChange}
               onImageRegen={handleImageRegen}
               onSceneRegen={handleSceneRegen}
               onBatchRegenVoice={handleBatchRegenVoice}

@@ -94,6 +94,7 @@ interface Props {
   onLineAdd: (sceneId: string, characterId: string, text: string) => Promise<void>
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
+  onLineCharacterChange: (sceneId: string, lineIndex: number, newCharacterId: string) => Promise<void>
   onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string) => Promise<void>
   onBatchRegenVoice: () => void
@@ -116,6 +117,7 @@ interface SceneCardProps {
   onLineAdd: (sceneId: string, characterId: string, text: string) => Promise<void>
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
+  onLineCharacterChange: (sceneId: string, lineIndex: number, newCharacterId: string) => Promise<void>
   onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string) => Promise<void>
   onPlayFromScene: (sceneIndex: number) => void
@@ -135,6 +137,7 @@ function SceneCard({
   onLineAdd,
   onLineVoiceRegen,
   onLineEmotionChange,
+  onLineCharacterChange,
   onImageRegen,
   onSceneRegen,
   onPlayFromScene,
@@ -160,6 +163,7 @@ function SceneCard({
   const [editLineText, setEditLineText] = useState('')
   const [regenVoiceIndex, setRegenVoiceIndex] = useState<number | null>(null)
   const [emotionRegenIndex, setEmotionRegenIndex] = useState<number | null>(null)
+  const [charChangeIndex, setCharChangeIndex] = useState<number | null>(null)
   const [regenImage, setRegenImage] = useState(false)
   const [showPromptEdit, setShowPromptEdit] = useState(false)
   const [editedPrompt, setEditedPrompt] = useState(scene.script.scene_prompt || '')
@@ -313,6 +317,15 @@ function SceneCard({
       await onLineEmotionChange(scene.id, index, newEmotion)
     } finally {
       setEmotionRegenIndex(null)
+    }
+  }
+
+  const handleCharacterChange = async (index: number, newCharId: string) => {
+    setCharChangeIndex(index)
+    try {
+      await onLineCharacterChange(scene.id, index, newCharId)
+    } finally {
+      setCharChangeIndex(null)
     }
   }
 
@@ -648,13 +661,32 @@ function SceneCard({
                         className="emotion-select"
                         value={line.emotion || 'neutral'}
                         onChange={e => handleEmotionChange(i, e.target.value)}
-                        disabled={isRegenVoice || emotionRegenIndex !== null}
+                        disabled={isRegenVoice || emotionRegenIndex !== null || charChangeIndex !== null}
                         title="更換情緒，自動重新配音"
                       >
                         {Object.entries(EMOTION_LABELS).map(([k, v]) => (
                           <option key={k} value={k}>{v}</option>
                         ))}
                       </select>
+                    )}
+                    {characters.length > 1 && (
+                      charChangeIndex === i ? (
+                        <span className="emotion-badge emotion-regen-badge">
+                          <span className="spinner-sm" /> 換角色中...
+                        </span>
+                      ) : (
+                        <select
+                          className="char-change-select"
+                          value={line.character_id}
+                          onChange={e => { if (e.target.value !== line.character_id) handleCharacterChange(i, e.target.value) }}
+                          disabled={isRegenVoice || emotionRegenIndex !== null || charChangeIndex !== null}
+                          title="更換說話角色，自動重新配音"
+                        >
+                          {characters.map(c => (
+                            <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>
+                          ))}
+                        </select>
+                      )
                     )}
                   </div>
                   <div className="dialogue-content">
@@ -864,6 +896,7 @@ export default function SceneOutput({
   onLineAdd,
   onLineVoiceRegen,
   onLineEmotionChange,
+  onLineCharacterChange,
   onImageRegen,
   onSceneRegen,
   onBatchRegenVoice,
@@ -1003,6 +1036,7 @@ export default function SceneOutput({
             onLineAdd={onLineAdd}
             onLineVoiceRegen={onLineVoiceRegen}
             onLineEmotionChange={onLineEmotionChange}
+            onLineCharacterChange={onLineCharacterChange}
             onImageRegen={onImageRegen}
             onSceneRegen={onSceneRegen}
             onPlayFromScene={handlePlayFromScene}

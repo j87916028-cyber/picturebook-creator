@@ -740,6 +740,14 @@ body {
 }
 .emotion-select:hover:not(:disabled) { background: #e5eaff; border-color: #667eea; }
 .emotion-select:disabled { opacity: 0.55; cursor: not-allowed; }
+.char-change-select {
+  font-size: 0.72rem; background: #f0fff4;
+  border: 1px solid #38a16955; border-radius: 10px; padding: 2px 6px;
+  color: #276749; font-weight: 600; cursor: pointer; outline: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+.char-change-select:hover:not(:disabled) { background: #c6f6d5; border-color: #38a169; }
+.char-change-select:disabled { opacity: 0.55; cursor: not-allowed; }
 .emotion-regen-badge {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 0.72rem; background: #f0f4ff; border-radius: 10px;
