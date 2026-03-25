@@ -13,7 +13,7 @@ type LineLength = 'short' | 'standard' | 'long'
 interface Props {
   droppedCharacters: Character[]
   onRemoveCharacter: (id: string) => void
-  onGenerate: (description: string, style: string, lineLength: LineLength) => void
+  onGenerate: (description: string, style: string, lineLength: LineLength, isEnding?: boolean) => void
   onCancel: () => void
   isLoading: boolean
   genStatus: GenStatus | null
@@ -355,6 +355,19 @@ export default function SceneEditor({
               {sceneCount > 0 && (
                 <button className="btn-reset" onClick={onReset} title="清除所有幕次，重新開始">
                   🔄 重新開始
+                </button>
+              )}
+              {sceneCount >= 2 && (
+                <button
+                  className="btn-ending"
+                  onClick={() => {
+                    const desc = description.trim() || '故事結尾'
+                    onGenerate(desc, style, lineLength, true)
+                  }}
+                  disabled={droppedCharacters.length === 0}
+                  title="讓 AI 自動為故事寫一個圓滿結尾"
+                >
+                  🏁 生成結尾
                 </button>
               )}
             </>

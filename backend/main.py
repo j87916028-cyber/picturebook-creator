@@ -419,6 +419,7 @@ class GenerateScriptRequest(BaseModel):
     style: Optional[str] = Field("溫馨童趣", max_length=20)
     story_context: Optional[str] = Field(None, max_length=5000)
     line_length: Optional[str] = Field("standard", max_length=20)  # 'short' | 'standard' | 'long'
+    is_ending: Optional[bool] = False  # True → inject ending guidance into prompt
 
 class GenerateLine(BaseModel):
     character_id: str
@@ -1104,6 +1105,9 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
 
     if req.story_context:
         prompt += f"\n前情提要（請確保本幕故事自然銜接前情，劇情持續發展，不重複前幕內容）：\n{req.story_context}\n"
+
+    if req.is_ending:
+        prompt += "\n【重要：這是故事的最後一幕】請讓故事圓滿收場：主要衝突得到解決，角色學到了重要的道理，帶給讀者溫馨感動的結束感受，傳達正向寓意。\n"
 
     async def _call_minimax_script() -> str:
         try:
