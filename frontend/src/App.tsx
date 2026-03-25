@@ -1102,38 +1102,73 @@ export default function App() {
               const totalChars  = scenes.reduce((n, s) => n + s.lines.reduce((m, l) => m + l.text.length, 0), 0)
               // Children's read-aloud pace ≈ 200 Chinese chars / minute
               const readMinutes = totalChars > 0 ? Math.max(1, Math.round(totalChars / 200)) : 0
+
+              // Per-character line counts for dialogue-balance bar
+              const charLineCounts: Record<string, number> = {}
+              scenes.forEach(s => s.lines.forEach(l => {
+                if (l.character_id) charLineCounts[l.character_id] = (charLineCounts[l.character_id] ?? 0) + 1
+              }))
+              const activeChars = characters
+                .filter(c => (charLineCounts[c.id] ?? 0) > 0)
+                .sort((a, b) => (charLineCounts[b.id] ?? 0) - (charLineCounts[a.id] ?? 0))
+
               return (
-                <div className="story-stats-strip">
-                  <span className="stats-item">📖 <strong>{scenes.length}</strong> 幕</span>
-                  <span className="stats-divider">·</span>
-                  <span className="stats-item">💬 <strong>{totalLines}</strong> 句台詞</span>
-                  <span className="stats-divider">·</span>
-                  <span className="stats-item">📝 <strong>{totalChars}</strong> 字</span>
-                  {readMinutes > 0 && <>
+                <>
+                  <div className="story-stats-strip">
+                    <span className="stats-item">📖 <strong>{scenes.length}</strong> 幕</span>
                     <span className="stats-divider">·</span>
-                    <span className="stats-item">🕐 約 <strong>{readMinutes}</strong> 分鐘</span>
-                  </>}
-                  <span className="stats-divider">·</span>
-                  <span className="stats-item">
-                    🎵 配音&nbsp;
-                    <strong style={{ color: audioPct === 100 ? '#38a169' : audioPct > 0 ? '#667eea' : '#aaa' }}>
-                      {audioLines}/{totalLines}
-                    </strong>
-                    <span className="stats-audio-bar">
-                      <span className="stats-audio-fill" style={{ width: `${audioPct}%` }} />
+                    <span className="stats-item">💬 <strong>{totalLines}</strong> 句台詞</span>
+                    <span className="stats-divider">·</span>
+                    <span className="stats-item">📝 <strong>{totalChars}</strong> 字</span>
+                    {readMinutes > 0 && <>
+                      <span className="stats-divider">·</span>
+                      <span className="stats-item">🕐 約 <strong>{readMinutes}</strong> 分鐘</span>
+                    </>}
+                    <span className="stats-divider">·</span>
+                    <span className="stats-item">
+                      🎵 配音&nbsp;
+                      <strong style={{ color: audioPct === 100 ? '#38a169' : audioPct > 0 ? '#667eea' : '#aaa' }}>
+                        {audioLines}/{totalLines}
+                      </strong>
+                      <span className="stats-audio-bar">
+                        <span className="stats-audio-fill" style={{ width: `${audioPct}%` }} />
+                      </span>
                     </span>
-                  </span>
-                  <span className="stats-divider">·</span>
-                  <span className="stats-item">🖼️ 插圖 <strong>{imagesDone}/{scenes.length}</strong></span>
-                  <span className="stats-divider">·</span>
-                  <button
-                    className={`btn-copy-story${copiedFeedback ? ' copied' : ''}`}
-                    onClick={handleCopyStory}
-                    title="複製全書台詞文字"
-                  >
-                    {copiedFeedback ? '✓ 已複製' : '📋 複製文字'}
-                  </button>
-                </div>
+                    <span className="stats-divider">·</span>
+                    <span className="stats-item">🖼️ 插圖 <strong>{imagesDone}/{scenes.length}</strong></span>
+                    <span className="stats-divider">·</span>
+                    <button
+                      className={`btn-copy-story${copiedFeedback ? ' copied' : ''}`}
+                      onClick={handleCopyStory}
+                      title="複製全書台詞文字"
+                    >
+                      {copiedFeedback ? '✓ 已複製' : '📋 複製文字'}
+                    </button>
+                  </div>
+
+                  {activeChars.length >= 2 && (
+                    <div className="char-balance-strip">
+                      <span className="char-balance-label">台詞比重</span>
+                      {activeChars.map(c => {
+                        const count = charLineCounts[c.id] ?? 0
+                        const pct   = Math.round((count / totalLines) * 100)
+                        return (
+                          <div key={c.id} className="char-balance-item" title={`${c.name}：${count} 句（${pct}%）`}>
+                            <span className="char-balance-emoji">{c.emoji}</span>
+                            <span className="char-balance-name">{c.name}</span>
+                            <div className="char-balance-track">
+                              <div
+                                className="char-balance-fill"
+                                style={{ width: `${pct}%`, background: c.color }}
+                              />
+                            </div>
+                            <span className="char-balance-pct" style={{ color: c.color }}>{pct}%</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </>
               )
             })()}
 
