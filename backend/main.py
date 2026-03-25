@@ -2041,6 +2041,11 @@ class SceneLineIn(BaseModel):
         s = str(v)
         return s if s == "" or s in VALID_VOICE_IDS else ""
 
+# Compiled once at module level — used by CharacterIn._normalise_color and
+# _safe_css_color() (defined later, near the export helpers).
+_SAFE_CSS_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{3,8}$')
+
+
 class CharacterIn(BaseModel):
     """Character definition stored alongside a project."""
     id: str = Field("", max_length=64)
@@ -2050,6 +2055,21 @@ class CharacterIn(BaseModel):
     voice_id: str = Field("", max_length=64)
     color: str = Field("", max_length=20)
     emoji: str = Field("", max_length=10)
+
+    @field_validator("color", mode="before")
+    @classmethod
+    def _normalise_color(cls, v: object) -> str:
+        """Accept only CSS hex colors or empty string; coerce invalid values to "".
+
+        Defense-in-depth: _safe_css_color() validates the value at render/export
+        time, but validating here ensures the stored DB value is always a well-formed
+        hex color (or empty).  Prevents arbitrary strings from being persisted even
+        if future export paths forget to call _safe_css_color().
+        """
+        if v is None:
+            return ""
+        s = str(v)
+        return s if s == "" or _SAFE_CSS_COLOR_RE.match(s) else ""
 
     @field_validator("voice_id", mode="before")
     @classmethod
@@ -2771,8 +2791,6 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
     epub.write_epub(buf, book)
     return buf.getvalue()
 
-
-_SAFE_CSS_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{3,8}$')
 
 
 def _safe_css_color(color: str, fallback: str = "#667eea") -> str:
