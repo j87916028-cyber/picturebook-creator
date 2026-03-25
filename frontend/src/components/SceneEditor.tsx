@@ -39,6 +39,9 @@ export default function SceneEditor({
 }: Props) {
   const [description, setDescription] = useState('')
   const [style, setStyle] = useState('溫馨童趣')
+  const [customStyleText, setCustomStyleText] = useState('')
+  const [showCustomStyle, setShowCustomStyle] = useState(false)
+  const customStyleRef = useRef<HTMLInputElement>(null)
   const [lineLength, setLineLength] = useState<LineLength>('standard')
   const [imageLoading, setImageLoading] = useState(false)
   const [audioLoading, setAudioLoading] = useState(false)
@@ -297,11 +300,45 @@ export default function SceneEditor({
             {STYLES.map(s => (
               <button
                 key={s}
-                className={`style-btn ${style === s ? 'active' : ''}`}
-                onClick={() => setStyle(s)}
+                className={`style-btn ${style === s && !showCustomStyle ? 'active' : ''}`}
+                onClick={() => { setStyle(s); setShowCustomStyle(false); setCustomStyleText('') }}
               >{s}</button>
             ))}
+            <button
+              className={`style-btn ${showCustomStyle ? 'active' : ''}`}
+              onClick={() => {
+                setShowCustomStyle(true)
+                setTimeout(() => customStyleRef.current?.focus(), 50)
+              }}
+              title="輸入自訂故事風格"
+            >✏️ 自訂</button>
           </div>
+          {showCustomStyle && (
+            <div className="custom-style-wrap">
+              <input
+                ref={customStyleRef}
+                className="custom-style-input"
+                type="text"
+                placeholder="輸入風格（最多 10 字）"
+                maxLength={20}
+                value={customStyleText}
+                onChange={e => {
+                  setCustomStyleText(e.target.value)
+                  if (e.target.value.trim()) setStyle(e.target.value.trim())
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Escape') {
+                    setShowCustomStyle(false)
+                    setCustomStyleText('')
+                    setStyle('溫馨童趣')
+                  }
+                }}
+              />
+              {customStyleText.trim() && (
+                <span className="custom-style-preview">目前：{customStyleText.trim()}</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 台詞長度設定 */}
