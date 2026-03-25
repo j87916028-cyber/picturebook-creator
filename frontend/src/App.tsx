@@ -596,6 +596,25 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
+  // Global Ctrl+Z / Cmd+Z: undo the most recent delete (line takes priority over scene)
+  useEffect(() => {
+    if (!undoState && !undoSceneState) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key !== 'z') return
+      const target = e.target as Element
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        (target as HTMLElement).isContentEditable
+      ) return
+      e.preventDefault()
+      if (undoState) handleUndoDelete()
+      else handleUndoSceneDelete()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [undoState, undoSceneState]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Append or insert a new dialogue line and generate its voice.
   // insertAfterIndex: undefined = append; number = insert after that line index.
   const handleLineAdd = async (sceneId: string, characterId: string, text: string, insertAfterIndex?: number) => {
@@ -1437,7 +1456,7 @@ export default function App() {
       {undoState && (
         <div className="undo-toast">
           <span className="undo-toast-msg">🗑️ 台詞已刪除</span>
-          <button className="undo-toast-btn" onClick={handleUndoDelete}>復原</button>
+          <button className="undo-toast-btn" onClick={handleUndoDelete}>復原 (Ctrl+Z)</button>
           <button className="undo-toast-dismiss" onClick={() => { if (undoTimerRef.current) clearTimeout(undoTimerRef.current); setUndoState(null) }} title="關閉">✕</button>
         </div>
       )}
@@ -1446,7 +1465,7 @@ export default function App() {
       {undoSceneState && (
         <div className={`undo-toast undo-toast-scene${undoState ? ' undo-toast-stacked' : ''}`}>
           <span className="undo-toast-msg">🎬 第 {undoSceneState.index + 1} 幕已刪除</span>
-          <button className="undo-toast-btn" onClick={handleUndoSceneDelete}>復原</button>
+          <button className="undo-toast-btn" onClick={handleUndoSceneDelete}>復原 (Ctrl+Z)</button>
           <button className="undo-toast-dismiss" onClick={() => { if (undoSceneTimerRef.current) clearTimeout(undoSceneTimerRef.current); setUndoSceneState(null) }} title="關閉">✕</button>
         </div>
       )}
