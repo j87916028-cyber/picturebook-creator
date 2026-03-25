@@ -1244,6 +1244,29 @@ function SceneCard({
                 className="line-edit-textarea"
                 value={addLineText}
                 onChange={e => { setAddLineText(e.target.value.slice(0, 100)); setLineSuggestions([]) }}
+                onKeyDown={async e => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault()
+                    if (!addCharId || !addLineText.trim() || addLineLoading) return
+                    setAddLineLoading(true)
+                    try {
+                      await onLineAdd(scene.id, addCharId, addLineText, insertAfterIndex ?? undefined)
+                      setShowAddLine(false)
+                      setAddCharId('')
+                      setAddLineText('')
+                      setInsertAfterIndex(null)
+                      setLineSuggestions([])
+                    } finally {
+                      setAddLineLoading(false)
+                    }
+                  } else if (e.key === 'Escape') {
+                    setShowAddLine(false)
+                    setAddCharId('')
+                    setAddLineText('')
+                    setInsertAfterIndex(null)
+                    setLineSuggestions([])
+                  }
+                }}
                 placeholder="輸入台詞（最多100字）"
                 rows={2}
                 disabled={addLineLoading}
@@ -1251,6 +1274,7 @@ function SceneCard({
               />
               <p className="line-char-count" style={{ color: addLineText.length >= 90 ? '#e53e3e' : addLineText.length >= 70 ? '#e07b00' : '#bbb' }}>
                 {addLineText.length} / 100
+                <span className="line-edit-hint">Ctrl+Enter 新增・Esc 取消</span>
               </p>
               <div className="line-edit-btns">
                 <button
