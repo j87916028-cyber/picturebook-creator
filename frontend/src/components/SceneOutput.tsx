@@ -976,12 +976,21 @@ function SceneCard({
                           className="line-edit-textarea"
                           value={editLineText}
                           onChange={e => { setEditLineText(e.target.value.slice(0, 200)); setRephraseSuggestions([]) }}
+                          onKeyDown={e => {
+                            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                              e.preventDefault()
+                              if (editLineText.trim()) handleConfirmEditLine(i)
+                            } else if (e.key === 'Escape') {
+                              handleCancelEditLine()
+                            }
+                          }}
                           maxLength={200}
                           rows={2}
                           autoFocus
                         />
                         <p className="line-char-count" style={{ color: editLineText.length >= 180 ? '#e53e3e' : editLineText.length >= 150 ? '#e07b00' : '#bbb' }}>
                           {editLineText.length} / 200
+                          <span className="line-edit-hint">Ctrl+Enter 確認・Esc 取消</span>
                         </p>
                         <div className="line-edit-btns">
                           <button

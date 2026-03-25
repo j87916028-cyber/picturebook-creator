@@ -1637,6 +1637,14 @@ body {
   text-align: right;
   margin-top: -2px;
   line-height: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.line-edit-hint {
+  font-size: 0.68rem;
+  color: #bbb;
+  font-weight: 400;
 }
 
 .line-edit-btns {
