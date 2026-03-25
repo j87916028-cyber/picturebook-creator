@@ -2640,6 +2640,13 @@ def _export_html_zip(
     if characters is None:
         characters = []
 
+    # Build name→emoji lookup so dialogue lines can show the character's emoji.
+    char_emoji_map: dict[str, str] = {
+        c.get("name", ""): c.get("emoji", "")
+        for c in characters
+        if c.get("name")
+    }
+
     scene_htmls = []
     for i, scene in enumerate(scenes):
         desc = html.escape(scene.get("description", ""))
@@ -2659,6 +2666,7 @@ def _export_html_zip(
         for j, line in enumerate(lines):
             raw_char_name = line.get("character_name", "")
             char_name = html.escape(raw_char_name)
+            char_emoji = html.escape(char_emoji_map.get(raw_char_name, ""))
             text = html.escape(line.get("text", ""))
             audio_b64 = line.get("audio_base64")
             audio_fmt = line.get("audio_format", "mp3")
@@ -2674,9 +2682,10 @@ def _export_html_zip(
             # Per-character accent colour via CSS custom property so the
             # `.playing` class can still override `border-left-color`.
             char_color = _safe_css_color(char_color_map.get(raw_char_name, ""))
+            emoji_span = f'<span class="char-emoji">{char_emoji}</span>' if char_emoji else ""
             line_divs += f"""
         <div class="dialogue-line" id="line-{i}-{j}" style="--char-color:{char_color}">
-          <span class="char-name" style="color:{char_color}">{char_name}</span>
+          <span class="char-label" style="color:{char_color}">{emoji_span}<span class="char-name">{char_name}</span></span>
           <span class="dialogue-text">{text}</span>
           {audio_tag}
         </div>"""
@@ -2762,7 +2771,9 @@ def _export_html_zip(
     .scene-img-placeholder {{ background: #f0f0f0; border-radius: 12px; height: 200px; display: flex; align-items: center; justify-content: center; color: #bbb; margin-bottom: 20px; }}
     .dialogue-block {{ display: flex; flex-direction: column; gap: 12px; }}
     .dialogue-line {{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #fafbff; border-radius: 10px; padding: 10px 14px; border-left: 4px solid var(--char-color, #667eea); }}
-    .char-name {{ font-weight: 700; white-space: nowrap; min-width: 4em; }}
+    .char-label {{ display: flex; align-items: center; gap: 4px; font-weight: 700; white-space: nowrap; min-width: 4em; }}
+    .char-emoji {{ font-size: 1.1em; line-height: 1; }}
+    .char-name {{ font-weight: 700; }}
     .dialogue-text {{ flex: 1; font-size: 1rem; line-height: 1.6; }}
     .btn-play {{ background: linear-gradient(135deg,#43e97b,#38f9d7); border: none; border-radius: 20px; padding: 5px 14px; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: white; transition: opacity 0.15s; }}
     .btn-play:hover {{ opacity: 0.85; }}
@@ -2903,7 +2914,7 @@ def _export_html_zip(
         items.push({{
           audioId: audio.id,
           lineId: el.id,
-          charName: (el.querySelector('.char-name') || {{}}).textContent || '',
+          charName: (el.querySelector('.char-label') || el.querySelector('.char-name') || {{}}).textContent || '',
           text: (el.querySelector('.dialogue-text') || {{}}).textContent || '',
         }});
       }});
