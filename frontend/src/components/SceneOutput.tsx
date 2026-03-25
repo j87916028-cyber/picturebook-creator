@@ -254,6 +254,8 @@ function SceneCard({
   const lineItemRefs = useRef<(HTMLDivElement | null)[]>([])
   const linesLengthRef = useRef(scene.lines.length)
   const playLineRef = useRef<((i: number) => void) | null>(null)
+  const [playSpeed, setPlaySpeed] = useState(1.0)
+  const playSpeedRef = useRef(playSpeed)
 
   // Attach timeupdate listener whenever the active line changes
   useEffect(() => {
@@ -353,6 +355,7 @@ function SceneCard({
         return null
       }
       audio.play()
+      audio.playbackRate = playSpeedRef.current
       audio.onended = () => {
         setPlayingIndex(null)
         if (index + 1 < linesLengthRef.current) {
@@ -363,8 +366,9 @@ function SceneCard({
     })
   }, [])
 
-  // Always point the ref at the latest playLine (stable identity, so this is just a formality)
+  // Always point the refs at the latest values so closures inside onended stay fresh
   playLineRef.current = playLine
+  playSpeedRef.current = playSpeed
 
   const playAll = () => {
     if (scene.lines.length > 0) playLine(0)
@@ -887,6 +891,22 @@ function SceneCard({
                 onClick={handleCopyScript}
                 title="複製此幕劇本文字"
               >{copied ? '✓ 已複製' : '📄 複製'}</button>
+              <div className="scene-speed-btns">
+                {([0.75, 1.0, 1.5] as const).map(s => (
+                  <button
+                    key={s}
+                    className={`scene-speed-btn${playSpeed === s ? ' active' : ''}`}
+                    onClick={() => {
+                      setPlaySpeed(s)
+                      if (playingIndex !== null) {
+                        const a = audioRefs.current[playingIndex]
+                        if (a) a.playbackRate = s
+                      }
+                    }}
+                    title={`播放速度 ${s}×`}
+                  >{s === 1 ? '1×' : `${s}×`}</button>
+                ))}
+              </div>
               <button className="btn-play-all" onClick={playAll}>▶ 全部播放</button>
             </div>
           </div>
