@@ -715,6 +715,43 @@ body {
 /* Scene-level undo toast stacks 68px above the line-level toast */
 .undo-toast-stacked { bottom: 96px; }
 
+/* Voice-regen hint toast — appears bottom-right, distinct from undo toasts */
+.voice-regen-toast {
+  position: fixed;
+  bottom: 28px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #1e1e2e;
+  color: #e2e2f0;
+  padding: 12px 18px;
+  border-radius: 12px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+  font-size: 0.92rem;
+  z-index: 3000;
+  animation: voice-toast-in 0.2s ease;
+  white-space: nowrap;
+  border-left: 3px solid #f59e0b;
+}
+@keyframes voice-toast-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.voice-regen-toast-msg { opacity: 0.85; }
+.voice-regen-toast-btn {
+  background: #f59e0b;
+  color: #1e1e2e;
+  border: none;
+  border-radius: 8px;
+  padding: 5px 14px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.voice-regen-toast-btn:hover { background: #d97706; color: #fff; }
+
 /* ── Story Stats Strip ───────────────────────── */
 .story-stats-strip {
   display: flex;

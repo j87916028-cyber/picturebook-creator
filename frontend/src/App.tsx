@@ -82,6 +82,10 @@ export default function App() {
   const [undoSceneState, setUndoSceneState] = useState<UndoSceneState | null>(null)
   const undoSceneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Voice-regen hint: shown when a character voice change cleared existing audio lines
+  const [voiceRegenCount, setVoiceRegenCount] = useState(0)
+  const voiceRegenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Export state
   const [exportOpen, setExportOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -1273,6 +1277,18 @@ export default function App() {
               if (changed.size > 0) {
                 // Sync droppedCharacters
                 setDroppedCharacters(prev => prev.map(dc => changed.get(dc.id) ?? dc))
+
+                // Count lines that will lose audio due to voice change (read current
+                // scenes BEFORE setScenes clears audio — React 18 batches these updates)
+                let clearedCount = 0
+                for (const u of changed.values()) {
+                  if (u.voice_id !== prevMap.get(u.id)?.voice_id) {
+                    scenes.forEach(s => s.lines.forEach(l => {
+                      if (l.character_id === u.id && l.audio_base64) clearedCount++
+                    }))
+                  }
+                }
+
                 // Sync scene lines: update name/voice, clear audio if voice changed
                 setScenes(prev => prev.map(scene => ({
                   ...scene,
@@ -1289,6 +1305,13 @@ export default function App() {
                     }
                   }),
                 })))
+
+                // Show regen hint if any audio was cleared
+                if (clearedCount > 0) {
+                  setVoiceRegenCount(clearedCount)
+                  if (voiceRegenTimerRef.current) clearTimeout(voiceRegenTimerRef.current)
+                  voiceRegenTimerRef.current = setTimeout(() => setVoiceRegenCount(0), 8000)
+                }
               }
               setCharacters(updated)
               if (currentProjectId) saveCharacters(currentProjectId, updated)
@@ -1425,6 +1448,29 @@ export default function App() {
           <span className="undo-toast-msg">🎬 第 {undoSceneState.index + 1} 幕已刪除</span>
           <button className="undo-toast-btn" onClick={handleUndoSceneDelete}>復原</button>
           <button className="undo-toast-dismiss" onClick={() => { if (undoSceneTimerRef.current) clearTimeout(undoSceneTimerRef.current); setUndoSceneState(null) }} title="關閉">✕</button>
+        </div>
+      )}
+
+      {/* Voice regen hint: shown when a character voice change cleared audio */}
+      {voiceRegenCount > 0 && (
+        <div className="voice-regen-toast">
+          <span className="voice-regen-toast-msg">🎙️ {voiceRegenCount} 條配音已清除</span>
+          <button
+            className="voice-regen-toast-btn"
+            onClick={() => {
+              if (voiceRegenTimerRef.current) clearTimeout(voiceRegenTimerRef.current)
+              setVoiceRegenCount(0)
+              handleBatchRegenVoice()
+            }}
+          >立即重新生成</button>
+          <button
+            className="undo-toast-dismiss"
+            onClick={() => {
+              if (voiceRegenTimerRef.current) clearTimeout(voiceRegenTimerRef.current)
+              setVoiceRegenCount(0)
+            }}
+            title="關閉"
+          >✕</button>
         </div>
       )}
     </DndContext>
