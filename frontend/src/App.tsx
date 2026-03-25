@@ -960,7 +960,7 @@ export default function App() {
         setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: d.url } : s))
       }).catch(() => { setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: 'error' } : s)) })
 
-      const voicePs = script.lines.map(async (line: ScriptLine, index: number) => {
+      const voiceTs = script.lines.map((line: ScriptLine, index: number) => async () => {
         try {
           const res = await fetch('/api/generate-voice', {
             method: 'POST',
@@ -981,7 +981,7 @@ export default function App() {
         } catch {}
       })
 
-      await Promise.all([imageP, ...voicePs])
+      await Promise.all([imageP, throttled(voiceTs, 4)])
       setScenes(prev => {
         setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, prev, characters) }, 0)
         return prev
