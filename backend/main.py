@@ -727,6 +727,38 @@ async def suggest_visual_description(req: SuggestVisualRequest, request: Request
     return {"description": desc}
 
 
+# ── 端點：AI 故事摘要生成 ──────────────────────────────────────
+class GenerateSummaryRequest(BaseModel):
+    characters: Annotated[List[Character], Field(min_length=1, max_length=10)]
+    story_context: str = Field(..., max_length=5000)
+
+
+@app.post("/api/generate-summary")
+async def generate_summary(req: GenerateSummaryRequest, request: Request):
+    """Generate a 2–3 sentence summary of the entire story."""
+    if not _rl_suggest.is_allowed(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+    if not MINIMAX_API_KEY and not GROQ_API_KEY:
+        raise HTTPException(status_code=503, detail="服務未設定")
+
+    char_names = "、".join(c.name for c in req.characters[:8])
+    prompt = (
+        "你是台灣繪本作家。請根據以下故事內容，用2到3句繁體中文寫出這個繪本故事的精彩摘要（100字以內）。"
+        "語氣輕鬆溫馨，適合介紹給家長或讀者。只回傳摘要文字，不要任何說明或前言。\n\n"
+        f"主角：{char_names}\n"
+        f"故事內容：\n{req.story_context}"
+    )
+
+    def _clean(raw: str) -> str:
+        return re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+
+    summary = await _llm_single_string(
+        prompt, _clean, temperature=0.5, max_tokens=200,
+        log_tag="generate-summary", error_detail="摘要生成失敗",
+    )
+    return {"summary": summary[:300]}
+
+
 # ── 端點：AI 角色個性描述生成 ─────────────────────────────────
 class SuggestPersonalityRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=30)

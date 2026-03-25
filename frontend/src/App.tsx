@@ -86,6 +86,10 @@ export default function App() {
   const [voiceRegenCount, setVoiceRegenCount] = useState(0)
   const voiceRegenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Story summary state
+  const [storySummary, setStorySummary] = useState<string | null>(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
+
   // Export state
   const [exportOpen, setExportOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -1076,6 +1080,23 @@ export default function App() {
     setTimeout(() => setCopiedFeedback(false), 2000)
   }
 
+  const handleGenerateSummary = async () => {
+    if (!storyContext || summaryLoading) return
+    setSummaryLoading(true)
+    setStorySummary(null)
+    try {
+      const res = await fetch('/api/generate-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ characters, story_context: storyContext }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      setStorySummary(data.summary || null)
+    } catch {}
+    finally { setSummaryLoading(false) }
+  }
+
   const handleExport = async (format: string) => {
     if (!currentProjectId) return
     setExporting(true)
@@ -1435,7 +1456,26 @@ export default function App() {
                     >
                       {copiedFeedback ? '✓ 已複製' : '📋 複製文字'}
                     </button>
+                    <span className="stats-divider">·</span>
+                    <button
+                      className="btn-story-summary"
+                      onClick={handleGenerateSummary}
+                      disabled={summaryLoading}
+                      title="AI 自動生成故事摘要"
+                    >
+                      {summaryLoading ? <span className="spinner-sm" /> : '📖 故事摘要'}
+                    </button>
                   </div>
+
+                  {storySummary && (
+                    <div className="story-summary-box">
+                      <div className="story-summary-header">
+                        <span>📖 故事摘要</span>
+                        <button className="story-summary-close" onClick={() => setStorySummary(null)} title="關閉摘要">×</button>
+                      </div>
+                      <p className="story-summary-text">{storySummary}</p>
+                    </div>
+                  )}
 
                   {activeChars.length >= 2 && (
                     <div className="char-balance-strip">

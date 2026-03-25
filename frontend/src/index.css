@@ -878,6 +878,56 @@ body {
   color: #38a169;
 }
 
+.btn-story-summary {
+  background: none;
+  border: 1px solid #dde;
+  border-radius: 8px;
+  padding: 3px 10px;
+  font-size: 0.8rem;
+  color: #667eea;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-story-summary:hover:not(:disabled) { background: #f0f4ff; border-color: #667eea; }
+.btn-story-summary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.story-summary-box {
+  background: linear-gradient(135deg, #f8f4ff 0%, #f0f4ff 100%);
+  border: 1px solid #c8d4f0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-top: 6px;
+}
+.story-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #5570c6;
+  margin-bottom: 6px;
+}
+.story-summary-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #aaa;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 2px;
+}
+.story-summary-close:hover { color: #666; }
+.story-summary-text {
+  font-size: 0.88rem;
+  color: #444;
+  line-height: 1.65;
+  margin: 0;
+}
+
 /* ── Scene Output Panel ──────────────────────── */
 .scene-output-panel {
   background: white; border-radius: 16px;
