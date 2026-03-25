@@ -960,7 +960,14 @@ export default function App() {
         })
         if (!res.ok) { setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, image: 'error' } : s)); return }
         const data = await res.json()
-        setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, image: data.url } : s))
+        // Save incrementally after each image so progress survives a mid-batch
+        // tab close.  Matches the pattern used by handleBatchRegenVoice; the
+        // 1.5 s autoSave debounce coalesces rapid updates automatically.
+        setScenes(prev => {
+          const next = prev.map(s => s.id === scene.id ? { ...s, image: data.url } : s)
+          setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
+          return next
+        })
       } catch {
         setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, image: 'error' } : s))
       } finally {
@@ -970,11 +977,6 @@ export default function App() {
 
     // Image generation is slow; run at most 2 in parallel to respect rate limits
     await throttled(imageTasks, 2)
-
-    setScenes(prev => {
-      setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, prev, characters) }, 0)
-      return prev
-    })
     setTimeout(() => setBatchImageStatus(null), 1500)
   }
 
