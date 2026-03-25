@@ -223,6 +223,15 @@ export default function App() {
     autoSaveTimerRef.current = setTimeout(_flushSave, 1500)
   }, [_flushSave])
 
+  // Manual retry: re-queue a save with the latest in-memory state, fire immediately
+  const handleRetrySave = useCallback(() => {
+    if (!currentProjectId) return
+    pendingSaveRef.current = { projectId: currentProjectId, scenes, characters }
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    setSavedStatus('idle')
+    autoSaveTimerRef.current = setTimeout(_flushSave, 0)
+  }, [currentProjectId, scenes, characters, _flushSave])
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { over, active } = event
     if (over?.id === 'scene-drop-zone') {
@@ -1129,7 +1138,11 @@ export default function App() {
           <div className="app-header-right">
             {savedStatus === 'saving' && <span className="save-indicator saving">儲存中...</span>}
             {savedStatus === 'saved'  && <span className="save-indicator saved">✓ 已儲存</span>}
-            {savedStatus === 'failed' && <span className="save-indicator failed">⚠️ 儲存失敗</span>}
+            {savedStatus === 'failed' && (
+              <button className="save-indicator failed save-retry" onClick={handleRetrySave} title="點擊重新儲存">
+                ⚠️ 儲存失敗 · 重試
+              </button>
+            )}
             {currentProjectId && projectName && (
               <div className="title-suggest-wrap" ref={titleSuggestRef}>
                 {editingTitle ? (
