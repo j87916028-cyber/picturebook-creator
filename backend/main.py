@@ -2626,16 +2626,22 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
             if audio_b64:
                 try:
                     audio_bytes = base64.b64decode(audio_b64)
+                    # audio_format is "mp3" for iFlytek/Edge TTS and "wav" for Groq Orpheus.
+                    # Using the wrong extension/MIME type causes silent playback failures in
+                    # EPUB readers that trust the declared format over the stream header.
+                    audio_fmt = (line.get("audio_format") or "mp3").lower()
+                    mime_type = "audio/mpeg" if audio_fmt == "mp3" else f"audio/{audio_fmt}"
+                    audio_fname = f"audio/scene{i}_line{j}.{audio_fmt}"
                     audio_item = epub.EpubItem(
                         uid=f"audio_{i}_{j}",
-                        file_name=f"audio/scene{i}_line{j}.mp3",
-                        media_type="audio/mpeg",
+                        file_name=audio_fname,
+                        media_type=mime_type,
                         content=audio_bytes,
                     )
                     book.add_item(audio_item)
                     safe_char = html.escape(line.get("character_name", ""))
                     audio_items_html += (
-                        f'<audio controls src="../audio/scene{i}_line{j}.mp3">'
+                        f'<audio controls src="../{audio_fname}">'
                         f'<p>{safe_char}</p></audio>'
                     )
                 except Exception as e:
