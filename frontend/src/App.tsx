@@ -1218,8 +1218,9 @@ export default function App() {
     const imagesDone  = scenes.filter(s => s.image && s.image !== 'error').length
     const audioPct    = totalLines > 0 ? Math.round((audioLines / totalLines) * 100) : 0
     const totalChars  = scenes.reduce((n, s) => n + s.lines.reduce((m, l) => m + l.text.length, 0), 0)
-    const readMinutes = totalChars > 0 ? Math.max(1, Math.round(totalChars / 200)) : 0
-    return { totalLines, audioLines, imagesDone, audioPct, totalChars, readMinutes }
+    // Estimated listening time at ~4 Chinese chars per second (same formula as SceneOutput)
+    const audioSecs   = Math.round(totalChars / 4)
+    return { totalLines, audioLines, imagesDone, audioPct, totalChars, audioSecs }
   }, [scenes])
 
   return (
@@ -1420,7 +1421,7 @@ export default function App() {
             )}
 
             {storyStats && (() => {
-              const { totalLines, audioLines, imagesDone, audioPct, totalChars, readMinutes } = storyStats
+              const { totalLines, audioLines, imagesDone, audioPct, totalChars, audioSecs } = storyStats
               const activeChars = characters
                 .filter(c => (lineCountsByCharId[c.id] ?? 0) > 0)
                 .sort((a, b) => (lineCountsByCharId[b.id] ?? 0) - (lineCountsByCharId[a.id] ?? 0))
@@ -1432,9 +1433,14 @@ export default function App() {
                     <span className="stats-item">💬 <strong>{totalLines}</strong> 句台詞</span>
                     <span className="stats-divider">·</span>
                     <span className="stats-item">📝 <strong>{totalChars}</strong> 字</span>
-                    {readMinutes > 0 && <>
+                    {audioSecs >= 5 && <>
                       <span className="stats-divider">·</span>
-                      <span className="stats-item">🕐 約 <strong>{readMinutes}</strong> 分鐘</span>
+                      <span
+                        className="stats-item"
+                        title="依台詞總字數估算聆聽時長（約 4 字/秒），實際時長依語速而異"
+                      >
+                        🎙 約 <strong>{Math.floor(audioSecs / 60)}:{String(audioSecs % 60).padStart(2, '0')}</strong>
+                      </span>
                     </>}
                     <span className="stats-divider">·</span>
                     <span className="stats-item">
