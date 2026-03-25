@@ -824,6 +824,26 @@ function SceneCard({
                               />
                             </div>
                           )}
+                          <button
+                            className="btn-download-audio"
+                            onClick={() => {
+                              const fmt = line.audio_format || 'wav'
+                              const byteString = atob(line.audio_base64!)
+                              const ab = new ArrayBuffer(byteString.length)
+                              const ia = new Uint8Array(ab)
+                              for (let j = 0; j < byteString.length; j++) ia[j] = byteString.charCodeAt(j)
+                              const blob = new Blob([ab], { type: `audio/${fmt}` })
+                              const url = URL.createObjectURL(blob)
+                              const a = document.createElement('a')
+                              a.href = url
+                              a.download = `第${sceneIndex + 1}幕_第${i + 1}句_${line.character_name}.${fmt}`
+                              a.click()
+                              URL.revokeObjectURL(url)
+                            }}
+                            title={`下載 ${line.character_name} 的配音音檔 (.${line.audio_format || 'wav'})`}
+                          >
+                            💾
+                          </button>
                         </>
                       ) : isRegenVoice ? (
                         <span className="audio-loading">配音生成中...</span>

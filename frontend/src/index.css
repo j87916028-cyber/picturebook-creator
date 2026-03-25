@@ -1392,6 +1392,26 @@ body {
   border-color: #c05621;
 }
 
+.btn-download-audio {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1.5px solid #b3c6e0;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  color: #4a6fa5;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.btn-download-audio:hover {
+  background: #e8f0fb;
+  border-color: #4a6fa5;
+}
+
 /* ── Image prompt editor ─────────────────────── */
 .prompt-edit-panel {
   background: #fffbf0;
