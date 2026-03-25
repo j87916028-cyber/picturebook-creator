@@ -205,7 +205,7 @@ export default function App() {
   }, [])
 
   const autoSave = useCallback((projectId: string, currentScenes: Scene[], currentCharacters?: Character[]) => {
-    if (!projectId || currentScenes.length === 0) return
+    if (!projectId) return
     pendingSaveRef.current = { projectId, scenes: currentScenes, characters: currentCharacters ?? [] }
     // Clear any 'failed' state so the user sees a fresh 'saving…' indicator on retry
     setSavedStatus(s => (s === 'failed' ? 'idle' : s))
