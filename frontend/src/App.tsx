@@ -159,6 +159,7 @@ export default function App() {
       script: s.script,
       lines: s.lines,
       image: s.image,
+      voices_attempted: true,  // scenes from DB are fully generated
     }))
     setScenes(loaded)
     if (proj.characters && proj.characters.length > 0) {
@@ -395,6 +396,9 @@ export default function App() {
         imagePromise,
         throttled(voiceTasks, 4),
       ])
+      // Mark voices as attempted so SceneOutput can distinguish "still loading"
+      // from "generation finished but audio failed" (e.g. TTS provider was down).
+      updateScene(s => ({ ...s, voices_attempted: true }))
       setGenStatus({ step: 'done', done: totalLines, total: totalLines })
 
       // Auto-save after all generation completes (read latest state via setter, then save outside)
@@ -1005,6 +1009,7 @@ export default function App() {
       })
 
       await Promise.all([imageP, throttled(voiceTs, 4)])
+      setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, voices_attempted: true } : s))
       setScenes(prev => {
         setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, prev, characters) }, 0)
         return prev

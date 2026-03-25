@@ -411,10 +411,12 @@ function SceneCard({
   }
 
   const hasAudio = scene.lines.some(l => l.audio_base64)
-  // A line whose audio is missing while other lines in the same scene have
-  // audio means this specific line's voice generation silently failed.
+  // A line counts as failed if it has no audio AND generation has already
+  // been attempted for this scene.  Without `voices_attempted`, if ALL lines
+  // fail (e.g. TTS provider is down), hasAudio would be false and every line
+  // would show "音訊生成中…" forever instead of the retry button.
   const isAudioFailed = (line: { audio_base64?: string }) =>
-    hasAudio && !line.audio_base64
+    (hasAudio || !!scene.voices_attempted) && !line.audio_base64
 
   return (
     <div className="scene-card">

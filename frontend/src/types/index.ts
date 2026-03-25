@@ -39,6 +39,9 @@ export interface Scene {
   script: ScriptResponse
   lines: ScriptLine[]
   image: string
+  /** True once the voice-generation pass for this scene has completed (success or failure).
+   *  Used to distinguish "still loading" from "generation finished but audio failed". */
+  voices_attempted?: boolean
 }
 
 export const CHARACTER_COLORS = [
