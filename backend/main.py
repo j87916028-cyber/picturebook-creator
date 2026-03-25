@@ -2019,6 +2019,21 @@ class SceneLineIn(BaseModel):
         clean = re.sub(r"[^a-z0-9]", "", str(v).lower())
         return clean if clean in ("mp3", "wav") else None
 
+    @field_validator("voice_id", mode="before")
+    @classmethod
+    def _normalise_voice_id(cls, v: object) -> str:
+        """Accept only known voice IDs or empty string; coerce unknown values to "".
+
+        Defense-in-depth: prevents arbitrary voice_id strings from being
+        persisted to the database via SaveScenes requests.  The generate-voice
+        endpoint validates voice_id at call time, but validating here ensures
+        the stored value is always clean.
+        """
+        if v is None:
+            return ""
+        s = str(v)
+        return s if s == "" or s in VALID_VOICE_IDS else ""
+
 class CharacterIn(BaseModel):
     """Character definition stored alongside a project."""
     id: str = Field("", max_length=64)
@@ -2028,6 +2043,20 @@ class CharacterIn(BaseModel):
     voice_id: str = Field("", max_length=64)
     color: str = Field("", max_length=20)
     emoji: str = Field("", max_length=10)
+
+    @field_validator("voice_id", mode="before")
+    @classmethod
+    def _normalise_voice_id(cls, v: object) -> str:
+        """Accept only known voice IDs or empty string; coerce unknown values to "".
+
+        Defense-in-depth: mirrors the validator on SceneLineIn.voice_id so that
+        any voice_id stored alongside a project character is always a known
+        value (or empty).
+        """
+        if v is None:
+            return ""
+        s = str(v)
+        return s if s == "" or s in VALID_VOICE_IDS else ""
 
 class SceneIn(BaseModel):
     idx: int = Field(..., ge=0, le=999)
