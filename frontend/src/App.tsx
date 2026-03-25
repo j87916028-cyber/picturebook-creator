@@ -103,6 +103,7 @@ export default function App() {
   const [editTitleValue, setEditTitleValue] = useState('')
   const editTitleInputRef = useRef<HTMLInputElement>(null)
   const sceneEditorRef = useRef<HTMLDivElement>(null)
+  const [editorFocusTrigger, setEditorFocusTrigger] = useState(0)
 
   // Close any open dropdown on outside click or Escape
   useEffect(() => {
@@ -1361,6 +1362,7 @@ export default function App() {
                 sceneCount={scenes.length}
                 onReset={handleReset}
                 storyContext={storyContext}
+                focusTrigger={editorFocusTrigger}
               />
             </div>
 
@@ -1462,7 +1464,10 @@ export default function App() {
               onBatchRegenImages={handleBatchRegenImages}
               batchImageStatus={batchImageStatus}
               onLinesReorder={handleLinesReorder}
-              onScrollToEditor={() => sceneEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              onScrollToEditor={() => {
+                sceneEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                setEditorFocusTrigger(n => n + 1)
+              }}
             />
           </div>
         </main>

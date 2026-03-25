@@ -20,6 +20,7 @@ interface Props {
   sceneCount: number
   onReset: () => void
   storyContext?: string   // context from previous scenes for suggestions
+  focusTrigger?: number  // increment to focus the description textarea
 }
 
 const STYLES = ['溫馨童趣', '奇幻冒險', '搞笑幽默', '感動溫情', '懸疑神秘']
@@ -34,6 +35,7 @@ export default function SceneEditor({
   sceneCount,
   onReset,
   storyContext,
+  focusTrigger,
 }: Props) {
   const [description, setDescription] = useState('')
   const [style, setStyle] = useState('溫馨童趣')
@@ -49,6 +51,7 @@ export default function SceneEditor({
 
   const imageInputRef = useRef<HTMLInputElement>(null)
   const audioInputRef = useRef<HTMLInputElement>(null)
+  const descriptionRef = useRef<HTMLTextAreaElement>(null)
   // Track which sceneCount we last fetched suggestions for, so we re-fetch
   // every time a new scene is added instead of stopping at suggestions.length > 0.
   const lastFetchedForCount = useRef(0)
@@ -79,6 +82,11 @@ export default function SceneEditor({
       setSuggestLoading(false)
     }
   }, [storyContext, droppedCharacters, style, suggestLoading])
+
+  // Focus description textarea when focusTrigger increments (e.g. "繼續創作下一幕")
+  useEffect(() => {
+    if (focusTrigger) descriptionRef.current?.focus()
+  }, [focusTrigger])
 
   // Auto-fetch for first scene: trigger when characters are first dropped in
   const prevCharCountRef = useRef(0)
@@ -182,6 +190,7 @@ export default function SceneEditor({
 
         {/* 場景描述 */}
         <textarea
+          ref={descriptionRef}
           className="scene-input"
           placeholder="描述場景...&#10;例：在一片大森林裡，小兔子迷路了，遇見了一隻友善的狐狸&#10;（Ctrl+Enter 快速生成）"
           value={description}
