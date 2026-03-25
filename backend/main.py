@@ -1200,9 +1200,29 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
 
     try:
         data = json.loads(content)
-        return ScriptResponse(**data)
     except Exception as e:
         logger.error("JSON parse failed: %s\nContent: %s", e, content[:800])
+        raise HTTPException(status_code=502, detail=f"劇本解析失敗，請重試（{type(e).__name__}）")
+
+    # Normalize character fields: the LLM may hallucinate character_id or voice_id.
+    # Map each line back to canonical character data from req.characters.
+    char_by_id   = {c.id: c for c in req.characters}
+    char_by_name = {c.name.strip(): c for c in req.characters}
+    for line in data.get("lines", []):
+        char = char_by_id.get(str(line.get("character_id", "")))
+        if char is None:
+            char = char_by_name.get(str(line.get("character_name", "")).strip())
+        if char is None and req.characters:
+            char = req.characters[0]
+        if char:
+            line["character_id"]   = char.id
+            line["character_name"] = char.name
+            line["voice_id"]       = char.voice_id
+
+    try:
+        return ScriptResponse(**data)
+    except Exception as e:
+        logger.error("ScriptResponse build failed: %s\nData: %s", e, str(data)[:800])
         raise HTTPException(status_code=502, detail=f"劇本解析失敗，請重試（{type(e).__name__}）")
 
 # 情緒語調：rate（語速）+ volume（音量）傳給 edge-tts 原生 prosody 參數
