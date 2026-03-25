@@ -62,6 +62,7 @@ export interface ProjectDetail extends ProjectMeta {
     idx: number
     description: string
     style: string
+    line_length?: 'short' | 'standard' | 'long'
     script: ScriptResponse
     lines: ScriptLine[]
     image: string

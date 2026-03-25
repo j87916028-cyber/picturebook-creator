@@ -151,6 +151,12 @@ ALTER TABLE projects
   ADD COLUMN IF NOT EXISTS cover_image TEXT;
 """
 
+# Migration: add line_length column to scenes (stores 'short'/'standard'/'long')
+_ALTER_SCENES_LINE_LENGTH = """
+ALTER TABLE scenes
+  ADD COLUMN IF NOT EXISTS line_length VARCHAR(20) NOT NULL DEFAULT 'standard';
+"""
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _http_client, _db_pool
@@ -165,6 +171,7 @@ async def lifespan(app: FastAPI):
                 await conn.execute(_CREATE_SCENES)
                 await conn.execute(_ALTER_PROJECTS_CHARS)
                 await conn.execute(_ALTER_PROJECTS_COVER)
+                await conn.execute(_ALTER_SCENES_LINE_LENGTH)
             logger.info("PostgreSQL pool created and schema applied")
         except Exception as exc:
             logger.warning("Failed to connect to PostgreSQL: %s — DB features disabled", exc)
@@ -1666,6 +1673,7 @@ class SceneIn(BaseModel):
     idx: int = Field(..., ge=0, le=999)
     description: str = Field("", max_length=500)
     style: str = Field("溫馨童趣", max_length=20)
+    line_length: str = Field("standard", max_length=20)  # 'short' | 'standard' | 'long'
     script: Dict[str, Any] = {}
     lines: List[SceneLineIn] = Field(default_factory=list, max_length=50)
     # base64-encoded image: cap at ~6 MB of encoded data (≈ 4.5 MB raw)
@@ -1749,7 +1757,7 @@ async def get_project(project_id: str):
         if proj is None:
             raise HTTPException(status_code=404, detail="專案不存在")
         scenes = await conn.fetch(
-            "SELECT id, idx, description, style, script, lines, image FROM scenes WHERE project_id = $1 ORDER BY idx",
+            "SELECT id, idx, description, style, line_length, script, lines, image FROM scenes WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
     raw_chars = proj["characters"]
@@ -1766,6 +1774,7 @@ async def get_project(project_id: str):
                 "idx": s["idx"],
                 "description": s["description"],
                 "style": s["style"],
+                "line_length": s["line_length"] or "standard",
                 "script": json.loads(s["script"]) if isinstance(s["script"], str) else s["script"],
                 "lines": json.loads(s["lines"]) if isinstance(s["lines"], str) else s["lines"],
                 "image": s["image"],
@@ -1850,8 +1859,8 @@ async def save_scenes(project_id: str, req: SaveScenesRequest):
             if req.scenes:
                 await conn.executemany(
                     """
-                    INSERT INTO scenes (project_id, idx, description, style, script, lines, image)
-                    VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7)
+                    INSERT INTO scenes (project_id, idx, description, style, line_length, script, lines, image)
+                    VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8)
                     """,
                     [
                         (
@@ -1859,6 +1868,7 @@ async def save_scenes(project_id: str, req: SaveScenesRequest):
                             scene.idx,
                             scene.description,
                             scene.style,
+                            scene.line_length or "standard",
                             json.dumps(scene.script, ensure_ascii=False),
                             json.dumps([ln.model_dump() for ln in scene.lines], ensure_ascii=False),
                             scene.image,
