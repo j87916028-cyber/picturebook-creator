@@ -23,6 +23,7 @@ export default function ProjectPanel({
 }: Props) {
   const [projects, setProjects] = useState<ProjectMeta[]>([])
   const [loading, setLoading] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const editInputRef = useRef<HTMLInputElement>(null)
@@ -135,6 +136,10 @@ export default function ProjectPanel({
     }
   }
 
+  const filteredProjects = searchQuery.trim()
+    ? projects.filter(p => p.name.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    : projects
+
   return (
     <div className="project-panel">
       <div className="project-panel-header">
@@ -147,11 +152,29 @@ export default function ProjectPanel({
         >＋ 新作品</button>
       </div>
 
+      {projects.length >= 4 && (
+        <div className="project-search-wrap">
+          <input
+            className="project-search-input"
+            type="text"
+            placeholder="搜尋作品…"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button className="project-search-clear" onClick={() => setSearchQuery('')} title="清除搜尋">✕</button>
+          )}
+        </div>
+      )}
+
       <div className="project-list">
         {projects.length === 0 && (
           <div className="project-empty">尚無已儲存作品</div>
         )}
-        {projects.map(p => (
+        {projects.length > 0 && filteredProjects.length === 0 && (
+          <div className="project-empty">找不到符合的作品</div>
+        )}
+        {filteredProjects.map(p => (
           <div
             key={p.id}
             className={`project-item${p.id === currentProjectId ? ' active' : ''}`}

@@ -1333,6 +1333,39 @@ body {
   white-space: nowrap;
 }
 
+.project-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.project-search-input {
+  width: 100%;
+  border: 1.5px solid #dde;
+  border-radius: 8px;
+  padding: 5px 28px 5px 9px;
+  font-size: 0.78rem;
+  color: #444;
+  background: #f8f9ff;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+}
+.project-search-input:focus { border-color: #667eea; background: white; }
+.project-search-input::placeholder { color: #bbb; }
+.project-search-clear {
+  position: absolute;
+  right: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #bbb;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 2px;
+  transition: color 0.15s;
+}
+.project-search-clear:hover { color: #888; }
+
 .btn-new-project {
   background: linear-gradient(135deg, #667eea, #764ba2);
   color: white;
