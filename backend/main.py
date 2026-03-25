@@ -497,15 +497,20 @@ def get_voices():
 
 # ── 語音生成 LRU 快取（記憶體，最多 200 筆，避免重複合成相同台詞）──────
 _TTS_CACHE_MAX = 200
-_tts_cache: "OrderedDict[str, tuple[bytes, str]]" = OrderedDict()  # key → (audio_bytes, fmt)
+# Key is a (voice_id, emotion, text) tuple rather than a colon-joined string.
+# Using a tuple avoids false cache hits when `text` contains ":" (e.g. "小兔：早安"),
+# which would make the string-concatenated key indistinguishable from a request
+# with a different (voice_id, emotion) split at the same position.
+_CacheKey = tuple  # (voice_id: str, emotion: str, text: str)
+_tts_cache: "OrderedDict[_CacheKey, tuple[bytes, str]]" = OrderedDict()  # key → (audio_bytes, fmt)
 
-def _tts_cache_get(key: str) -> "tuple[bytes, str] | None":
+def _tts_cache_get(key: _CacheKey) -> "tuple[bytes, str] | None":
     if key not in _tts_cache:
         return None
     _tts_cache.move_to_end(key)          # LRU: refresh access order
     return _tts_cache[key]
 
-def _tts_cache_put(key: str, audio_bytes: bytes, fmt: str) -> None:
+def _tts_cache_put(key: _CacheKey, audio_bytes: bytes, fmt: str) -> None:
     if key in _tts_cache:
         _tts_cache.move_to_end(key)
     _tts_cache[key] = (audio_bytes, fmt)
@@ -1389,7 +1394,7 @@ async def generate_voice(req: GenerateVoiceRequest, request: Request):
         raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
 
     # ── 0. LRU 快取命中（相同 voice_id + emotion + text → 直接返回）──────
-    _cache_key = f"{req.voice_id}:{req.emotion or ''}:{req.text}"
+    _cache_key = (req.voice_id, req.emotion or "", req.text)
     _cached = _tts_cache_get(_cache_key)
     if _cached:
         logger.info("TTS cache hit voice_id=%s emotion=%s len=%d", req.voice_id, req.emotion, len(req.text))
