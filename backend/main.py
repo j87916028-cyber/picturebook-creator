@@ -2707,6 +2707,14 @@ def _export_html_zip(
     scenes_joined = "\n".join(scene_htmls)
 
     # ── Character introduction section ──────────────────────────────────────
+    # Count dialogue lines per character name across all scenes.
+    char_line_counts: dict[str, int] = {}
+    for scene in scenes:
+        for line in scene.get("lines", []):
+            cname = line.get("character_name", "")
+            if cname:
+                char_line_counts[cname] = char_line_counts.get(cname, 0) + 1
+
     char_intro_html = ""
     if characters:
         char_cards = ""
@@ -2715,11 +2723,17 @@ def _export_html_zip(
             emoji      = html.escape(str(c.get("emoji", "🎭")))
             personality = html.escape(str(c.get("personality", "")))
             color      = _safe_css_color(c.get("color", ""), fallback="#667eea")
+            line_count = char_line_counts.get(c.get("name", ""), 0)
+            line_badge = (
+                f'<div class="char-intro-lines" style="color:{color}">{line_count} 句</div>'
+                if line_count > 0 else ""
+            )
             char_cards += f"""
       <div class="char-intro-card" style="border-top-color:{color}">
         <div class="char-intro-emoji">{emoji}</div>
         <div class="char-intro-name" style="color:{color}">{name}</div>
         {f'<div class="char-intro-personality">{personality}</div>' if personality else ''}
+        {line_badge}
       </div>"""
         char_intro_html = f"""
   <section class="char-intro-section">
@@ -2850,6 +2864,7 @@ def _export_html_zip(
     .char-intro-emoji {{ font-size: 2rem; line-height: 1.2; margin-bottom: 4px; }}
     .char-intro-name {{ font-weight: 800; font-size: 0.95rem; margin-bottom: 4px; }}
     .char-intro-personality {{ font-size: 0.75rem; color: #888; line-height: 1.4; max-width: 120px; }}
+    .char-intro-lines {{ font-size: 0.72rem; font-weight: 700; margin-top: 5px; opacity: 0.85; }}
     /* ── table of contents ── */
     .toc-section {{
       background: white; border-radius: 16px; padding: 24px 28px;
