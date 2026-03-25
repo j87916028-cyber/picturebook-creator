@@ -13,6 +13,13 @@ const EMOTION_LABELS: Record<string, string> = {
 
 const SPEED_OPTIONS = [0.75, 1.0, 1.25, 1.5, 2.0]
 
+function formatTime(secs: number): string {
+  if (!isFinite(secs) || secs < 0) return '0:00'
+  const m = Math.floor(secs / 60)
+  const s = Math.floor(secs % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
 interface Props {
   scenes: Scene[]
   characters: Character[]
@@ -50,6 +57,9 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
   const [playing, setPlaying] = useState(true)
   const [speed, setSpeed] = useState(1.0)
   const [showHelp, setShowHelp] = useState(false)
+  const [audioProgress, setAudioProgress] = useState(0)   // 0–100 within current line
+  const [audioDuration, setAudioDuration] = useState(0)   // seconds
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const activeLineRef = useRef<HTMLDivElement | null>(null)
@@ -98,6 +108,41 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
   useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = speed
   }, [speed])
+
+  // Per-line audio progress tracking
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    const onTime = () => {
+      const cur = audio.currentTime
+      const dur = audio.duration
+      setAudioCurrentTime(cur)
+      if (dur) setAudioProgress((cur / dur) * 100)
+    }
+    const onMeta = () => setAudioDuration(audio.duration)
+    audio.addEventListener('timeupdate', onTime)
+    audio.addEventListener('loadedmetadata', onMeta)
+    return () => {
+      audio.removeEventListener('timeupdate', onTime)
+      audio.removeEventListener('loadedmetadata', onMeta)
+    }
+  }, [])  // attach once; same element lives for modal's lifetime
+
+  // Reset per-line progress when the cursor moves to a new line
+  useEffect(() => {
+    setAudioProgress(0)
+    setAudioDuration(0)
+    setAudioCurrentTime(0)
+  }, [cursor])
+
+  const handleAudioSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    const audio = audioRef.current
+    if (!audio || !audio.duration) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    audio.currentTime = pct * audio.duration
+    setAudioProgress(pct * 100)
+  }
 
   // Auto-scroll active transcript line into view
   useEffect(() => {
@@ -290,12 +335,27 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
           </div>
         )}
 
-        {/* Progress bar */}
+        {/* Per-line audio progress bar (seekable) */}
         <div className="playback-progress-wrap">
-          <div className="playback-progress-bar">
-            <div className="playback-progress-fill" style={{ width: `${pct}%` }} />
+          <div
+            className="playback-progress-bar playback-audio-bar"
+            onClick={handleAudioSeek}
+            title="點擊跳轉播放位置"
+          >
+            <div className="playback-progress-fill" style={{ width: `${audioProgress}%` }} />
           </div>
-          <span className="playback-progress-label">{lineProgress}</span>
+          <div className="playback-progress-meta">
+            <span className="playback-progress-label">{lineProgress}</span>
+            {audioDuration > 0 && (
+              <span className="playback-time-display">
+                {formatTime(audioCurrentTime)} / {formatTime(audioDuration)}
+              </span>
+            )}
+          </div>
+          {/* Playlist-level progress indicator (thin) */}
+          <div className="playback-playlist-bar">
+            <div className="playback-playlist-fill" style={{ width: `${pct}%` }} />
+          </div>
         </div>
 
         {/* Speed control */}
