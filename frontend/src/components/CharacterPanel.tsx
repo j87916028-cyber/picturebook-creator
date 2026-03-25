@@ -365,6 +365,22 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
     onChange(next)
   }
 
+  const handleMoveUp = (id: string) => {
+    const idx = characters.findIndex(c => c.id === id)
+    if (idx <= 0) return
+    const next = [...characters]
+    ;[next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]
+    onChange(next)
+  }
+
+  const handleMoveDown = (id: string) => {
+    const idx = characters.findIndex(c => c.id === id)
+    if (idx < 0 || idx >= characters.length - 1) return
+    const next = [...characters]
+    ;[next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]
+    onChange(next)
+  }
+
   const handleAddPreset = (preset: CharacterPreset) => {
     // Skip if a character with the same name already exists
     if (characters.some(c => c.name === preset.name)) return
@@ -395,6 +411,8 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
               onDelete={deleteCharacter}
               onEdit={id => setEditingId(id === editingId ? null : id)}
               onDuplicate={handleDuplicate}
+              onMoveUp={characters.indexOf(c) > 0 ? () => handleMoveUp(c.id) : undefined}
+              onMoveDown={characters.indexOf(c) < characters.length - 1 ? () => handleMoveDown(c.id) : undefined}
               lineCount={lineCountsByCharId[c.id]}
             />
             {editingId === c.id && (

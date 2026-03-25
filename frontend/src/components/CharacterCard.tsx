@@ -8,11 +8,13 @@ interface Props {
   onDelete: (id: string) => void
   onEdit: (id: string) => void
   onDuplicate: (id: string) => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
   isDragging?: boolean
   lineCount?: number   // total dialogue lines this character has across all scenes
 }
 
-export default function CharacterCard({ character, onDelete, onEdit, onDuplicate, isDragging = false, lineCount }: Props) {
+export default function CharacterCard({ character, onDelete, onEdit, onDuplicate, onMoveUp, onMoveDown, isDragging = false, lineCount }: Props) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: character.id,
     data: { character },
@@ -66,6 +68,20 @@ export default function CharacterCard({ character, onDelete, onEdit, onDuplicate
         </div>
       </div>
       <div className="card-actions">
+        {onMoveUp && (
+          <button
+            className="card-move card-move-up"
+            onClick={e => { e.stopPropagation(); onMoveUp() }}
+            title="上移角色"
+          >▲</button>
+        )}
+        {onMoveDown && (
+          <button
+            className="card-move card-move-down"
+            onClick={e => { e.stopPropagation(); onMoveDown() }}
+            title="下移角色"
+          >▼</button>
+        )}
         <button
           className="card-edit"
           onClick={() => onEdit(character.id)}
