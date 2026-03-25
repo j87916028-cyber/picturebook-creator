@@ -2716,21 +2716,34 @@ def _export_html_zip(project_name: str, scenes: list, char_color_map: dict | Non
     #player-bar {{
       position: fixed; bottom: 0; left: 0; right: 0;
       background: linear-gradient(135deg, #667eea, #764ba2);
-      color: white; padding: 12px 20px;
-      display: flex; align-items: center; gap: 14px;
+      color: white; padding: 10px 16px;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
       box-shadow: 0 -4px 20px rgba(0,0,0,0.18);
       z-index: 999; font-family: 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
     }}
     #player-bar.hidden {{ display: none; }}
     #btn-play-all {{
       background: linear-gradient(135deg,#43e97b,#38f9d7);
-      border: none; border-radius: 24px; padding: 8px 22px;
-      font-weight: 800; font-size: 1rem; color: white;
+      border: none; border-radius: 24px; padding: 7px 18px;
+      font-weight: 800; font-size: 0.95rem; color: white;
       cursor: pointer; white-space: nowrap; transition: opacity .15s;
     }}
     #btn-play-all:hover {{ opacity: .85; }}
-    #player-now {{ flex: 1; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .92; }}
-    #player-progress {{ font-size: 0.8rem; opacity: .7; white-space: nowrap; }}
+    .btn-player-nav {{
+      background: rgba(255,255,255,0.15); border: none; border-radius: 18px;
+      padding: 6px 13px; color: white; cursor: pointer; font-size: 0.9rem;
+      transition: opacity .15s; white-space: nowrap;
+    }}
+    .btn-player-nav:hover {{ opacity: .75; }}
+    #player-now {{ flex: 1; font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .92; min-width: 80px; }}
+    #player-progress {{ font-size: 0.78rem; opacity: .65; white-space: nowrap; }}
+    .speed-btns {{ display: flex; gap: 5px; }}
+    .speed-btn {{
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 14px; padding: 4px 10px; color: rgba(255,255,255,0.7);
+      cursor: pointer; font-size: 0.75rem; font-weight: 700; transition: all .15s;
+    }}
+    .speed-btn.active {{ background: rgba(255,255,255,0.3); color: white; border-color: rgba(255,255,255,0.5); }}
     /* header launch button */
     .header-play-btn {{
       margin-top: 14px; background: white; color: #667eea;
@@ -2755,8 +2768,16 @@ def _export_html_zip(project_name: str, scenes: list, char_color_map: dict | Non
   <!-- Sticky player bar (hidden until Play All starts) -->
   <div id="player-bar" class="hidden">
     <button id="btn-play-all" onclick="togglePlayAll()">⏸ 暫停</button>
+    <button class="btn-player-nav" onclick="prevLine()" title="上一句 (←)">◀</button>
+    <button class="btn-player-nav" onclick="nextLine()" title="下一句 (→)">▶</button>
     <span id="player-now">準備播放...</span>
     <span id="player-progress"></span>
+    <div class="speed-btns">
+      <button class="speed-btn" onclick="setSpeed(0.75)">0.75×</button>
+      <button class="speed-btn active" onclick="setSpeed(1)">1×</button>
+      <button class="speed-btn" onclick="setSpeed(1.5)">1.5×</button>
+      <button class="speed-btn" onclick="setSpeed(2)">2×</button>
+    </div>
   </div>
 
   <script>
@@ -2770,6 +2791,7 @@ def _export_html_zip(project_name: str, scenes: list, char_color_map: dict | Non
     var _playlist = [];   // {{id, charName, text}}
     var _cursor   = -1;
     var _paused   = false;
+    var _speed    = 1.0;
 
     function _buildPlaylist() {{
       var items = [];
@@ -2825,6 +2847,7 @@ def _export_html_zip(project_name: str, scenes: list, char_color_map: dict | Non
       var audio = document.getElementById(item.audioId);
       if (!audio) {{ _advance(); return; }}
       audio.currentTime = 0;
+      audio.playbackRate = _speed;
       audio.onended = function() {{
         if (!_paused) _advance();
       }};
@@ -2848,10 +2871,32 @@ def _export_html_zip(project_name: str, scenes: list, char_color_map: dict | Non
       }}
     }}
 
-    // keyboard shortcuts: Space = toggle, Esc = stop
+    function setSpeed(s) {{
+      _speed = s;
+      document.querySelectorAll('.speed-btn').forEach(function(btn) {{
+        btn.classList.toggle('active', parseFloat(btn.textContent) === s);
+      }});
+      document.querySelectorAll('audio').forEach(function(a) {{ a.playbackRate = s; }});
+    }}
+
+    function prevLine() {{
+      if (_cursor <= 0) return;
+      document.querySelectorAll('audio').forEach(function(a) {{ a.pause(); }});
+      _cursor -= 2;  // _advance() will increment by 1
+      _advance();
+    }}
+
+    function nextLine() {{
+      document.querySelectorAll('audio').forEach(function(a) {{ a.pause(); }});
+      _advance();
+    }}
+
+    // keyboard shortcuts: Space = toggle, Esc = stop, ← prev, → next
     document.addEventListener('keydown', function(e) {{
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       if (e.code === 'Space') {{ e.preventDefault(); togglePlayAll(); }}
+      if (e.code === 'ArrowRight') {{ e.preventDefault(); nextLine(); }}
+      if (e.code === 'ArrowLeft') {{ e.preventDefault(); prevLine(); }}
       if (e.code === 'Escape') {{
         document.querySelectorAll('audio').forEach(function(a) {{ a.pause(); }});
         document.querySelectorAll('.dialogue-line.playing').forEach(function(el) {{ el.classList.remove('playing'); }});
