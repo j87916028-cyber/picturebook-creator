@@ -1784,6 +1784,37 @@ body {
   padding-bottom: 4px;
   margin-bottom: 8px;
 }
+.story-stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px 6px;
+  flex-wrap: wrap;
+  border-top: 1px solid #ebebf0;
+}
+.stats-summary {
+  font-size: 0.72rem;
+  color: #aaa;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.stats-chars {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.stats-char-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1.5px solid;
+  border-radius: 20px;
+  padding: 1px 8px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+.stats-char-badge strong { font-weight: 700; }
 .playbook-bar {
   display: flex; align-items: center; gap: 12px;
   padding: 10px 16px; margin-bottom: 8px;

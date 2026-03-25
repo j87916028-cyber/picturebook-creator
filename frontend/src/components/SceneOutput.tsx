@@ -42,6 +42,16 @@ function SortableNavChip({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: scene.id })
 
+  // Keep a separate ref so we can scroll into view; combine with useSortable's setNodeRef
+  const chipElRef = useRef<HTMLDivElement | null>(null)
+  const combinedRef = (el: HTMLDivElement | null) => {
+    setNodeRef(el)
+    chipElRef.current = el
+  }
+  useEffect(() => {
+    if (isActive) chipElRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  }, [isActive])
+
   // Compute completion status for the two dots (image · audio)
   const imageStatus: 'ok' | 'err' | 'pending' =
     scene.image === 'error' ? 'err' :
@@ -59,7 +69,7 @@ function SortableNavChip({
 
   return (
     <div
-      ref={setNodeRef}
+      ref={combinedRef}
       className={`scene-nav-chip${isDragging ? ' dragging' : ''}${isActive ? ' active' : ''}`}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       {...attributes}
@@ -1192,6 +1202,15 @@ export default function SceneOutput({
   )
   const missingImageCount = scenes.filter(s => !s.image || s.image === 'error').length
 
+  // Story stats: per-character line counts across all scenes
+  const totalLines = scenes.reduce((n, s) => n + s.lines.length, 0)
+  const charStats = characters
+    .map(c => ({
+      id: c.id, name: c.name, emoji: c.emoji, color: c.color,
+      count: scenes.reduce((n, s) => n + s.lines.filter(l => l.character_id === c.id).length, 0),
+    }))
+    .filter(c => c.count > 0)
+
   const scrollToScene = (index: number) => {
     sceneRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
@@ -1274,6 +1293,20 @@ export default function SceneOutput({
               </div>
             </SortableContext>
           </DndContext>
+        )}
+
+        {/* Story stats: character line distribution */}
+        {charStats.length > 0 && (
+          <div className="story-stats-bar">
+            <span className="stats-summary">{scenes.length} 幕 · {totalLines} 句</span>
+            <div className="stats-chars">
+              {charStats.map(c => (
+                <span key={c.id} className="stats-char-badge" style={{ borderColor: c.color, color: c.color }} title={`${c.name} 共 ${c.count} 句`}>
+                  {c.emoji} {c.name} <strong>{c.count}</strong>
+                </span>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
