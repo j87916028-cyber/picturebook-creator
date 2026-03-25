@@ -2069,11 +2069,25 @@ class SceneIn(BaseModel):
     idx: int = Field(..., ge=0, le=999)
     description: str = Field("", max_length=500)
     style: str = Field("溫馨童趣", max_length=20)
-    line_length: str = Field("standard", max_length=20)  # 'short' | 'standard' | 'long'
+    line_length: str = Field("standard", max_length=20)
     script: Dict[str, Any] = {}
     lines: List[SceneLineIn] = Field(default_factory=list, max_length=50)
     # base64-encoded image: cap at ~6 MB of encoded data (≈ 4.5 MB raw)
     image: str = Field("", max_length=6_000_000)
+
+    @field_validator("line_length", mode="before")
+    @classmethod
+    def _normalise_line_length(cls, v: object) -> str:
+        """Coerce unknown line_length values to 'standard'.
+        Defense-in-depth: GenerateScriptRequest already uses Literal for this
+        field, but SceneIn (used by SaveScenes) must also reject arbitrary strings
+        so the stored DB value is always one of 'short', 'standard', 'long'.
+        """
+        _VALID = {"short", "standard", "long"}
+        if v is None:
+            return "standard"
+        s = str(v)
+        return s if s in _VALID else "standard"
 
 class SaveScenesRequest(BaseModel):
     scenes: Annotated[List[SceneIn], Field(max_length=100)]
