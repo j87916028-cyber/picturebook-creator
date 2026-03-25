@@ -7,11 +7,12 @@ interface Props {
   character: Character
   onDelete: (id: string) => void
   onEdit: (id: string) => void
+  onDuplicate: (id: string) => void
   isDragging?: boolean
   lineCount?: number   // total dialogue lines this character has across all scenes
 }
 
-export default function CharacterCard({ character, onDelete, onEdit, isDragging = false, lineCount }: Props) {
+export default function CharacterCard({ character, onDelete, onEdit, onDuplicate, isDragging = false, lineCount }: Props) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: character.id,
     data: { character },
@@ -70,6 +71,11 @@ export default function CharacterCard({ character, onDelete, onEdit, isDragging 
           onClick={() => onEdit(character.id)}
           title="編輯角色"
         >✏️</button>
+        <button
+          className="card-duplicate"
+          onClick={e => { e.stopPropagation(); onDuplicate(character.id) }}
+          title="複製角色"
+        >📋</button>
         <button
           className={`card-delete${confirmDelete ? ' confirm' : ''}`}
           onClick={handleDeleteClick}

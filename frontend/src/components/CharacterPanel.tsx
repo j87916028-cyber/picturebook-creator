@@ -311,6 +311,25 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
     if (editingId === id) setEditingId(null)
   }
 
+  const handleDuplicate = (id: string) => {
+    const original = characters.find(c => c.id === id)
+    if (!original) return
+    // Strip any existing "(副本N)" suffix then add a fresh one
+    const baseName = original.name.replace(/\s*（副本\d*）$/, '')
+    const copies = characters.filter(c => c.name.startsWith(baseName) && c.name !== baseName).length
+    const copyName = `${baseName}（副本${copies > 0 ? copies + 1 : ''}）`.replace(/（副本）/, '（副本）')
+    const nextColor = CHARACTER_COLORS[(characters.length) % CHARACTER_COLORS.length]
+    const copy: Character = {
+      ...original,
+      id: `char_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      name: copyName.slice(0, 30),
+      color: nextColor,
+    }
+    const idx = characters.findIndex(c => c.id === id)
+    const next = [...characters.slice(0, idx + 1), copy, ...characters.slice(idx + 1)]
+    onChange(next)
+  }
+
   const handleAddPreset = (preset: CharacterPreset) => {
     // Skip if a character with the same name already exists
     if (characters.some(c => c.name === preset.name)) return
@@ -340,6 +359,7 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
               character={c}
               onDelete={deleteCharacter}
               onEdit={id => setEditingId(id === editingId ? null : id)}
+              onDuplicate={handleDuplicate}
               lineCount={lineCountsByCharId[c.id]}
             />
             {editingId === c.id && (
