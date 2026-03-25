@@ -601,6 +601,8 @@ body {
   line-height: 1;
 }
 .undo-toast-dismiss:hover { color: #ccc; }
+/* Scene-level undo toast stacks 68px above the line-level toast */
+.undo-toast-stacked { bottom: 96px; }
 
 /* ── Story Stats Strip ───────────────────────── */
 .story-stats-strip {

@@ -77,6 +77,11 @@ export default function App() {
   const [undoState, setUndoState] = useState<UndoState | null>(null)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Undo-delete state for scenes: remembers the last deleted scene for 5 seconds
+  type UndoSceneState = { scene: Scene; index: number }
+  const [undoSceneState, setUndoSceneState] = useState<UndoSceneState | null>(null)
+  const undoSceneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Export state
   const [exportOpen, setExportOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -426,9 +431,27 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
-  // Delete a scene
+  // Delete a scene (with 5-second undo window)
   const handleSceneDelete = (sceneId: string) => {
+    const idx = scenes.findIndex(s => s.id === sceneId)
+    if (idx < 0) return
+    const deletedScene = scenes[idx]
     const next = scenes.filter(s => s.id !== sceneId)
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
+    // Arm undo toast — clears after 5 s
+    setUndoSceneState({ scene: deletedScene, index: idx })
+    if (undoSceneTimerRef.current) clearTimeout(undoSceneTimerRef.current)
+    undoSceneTimerRef.current = setTimeout(() => setUndoSceneState(null), 5000)
+  }
+
+  const handleUndoSceneDelete = () => {
+    if (!undoSceneState) return
+    if (undoSceneTimerRef.current) clearTimeout(undoSceneTimerRef.current)
+    const { scene, index } = undoSceneState
+    setUndoSceneState(null)
+    const next = [...scenes]
+    next.splice(index, 0, scene)   // re-insert at original position
     setScenes(next)
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
@@ -1308,12 +1331,21 @@ export default function App() {
         </main>
       </div>
 
-      {/* Undo-delete toast */}
+      {/* Undo-delete toast (line) */}
       {undoState && (
         <div className="undo-toast">
           <span className="undo-toast-msg">🗑️ 台詞已刪除</span>
           <button className="undo-toast-btn" onClick={handleUndoDelete}>復原</button>
           <button className="undo-toast-dismiss" onClick={() => { if (undoTimerRef.current) clearTimeout(undoTimerRef.current); setUndoState(null) }} title="關閉">✕</button>
+        </div>
+      )}
+
+      {/* Undo-delete toast (scene) */}
+      {undoSceneState && (
+        <div className={`undo-toast undo-toast-scene${undoState ? ' undo-toast-stacked' : ''}`}>
+          <span className="undo-toast-msg">🎬 第 {undoSceneState.index + 1} 幕已刪除</span>
+          <button className="undo-toast-btn" onClick={handleUndoSceneDelete}>復原</button>
+          <button className="undo-toast-dismiss" onClick={() => { if (undoSceneTimerRef.current) clearTimeout(undoSceneTimerRef.current); setUndoSceneState(null) }} title="關閉">✕</button>
         </div>
       )}
     </DndContext>
