@@ -66,7 +66,7 @@ export default function App() {
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
   const [projectName, setProjectName] = useState('')
   const [titleSparkle, setTitleSparkle] = useState(false)
-  const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle')
   const [projectPanelOpen, setProjectPanelOpen] = useState(true)
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -198,13 +198,15 @@ export default function App() {
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
       savedTimerRef.current = setTimeout(() => setSavedStatus('idle'), 2500)
     } catch {
-      setSavedStatus('idle')
+      setSavedStatus('failed')
     }
   }, [])
 
   const autoSave = useCallback((projectId: string, currentScenes: Scene[], currentCharacters?: Character[]) => {
     if (!projectId || currentScenes.length === 0) return
     pendingSaveRef.current = { projectId, scenes: currentScenes, characters: currentCharacters ?? [] }
+    // Clear any 'failed' state so the user sees a fresh 'saving…' indicator on retry
+    setSavedStatus(s => (s === 'failed' ? 'idle' : s))
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
     autoSaveTimerRef.current = setTimeout(_flushSave, 1500)
   }, [_flushSave])
@@ -961,7 +963,8 @@ export default function App() {
           </div>
           <div className="app-header-right">
             {savedStatus === 'saving' && <span className="save-indicator saving">儲存中...</span>}
-            {savedStatus === 'saved' && <span className="save-indicator saved">✓ 已儲存</span>}
+            {savedStatus === 'saved'  && <span className="save-indicator saved">✓ 已儲存</span>}
+            {savedStatus === 'failed' && <span className="save-indicator failed">⚠️ 儲存失敗</span>}
             {currentProjectId && projectName && (
               <div className="title-suggest-wrap" ref={titleSuggestRef}>
                 <span className={`current-project-name${titleSparkle ? ' sparkle' : ''}`} title={projectName}>

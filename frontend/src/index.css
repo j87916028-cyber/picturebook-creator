@@ -52,6 +52,7 @@ body {
 }
 .save-indicator.saving { background: rgba(255,255,255,0.2); color: white; }
 .save-indicator.saved  { background: rgba(67,233,123,0.3); color: #d4ffea; }
+.save-indicator.failed { background: rgba(255,100,80,0.35); color: #ffe0db; }
 
 .current-project-name {
   font-size: 0.78rem;
