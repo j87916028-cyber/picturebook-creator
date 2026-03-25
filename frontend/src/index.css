@@ -1990,6 +1990,11 @@ body {
   white-space: nowrap;
   flex-shrink: 0;
 }
+.stats-duration {
+  color: #9b8fc7;
+  margin-left: 2px;
+  cursor: default;
+}
 .stats-chars {
   display: flex;
   gap: 5px;

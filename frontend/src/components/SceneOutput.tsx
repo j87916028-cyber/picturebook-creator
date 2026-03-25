@@ -1343,6 +1343,13 @@ export default function SceneOutput({
       .filter(c => c.count > 0),
     [scenes, characters]
   )
+  // Estimated total playback duration based on Chinese speech rate (~4 chars/sec at 1×)
+  const estimatedSecs = useMemo(
+    () => Math.round(
+      scenes.reduce((n, s) => n + s.lines.reduce((m, l) => m + l.text.length, 0), 0) / 4
+    ),
+    [scenes]
+  )
 
   if (scenes.length === 0) return null
 
@@ -1433,7 +1440,17 @@ export default function SceneOutput({
         {/* Story stats bar: always show when 2+ scenes so the view-mode toggle is accessible */}
         {(charStats.length > 0 || scenes.length >= 2) && (
           <div className="story-stats-bar">
-            <span className="stats-summary">{scenes.length} 幕 · {totalLines} 句</span>
+            <span className="stats-summary">
+              {scenes.length} 幕 · {totalLines} 句
+              {estimatedSecs >= 5 && (
+                <span
+                  className="stats-duration"
+                  title="依台詞總字數估算（約 4 字/秒），實際時長依語速而異"
+                >
+                  · 約 {Math.floor(estimatedSecs / 60)}:{String(estimatedSecs % 60).padStart(2, '0')}
+                </span>
+              )}
+            </span>
             {charStats.length > 0 && (
               <div className="stats-chars">
                 {charStats.map(c => (
