@@ -197,6 +197,17 @@ body {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
+.card-add-scene {
+  background: none; border: 1px solid #c8d8f0; border-radius: 10px;
+  cursor: pointer; font-size: 0.78rem; padding: 2px 6px; line-height: 1.4;
+  color: #5570c6; opacity: 0.7; transition: all 0.15s;
+}
+.card-add-scene:hover { opacity: 1; background: #e8efff; }
+.card-add-scene.in-scene {
+  background: #e6faf0; border-color: #a8dfc0; color: #2ea86e;
+  cursor: default; opacity: 1; font-weight: 700;
+}
+
 .card-edit {
   background: none; border: none; cursor: pointer;
   font-size: 0.85rem; padding: 2px 4px; line-height: 1;

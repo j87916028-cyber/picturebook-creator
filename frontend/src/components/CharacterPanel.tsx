@@ -6,6 +6,8 @@ interface Props {
   characters: Character[]
   onChange: (characters: Character[]) => void
   lineCountsByCharId?: Record<string, number>
+  droppedCharacterIds?: string[]
+  onAddToScene?: (char: Character) => void
 }
 
 const DEFAULT_VOICES: Voice[] = [
@@ -305,7 +307,7 @@ function CharacterForm({
   )
 }
 
-export default function CharacterPanel({ characters, onChange, lineCountsByCharId = {} }: Props) {
+export default function CharacterPanel({ characters, onChange, lineCountsByCharId = {}, droppedCharacterIds = [], onAddToScene }: Props) {
   const [voices, setVoices] = useState<Voice[]>(DEFAULT_VOICES)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -400,7 +402,7 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
     <div className="character-panel">
       <div className="panel-header">
         <h2>角色卡片</h2>
-        <span className="panel-hint">拖曳到場景中</span>
+        <span className="panel-hint">拖曳或點 ➕ 加入場景</span>
       </div>
 
       <div className="character-list">
@@ -415,6 +417,8 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
               onMoveDown={characters.indexOf(c) < characters.length - 1 ? () => handleMoveDown(c.id) : undefined}
               lineCount={lineCountsByCharId[c.id]}
               voiceLabel={voices.find(v => v.id === c.voice_id)?.label}
+              isInScene={droppedCharacterIds.includes(c.id)}
+              onAddToScene={onAddToScene ? () => onAddToScene(c) : undefined}
             />
             {editingId === c.id && (
               <CharacterForm

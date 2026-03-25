@@ -1296,6 +1296,12 @@ export default function App() {
           <CharacterPanel
             characters={characters}
             lineCountsByCharId={lineCountsByCharId}
+            droppedCharacterIds={droppedCharacters.map(c => c.id)}
+            onAddToScene={char => {
+              if (!droppedCharacters.find(c => c.id === char.id)) {
+                setDroppedCharacters(prev => [...prev, char])
+              }
+            }}
             onChange={updated => {
               // Build a lookup of what changed from the current characters array
               const prevMap = new Map(characters.map(c => [c.id, c]))

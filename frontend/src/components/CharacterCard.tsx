@@ -13,9 +13,11 @@ interface Props {
   isDragging?: boolean
   lineCount?: number   // total dialogue lines this character has across all scenes
   voiceLabel?: string  // display name of the assigned voice
+  isInScene?: boolean  // whether this character is already in the scene drop zone
+  onAddToScene?: () => void  // click-to-add fallback (mobile / accessibility)
 }
 
-export default function CharacterCard({ character, onDelete, onEdit, onDuplicate, onMoveUp, onMoveDown, isDragging = false, lineCount, voiceLabel }: Props) {
+export default function CharacterCard({ character, onDelete, onEdit, onDuplicate, onMoveUp, onMoveDown, isDragging = false, lineCount, voiceLabel, isInScene, onAddToScene }: Props) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: character.id,
     data: { character },
@@ -127,6 +129,13 @@ export default function CharacterCard({ character, onDelete, onEdit, onDuplicate
           onClick={handlePreview}
           title={previewing ? '停止試聽' : '試聽角色聲音'}
         >{previewing ? '⏹' : '🔊'}</button>
+        {onAddToScene && (
+          <button
+            className={`card-add-scene${isInScene ? ' in-scene' : ''}`}
+            onClick={e => { e.stopPropagation(); if (!isInScene) onAddToScene() }}
+            title={isInScene ? '已在場景中' : '點擊加入場景'}
+          >{isInScene ? '✓' : '➕'}</button>
+        )}
         <button
           className="card-edit"
           onClick={() => onEdit(character.id)}
