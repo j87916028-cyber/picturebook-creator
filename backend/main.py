@@ -18,7 +18,7 @@ import zipfile
 import httpx
 import logging
 import urllib.parse
-from collections import defaultdict, deque
+from collections import defaultdict, deque, OrderedDict
 from contextlib import asynccontextmanager
 import edge_tts
 
@@ -459,6 +459,23 @@ class ScriptResponse(BaseModel):
 @app.get("/api/voices")
 def get_voices():
     return VOICES
+
+# ── 語音生成 LRU 快取（記憶體，最多 200 筆，避免重複合成相同台詞）──────
+_TTS_CACHE_MAX = 200
+_tts_cache: "OrderedDict[str, tuple[bytes, str]]" = OrderedDict()  # key → (audio_bytes, fmt)
+
+def _tts_cache_get(key: str) -> "tuple[bytes, str] | None":
+    if key not in _tts_cache:
+        return None
+    _tts_cache.move_to_end(key)          # LRU: refresh access order
+    return _tts_cache[key]
+
+def _tts_cache_put(key: str, audio_bytes: bytes, fmt: str) -> None:
+    if key in _tts_cache:
+        _tts_cache.move_to_end(key)
+    _tts_cache[key] = (audio_bytes, fmt)
+    while len(_tts_cache) > _TTS_CACHE_MAX:
+        _tts_cache.popitem(last=False)   # evict least-recently-used
 
 # ── 聲音試聽快取（記憶體，每個 voice 只合成一次）──────────────
 _voice_preview_cache: dict[str, bytes] = {}
@@ -1308,12 +1325,20 @@ async def generate_voice(req: GenerateVoiceRequest, request: Request):
     if not _rl_voice.is_allowed(_client_ip(request)):
         raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
 
+    # ── 0. LRU 快取命中（相同 voice_id + emotion + text → 直接返回）──────
+    _cache_key = f"{req.voice_id}:{req.emotion or ''}:{req.text}"
+    _cached = _tts_cache_get(_cache_key)
+    if _cached:
+        logger.info("TTS cache hit voice_id=%s emotion=%s len=%d", req.voice_id, req.emotion, len(req.text))
+        return {"audio_base64": base64.b64encode(_cached[0]).decode("utf-8"), "format": _cached[1]}
+
     # ── 1. 科大訊飛（若已設定 API 金鑰）────────────────────────
     if XFYUN_APP_ID and XFYUN_API_KEY and XFYUN_API_SECRET:
         try:
             audio_bytes = await _generate_voice_xfyun(req.text, req.voice_id, req.emotion)
             if audio_bytes:
                 logger.info("TTS xfyun ok voice_id=%s", req.voice_id)
+                _tts_cache_put(_cache_key, audio_bytes, "mp3")
                 return {"audio_base64": base64.b64encode(audio_bytes).decode("utf-8"), "format": "mp3"}
             logger.warning("iFlytek TTS returned empty audio")
         except Exception as e:
@@ -1340,6 +1365,7 @@ async def generate_voice(req: GenerateVoiceRequest, request: Request):
                 audio_buffer.write(chunk["data"])
         audio_bytes = audio_buffer.getvalue()
         if audio_bytes:
+            _tts_cache_put(_cache_key, audio_bytes, "mp3")
             return {"audio_base64": base64.b64encode(audio_bytes).decode("utf-8"), "format": "mp3"}
         logger.warning("Edge TTS returned empty audio")
     except Exception as e:
@@ -1365,6 +1391,7 @@ async def generate_voice(req: GenerateVoiceRequest, request: Request):
                 timeout=30,
             )
             if resp.status_code == 200 and resp.content:
+                _tts_cache_put(_cache_key, resp.content, "wav")
                 audio_b64 = base64.b64encode(resp.content).decode("utf-8")
                 return {"audio_base64": audio_b64, "format": "wav"}
             logger.warning("Groq TTS error %s: %s", resp.status_code, resp.text[:200])
