@@ -2418,11 +2418,16 @@ def _export_pdf(project_name: str, scenes: list, char_color_map: dict | None = N
                     tmp.write(img_bytes)
                     tmp_path = tmp.name
                 try:
-                    # Keep image within page, max height 80mm
-                    img_h = min(80, 297 - current_y - 50)
-                    if img_h > 10:
-                        pdf.image(tmp_path, x=10, y=current_y, w=190, h=img_h)
-                        current_y += img_h + 4
+                    # If less than 40 mm remain on the page, overflow to a new page
+                    # so the image is never silently dropped.
+                    available = 297 - current_y - 15  # 15 mm bottom margin
+                    if available < 40:
+                        pdf.add_page()
+                        current_y = 15
+                        available = 297 - current_y - 15
+                    img_h = min(80, available)
+                    pdf.image(tmp_path, x=10, y=current_y, w=190, h=img_h)
+                    current_y += img_h + 4
                 finally:
                     os.unlink(tmp_path)
             except Exception as e:
