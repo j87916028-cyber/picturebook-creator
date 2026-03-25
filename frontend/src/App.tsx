@@ -851,21 +851,21 @@ export default function App() {
         })
         if (!res.ok) return
         const data = await res.json()
-        setScenes(prev => prev.map(s => {
-          if (s.id !== task.sceneId) return s
-          const lines = [...s.lines]
-          lines[task.lineIndex] = { ...lines[task.lineIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
-          return { ...s, lines }
-        }))
+        setScenes(prev => {
+          const next = prev.map(s => {
+            if (s.id !== task.sceneId) return s
+            const lines = [...s.lines]
+            lines[task.lineIndex] = { ...lines[task.lineIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+            return { ...s, lines }
+          })
+          // Incrementally persist each completed voice via the debounced auto-save
+          // (1.5 s coalesce window) so partial progress survives a mid-batch tab close.
+          setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
+          return next
+        })
       } catch {}
     })
     await throttled(voiceTasks, 5, (done, total) => setBatchRegenStatus({ done, total }))
-
-    // Save after all complete
-    setScenes(prev => {
-      setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, prev, characters) }, 0)
-      return prev
-    })
     setTimeout(() => setBatchRegenStatus(null), 1500)
   }
 
