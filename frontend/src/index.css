@@ -1278,6 +1278,18 @@ body {
 }
 .btn-scene-collapse:hover { border-color: #667eea; color: #667eea; background: #f0f4ff; }
 .scene-card-collapsed { padding-bottom: 0; }
+.scene-header-thumb {
+  width: 52px;
+  height: 39px;
+  object-fit: cover;
+  border-radius: 5px;
+  flex-shrink: 0;
+  cursor: pointer;
+  opacity: 0.88;
+  transition: opacity 0.15s, transform 0.15s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+}
+.scene-header-thumb:hover { opacity: 1; transform: scale(1.05); }
 .scene-card-title {
   font-weight: 800;
   font-size: 1rem;

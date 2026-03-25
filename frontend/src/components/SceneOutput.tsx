@@ -599,6 +599,16 @@ function SceneCard({
             <span className="scene-length-badge scene-length-long" title="進階模式（≤35字/句）">🧒 進階</span>
           )}
         </span>
+        {/* Thumbnail preview — only shown in collapsed state, lets users identify scenes without expanding */}
+        {isCollapsed && scene.image && scene.image !== 'error' && (
+          <img
+            className="scene-header-thumb"
+            src={resolveImgSrc(scene.image)}
+            alt={`第${sceneIndex + 1}幕縮圖`}
+            onClick={() => onToggleCollapse(scene.id)}
+            title="點擊展開此幕"
+          />
+        )}
         {editingDesc ? (
           <input
             className="scene-desc-edit-input"
