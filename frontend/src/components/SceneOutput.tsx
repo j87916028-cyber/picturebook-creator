@@ -1249,6 +1249,9 @@ function SceneCard({
                 disabled={addLineLoading}
                 autoFocus
               />
+              <p className="line-char-count" style={{ color: addLineText.length >= 90 ? '#e53e3e' : addLineText.length >= 70 ? '#e07b00' : '#bbb' }}>
+                {addLineText.length} / 100
+              </p>
               <div className="line-edit-btns">
                 <button
                   className="btn-scene-action"
