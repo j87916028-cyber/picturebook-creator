@@ -2784,12 +2784,22 @@ def _export_html_zip(
     #player-bar {{
       position: fixed; bottom: 0; left: 0; right: 0;
       background: linear-gradient(135deg, #667eea, #764ba2);
-      color: white; padding: 10px 16px;
+      color: white; padding: 10px 16px; padding-top: 14px;
       display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
       box-shadow: 0 -4px 20px rgba(0,0,0,0.18);
       z-index: 999; font-family: 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
     }}
     #player-bar.hidden {{ display: none; }}
+    /* ── playback progress track ── */
+    #player-track {{
+      position: absolute; top: 0; left: 0; right: 0; height: 4px;
+      background: rgba(255,255,255,0.15); border-radius: 2px 2px 0 0;
+    }}
+    #player-fill {{
+      height: 100%; width: 0%; border-radius: 2px 2px 0 0;
+      background: linear-gradient(90deg,#43e97b,#38f9d7);
+      transition: width 0.4s ease;
+    }}
     #btn-play-all {{
       background: linear-gradient(135deg,#43e97b,#38f9d7);
       border: none; border-radius: 24px; padding: 7px 18px;
@@ -2880,6 +2890,7 @@ def _export_html_zip(
 
   <!-- Sticky player bar (hidden until Play All starts) -->
   <div id="player-bar" class="hidden">
+    <div id="player-track"><div id="player-fill"></div></div>
     <button id="btn-play-all" onclick="togglePlayAll()">⏸ 暫停</button>
     <button class="btn-player-nav" onclick="prevLine()" title="上一句 (←)">◀</button>
     <button class="btn-player-nav" onclick="nextLine()" title="下一句 (→)">▶</button>
@@ -2926,6 +2937,7 @@ def _export_html_zip(
       if (_playlist.length === 0) {{ alert('此繪本尚無音檔，請先在「創作工坊」生成配音。'); return; }}
       _cursor = -1;
       _paused = false;
+      document.getElementById('player-fill').style.width = '0%';
       document.getElementById('player-bar').classList.remove('hidden');
       _advance();
     }}
@@ -2941,6 +2953,7 @@ def _export_html_zip(
         document.getElementById('player-now').textContent = '✓ 播放完畢';
         document.getElementById('player-progress').textContent = '';
         document.getElementById('btn-play-all').textContent = '▶ 重播全書';
+        document.getElementById('player-fill').style.width = '100%';
         _cursor = -1;
         return;
       }}
@@ -2956,6 +2969,8 @@ def _export_html_zip(
       }}
       document.getElementById('player-now').textContent = item.charName + '：' + item.text;
       document.getElementById('player-progress').textContent = (idx + 1) + ' / ' + _playlist.length;
+      var pct = _playlist.length > 0 ? ((idx + 1) / _playlist.length * 100) : 0;
+      document.getElementById('player-fill').style.width = pct + '%';
 
       var audio = document.getElementById(item.audioId);
       if (!audio) {{ _advance(); return; }}
