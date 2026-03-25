@@ -57,6 +57,8 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
   const [cursor, setCursor] = useState(startCursor)  // index into playlist
   const [playing, setPlaying] = useState(true)
   const [speed, setSpeed] = useState(1.0)
+  const [volume, setVolume] = useState(1.0)   // 0–1
+  const [muted, setMuted] = useState(false)
   const [loop, setLoop] = useState(false)
   const loopRef = useRef(false)
   const [showHelp, setShowHelp] = useState(false)
@@ -128,6 +130,11 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
     if (audioRef.current) audioRef.current.playbackRate = speed
   }, [speed])
 
+  // Apply volume / mute changes to live audio immediately
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = muted ? 0 : volume
+  }, [volume, muted])
+
   // Per-line audio progress tracking
   useEffect(() => {
     const audio = audioRef.current
@@ -190,6 +197,9 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
       else if (e.key === ' ' || e.key === 'k') { e.preventDefault(); togglePlay() }
       else if (e.key === 'ArrowRight' || e.key === 'l') goTo(cursor + 1)
       else if (e.key === 'ArrowLeft'  || e.key === 'j') goTo(cursor - 1)
+      else if (e.key === 'ArrowUp')   { e.preventDefault(); setMuted(false); setVolume(v => Math.min(1, Math.round((v + 0.1) * 10) / 10)) }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); setVolume(v => Math.max(0, Math.round((v - 0.1) * 10) / 10)) }
+      else if (e.key === 'm' || e.key === 'M') setMuted(v => !v)
       else if (e.key === 'PageDown') { e.preventDefault(); if (current) goToScene(current.sceneIdx + 1) }
       else if (e.key === 'PageUp')   { e.preventDefault(); if (current) goToScene(current.sceneIdx - 1) }
       else if (e.key === 'f' || e.key === 'F') toggleFullscreen()
@@ -250,6 +260,8 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
                 <tr><td><kbd>Space</kbd> / <kbd>K</kbd></td><td>播放 / 暫停</td></tr>
                 <tr><td><kbd>→</kbd> / <kbd>L</kbd></td><td>下一句台詞</td></tr>
                 <tr><td><kbd>←</kbd> / <kbd>J</kbd></td><td>上一句台詞</td></tr>
+                <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>音量 +10% / -10%</td></tr>
+                <tr><td><kbd>M</kbd></td><td>靜音切換</td></tr>
                 <tr><td><kbd>PageDown</kbd></td><td>跳至下一幕</td></tr>
                 <tr><td><kbd>PageUp</kbd></td><td>跳至上一幕</td></tr>
                 <tr><td><kbd>F</kbd></td><td>全螢幕切換</td></tr>
@@ -415,9 +427,9 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
           </div>
         </div>
 
-        {/* Speed + Loop controls */}
+        {/* Speed + Volume + Loop controls */}
         <div className="playback-speed-row">
-          <span className="playback-speed-label">播放速度</span>
+          <span className="playback-speed-label">速度</span>
           <div className="playback-speed-btns">
             {SPEED_OPTIONS.map(s => (
               <button
@@ -430,6 +442,36 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
               </button>
             ))}
           </div>
+
+          {/* Volume control */}
+          <div className="playback-volume-wrap">
+            <button
+              className={`playback-mute-btn${muted || volume === 0 ? ' muted' : ''}`}
+              onClick={() => setMuted(v => !v)}
+              title={muted ? '取消靜音 (M)' : '靜音 (M)'}
+            >
+              {muted || volume === 0 ? '🔇' : volume < 0.4 ? '🔈' : '🔊'}
+            </button>
+            <input
+              type="range"
+              className="playback-volume-slider"
+              min={0}
+              max={100}
+              step={10}
+              value={muted ? 0 : Math.round(volume * 100)}
+              onChange={e => {
+                const v = Number(e.target.value) / 100
+                setVolume(v)
+                if (v > 0) setMuted(false)
+                else setMuted(true)
+              }}
+              title={`音量 ${muted ? 0 : Math.round(volume * 100)}%（↑↓ 調整）`}
+            />
+            <span className="playback-volume-pct">
+              {muted ? '0' : Math.round(volume * 100)}%
+            </span>
+          </div>
+
           <button
             className={`playback-loop-btn${loop ? ' active' : ''}`}
             onClick={() => setLoop(v => !v)}
