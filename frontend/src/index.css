@@ -1327,7 +1327,35 @@ body {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
+
+/* ── AI 潤色按鈕 ─────────────────────────────── */
+.btn-rephrase {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.78rem; padding: 4px 10px;
+  background: #fffbf0; border: 1.5px solid #f6ad55;
+  border-radius: 8px; color: #b7791f; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.btn-rephrase:hover:not(:disabled) { background: #fefcbf; border-color: #d97706; color: #92400e; }
+.btn-rephrase:disabled { opacity: 0.5; cursor: not-allowed; }
+.rephrase-suggestions {
+  display: flex; flex-direction: column; gap: 5px;
+  margin-top: 6px; padding: 8px 10px;
+  background: #fffbf0; border: 1px solid #f6e05e44;
+  border-radius: 8px;
+}
+.rephrase-suggestions-label {
+  font-size: 0.72rem; color: #b7791f; font-weight: 600; margin-bottom: 2px;
+}
+.rephrase-chip {
+  background: white; border: 1.5px solid #f6ad55;
+  border-radius: 7px; padding: 5px 10px;
+  font-size: 0.82rem; color: #4a3700; text-align: left;
+  cursor: pointer; transition: all 0.15s; line-height: 1.5;
+}
+.rephrase-chip:hover { background: #fefcbf; border-color: #d97706; color: #92400e; }
 
 /* ── Re-generate voice button ────────────────── */
 .btn-regen-voice {

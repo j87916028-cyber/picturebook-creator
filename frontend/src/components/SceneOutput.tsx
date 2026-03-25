@@ -164,6 +164,8 @@ function SceneCard({
   const [regenVoiceIndex, setRegenVoiceIndex] = useState<number | null>(null)
   const [emotionRegenIndex, setEmotionRegenIndex] = useState<number | null>(null)
   const [charChangeIndex, setCharChangeIndex] = useState<number | null>(null)
+  const [rephraseLoading, setRephraseLoading] = useState(false)
+  const [rephraseSuggestions, setRephraseSuggestions] = useState<string[]>([])
   const [regenImage, setRegenImage] = useState(false)
   const [showPromptEdit, setShowPromptEdit] = useState(false)
   const [editedPrompt, setEditedPrompt] = useState(scene.script.scene_prompt || '')
@@ -289,6 +291,7 @@ function SceneCard({
     if (!newText) return
     // Close edit form immediately, then show voice-loading while regen runs
     setEditingLineIndex(null)
+    setRephraseSuggestions([])
     setRegenVoiceIndex(index)
     try {
       await onLineEditConfirm(scene.id, index, newText)
@@ -300,6 +303,7 @@ function SceneCard({
   const handleCancelEditLine = () => {
     setEditingLineIndex(null)
     setEditLineText('')
+    setRephraseSuggestions([])
   }
 
   const handleVoiceRegen = async (index: number) => {
@@ -695,7 +699,7 @@ function SceneCard({
                         <textarea
                           className="line-edit-textarea"
                           value={editLineText}
-                          onChange={e => setEditLineText(e.target.value)}
+                          onChange={e => { setEditLineText(e.target.value); setRephraseSuggestions([]) }}
                           rows={2}
                           autoFocus
                         />
@@ -714,7 +718,48 @@ function SceneCard({
                           >
                             ✗ 取消
                           </button>
+                          <button
+                            className="btn-rephrase"
+                            disabled={rephraseLoading || !editLineText.trim()}
+                            title="AI 改寫建議"
+                            onClick={async () => {
+                              setRephraseLoading(true)
+                              setRephraseSuggestions([])
+                              try {
+                                const res = await fetch('/api/rephrase-line', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    text: editLineText.trim(),
+                                    character_name: line.character_name,
+                                    personality: char?.personality ?? '',
+                                    style: scene.style || '溫馨童趣',
+                                  }),
+                                })
+                                if (res.ok) {
+                                  const data = await res.json()
+                                  setRephraseSuggestions(data.suggestions ?? [])
+                                }
+                              } catch {}
+                              finally { setRephraseLoading(false) }
+                            }}
+                          >
+                            {rephraseLoading ? <><span className="spinner-sm" /> 生成中...</> : '✨ AI 潤色'}
+                          </button>
                         </div>
+                        {rephraseSuggestions.length > 0 && (
+                          <div className="rephrase-suggestions">
+                            <span className="rephrase-suggestions-label">選一個版本填入：</span>
+                            {rephraseSuggestions.map((s, si) => (
+                              <button
+                                key={si}
+                                className="rephrase-chip"
+                                onClick={() => { setEditLineText(s); setRephraseSuggestions([]) }}
+                                title="點擊套用此版本"
+                              >{s}</button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="dialogue-text-row">
