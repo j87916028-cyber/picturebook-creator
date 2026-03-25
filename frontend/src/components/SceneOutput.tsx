@@ -98,6 +98,7 @@ interface Props {
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
   onLineCharacterChange: (sceneId: string, lineIndex: number, newCharacterId: string) => Promise<void>
   onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
+  onImageUpload: (sceneId: string, dataUrl: string) => void
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string) => Promise<void>
   onBatchRegenVoice: () => void
@@ -122,6 +123,7 @@ interface SceneCardProps {
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
   onLineCharacterChange: (sceneId: string, lineIndex: number, newCharacterId: string) => Promise<void>
   onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
+  onImageUpload: (sceneId: string, dataUrl: string) => void
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string) => Promise<void>
   onPlayFromScene: (sceneIndex: number) => void
@@ -143,6 +145,7 @@ function SceneCard({
   onLineEmotionChange,
   onLineCharacterChange,
   onImageRegen,
+  onImageUpload,
   onSceneDescriptionUpdate,
   onSceneRegen,
   onPlayFromScene,
@@ -172,6 +175,8 @@ function SceneCard({
   const [rephraseLoading, setRephraseLoading] = useState(false)
   const [rephraseSuggestions, setRephraseSuggestions] = useState<string[]>([])
   const [regenImage, setRegenImage] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const imageUploadRef = useRef<HTMLInputElement>(null)
   const [showPromptEdit, setShowPromptEdit] = useState(false)
   const [editedPrompt, setEditedPrompt] = useState(scene.script.scene_prompt || '')
   const [showRegenForm, setShowRegenForm] = useState(false)
@@ -360,6 +365,25 @@ function SceneCard({
     }
   }
 
+  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (imageUploadRef.current) imageUploadRef.current.value = ''
+    if (!file) return
+    if (file.size > 4 * 1024 * 1024) {
+      alert('圖片檔案請勿超過 4 MB')
+      return
+    }
+    setUploadingImage(true)
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const dataUrl = ev.target?.result as string
+      if (dataUrl) onImageUpload(scene.id, dataUrl)
+      setUploadingImage(false)
+    }
+    reader.onerror = () => setUploadingImage(false)
+    reader.readAsDataURL(file)
+  }
+
   const handleSceneRegenSubmit = async () => {
     if (!regenDesc.trim()) return
     setRegenLoading(true)
@@ -447,6 +471,21 @@ function SceneCard({
 
       {/* Action buttons row */}
       <div className="scene-card-actions">
+        <input
+          ref={imageUploadRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          style={{ display: 'none' }}
+          onChange={handleImageFileUpload}
+        />
+        <button
+          className="btn-scene-action btn-upload-image"
+          onClick={() => imageUploadRef.current?.click()}
+          disabled={uploadingImage || regenImage}
+          title="上傳自訂插圖（取代 AI 生成圖，最大 4 MB）"
+        >
+          {uploadingImage ? <><span className="spinner-sm" /> 載入中...</> : '📁 上傳插圖'}
+        </button>
         {scene.image && (
           <button
             className="btn-scene-action btn-download-image"
@@ -1089,6 +1128,7 @@ export default function SceneOutput({
   onLineEmotionChange,
   onLineCharacterChange,
   onImageRegen,
+  onImageUpload,
   onSceneDescriptionUpdate,
   onSceneRegen,
   onBatchRegenVoice,
@@ -1260,6 +1300,7 @@ export default function SceneOutput({
             onLineEmotionChange={onLineEmotionChange}
             onLineCharacterChange={onLineCharacterChange}
             onImageRegen={onImageRegen}
+            onImageUpload={onImageUpload}
             onSceneDescriptionUpdate={onSceneDescriptionUpdate}
             onSceneRegen={onSceneRegen}
             onPlayFromScene={handlePlayFromScene}

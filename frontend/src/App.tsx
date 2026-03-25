@@ -775,6 +775,13 @@ export default function App() {
     } catch { restoreOldState() }
   }
 
+  // Replace scene image with a user-uploaded file (client-side only, no API call)
+  const handleImageUpload = (sceneId: string, dataUrl: string) => {
+    const next = scenes.map(s => s.id === sceneId ? { ...s, image: dataUrl } : s)
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
+  }
+
   // Re-generate scene image (optionally with a custom prompt)
   const handleImageRegen = async (sceneId: string, customPrompt?: string) => {
     const scene = scenes.find(s => s.id === sceneId)
@@ -1320,6 +1327,7 @@ export default function App() {
               onLineEmotionChange={handleLineEmotionChange}
               onLineCharacterChange={handleLineCharacterChange}
               onImageRegen={handleImageRegen}
+              onImageUpload={handleImageUpload}
               onSceneDescriptionUpdate={handleSceneDescriptionUpdate}
               onSceneRegen={handleSceneRegen}
               onBatchRegenVoice={handleBatchRegenVoice}
