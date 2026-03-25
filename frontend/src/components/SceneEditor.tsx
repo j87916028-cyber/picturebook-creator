@@ -38,14 +38,34 @@ export default function SceneEditor({
   focusTrigger,
 }: Props) {
   const [description, setDescription] = useState('')
-  const [style, setStyle] = useState('溫馨童趣')
-  const [customStyleText, setCustomStyleText] = useState('')
-  const [showCustomStyle, setShowCustomStyle] = useState(false)
+
+  // Restore last-used style from localStorage; if it was a custom (non-preset) value,
+  // pre-fill the custom input so the user doesn't lose their setting across page loads.
+  const [style, setStyle] = useState<string>(() => {
+    return localStorage.getItem('scene_style') || '溫馨童趣'
+  })
+  const [customStyleText, setCustomStyleText] = useState<string>(() => {
+    const saved = localStorage.getItem('scene_style') || ''
+    return STYLES.includes(saved) ? '' : saved
+  })
+  const [showCustomStyle, setShowCustomStyle] = useState<boolean>(() => {
+    const saved = localStorage.getItem('scene_style') || ''
+    return !!saved && !STYLES.includes(saved)
+  })
   const customStyleRef = useRef<HTMLInputElement>(null)
-  const [lineLength, setLineLength] = useState<LineLength>('standard')
+
+  // Restore last-used line length from localStorage.
+  const [lineLength, setLineLength] = useState<LineLength>(() => {
+    const saved = localStorage.getItem('scene_line_length') as LineLength | null
+    return saved && ['short', 'standard', 'long'].includes(saved) ? saved : 'standard'
+  })
   const [imageLoading, setImageLoading] = useState(false)
   const [audioLoading, setAudioLoading] = useState(false)
   const [inputError, setInputError] = useState<string | null>(null)
+
+  // Persist style and lineLength to localStorage whenever they change.
+  useEffect(() => { localStorage.setItem('scene_style', style) }, [style])
+  useEffect(() => { localStorage.setItem('scene_line_length', lineLength) }, [lineLength])
 
   // Elapsed-time counter for script generation step
   const [scriptElapsed, setScriptElapsed] = useState(0)
