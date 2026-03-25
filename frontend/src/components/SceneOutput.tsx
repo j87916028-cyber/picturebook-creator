@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect, Fragment } from 'react'
+import { useRef, useState, useCallback, useEffect, useMemo, Fragment } from 'react'
 import {
   DndContext, DragEndEvent, PointerSensor, useSensor, useSensors, closestCenter,
 } from '@dnd-kit/core'
@@ -1199,22 +1199,38 @@ export default function SceneOutput({
     prevSceneCountRef.current = scenes.length
   }, [scenes.length])
 
-  if (scenes.length === 0) return null
-
-  const hasAudio = scenes.some(s => s.lines.some(l => l.audio_base64))
-  const missingAudioCount = scenes.reduce(
-    (n, s) => n + s.lines.filter(l => l.text && !l.audio_base64).length, 0
+  // ── Memoized derived state ──────────────────────────────────
+  // activeSceneId changes on every scroll (IntersectionObserver), which
+  // re-renders this component. Memoizing here prevents these O(scenes×lines)
+  // iterations from running on each scroll event.
+  const hasAudio = useMemo(
+    () => scenes.some(s => s.lines.some(l => l.audio_base64)),
+    [scenes]
   )
-  const missingImageCount = scenes.filter(s => !s.image || s.image === 'error').length
+  const missingAudioCount = useMemo(
+    () => scenes.reduce((n, s) => n + s.lines.filter(l => l.text && !l.audio_base64).length, 0),
+    [scenes]
+  )
+  const missingImageCount = useMemo(
+    () => scenes.filter(s => !s.image || s.image === 'error').length,
+    [scenes]
+  )
+  const totalLines = useMemo(
+    () => scenes.reduce((n, s) => n + s.lines.length, 0),
+    [scenes]
+  )
+  // charStats is O(characters × scenes × lines) — most expensive of the group
+  const charStats = useMemo(
+    () => characters
+      .map(c => ({
+        id: c.id, name: c.name, emoji: c.emoji, color: c.color,
+        count: scenes.reduce((n, s) => n + s.lines.filter(l => l.character_id === c.id).length, 0),
+      }))
+      .filter(c => c.count > 0),
+    [scenes, characters]
+  )
 
-  // Story stats: per-character line counts across all scenes
-  const totalLines = scenes.reduce((n, s) => n + s.lines.length, 0)
-  const charStats = characters
-    .map(c => ({
-      id: c.id, name: c.name, emoji: c.emoji, color: c.color,
-      count: scenes.reduce((n, s) => n + s.lines.filter(l => l.character_id === c.id).length, 0),
-    }))
-    .filter(c => c.count > 0)
+  if (scenes.length === 0) return null
 
   const scrollToScene = (index: number) => {
     sceneRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
