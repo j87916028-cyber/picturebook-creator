@@ -2791,9 +2791,14 @@ def _export_html_zip(
             char_emoji = html.escape(char_emoji_map.get(raw_char_name, ""))
             text = html.escape(line.get("text", ""))
             audio_b64 = line.get("audio_base64")
-            audio_fmt = line.get("audio_format", "mp3")
+            # Normalise audio_fmt the same way all other exporters do (.lower(),
+            # fallback to "mp3"), then strip any non-alphanumeric characters so a
+            # crafted audio_format value cannot break out of the HTML src attribute
+            # (e.g. `wav" onload="alert(1)` would otherwise inject JS into the
+            # exported HTML file).
+            audio_fmt = re.sub(r"[^a-z0-9]", "", (line.get("audio_format") or "mp3").lower()) or "mp3"
             if audio_b64:
-                mime = "audio/mpeg" if audio_fmt in ("mp3",) else f"audio/{audio_fmt}"
+                mime = "audio/mpeg" if audio_fmt == "mp3" else f"audio/{audio_fmt}"
                 audio_tag = (
                     f'<audio id="audio-{i}-{j}" src="data:{mime};base64,{audio_b64}" preload="auto"></audio>'
                     f'<button class="btn-play" onclick="playLine({i},{j})">▶ 播放</button>'
