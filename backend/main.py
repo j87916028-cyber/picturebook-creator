@@ -613,6 +613,65 @@ async def generate_title(req: GenerateTitleRequest, request: Request):
     raise HTTPException(status_code=502, detail="書名生成失敗")
 
 
+# ── Shared LLM helper: single-prompt → single-string (Groq → MiniMax) ────
+async def _llm_single_string(
+    prompt: str,
+    clean_fn,
+    *,
+    temperature: float = 0.7,
+    max_tokens: int = 100,
+    log_tag: str = "llm",
+    error_detail: str = "生成失敗",
+) -> str:
+    """Call Groq first, fall back to MiniMax; return the cleaned result or raise HTTP 502."""
+    if GROQ_API_KEY:
+        try:
+            resp = await _http_client.post(
+                GROQ_CHAT_URL,
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+                json={
+                    "model": "llama-3.1-8b-instant",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                },
+                timeout=20,
+            )
+            resp.raise_for_status()
+            result = clean_fn(resp.json()["choices"][0]["message"].get("content", ""))
+            if result:
+                logger.info("%s via Groq: %s", log_tag, result[:80])
+                return result
+        except Exception as e:
+            logger.warning("%s Groq failed: %s", log_tag, e)
+
+    if MINIMAX_API_KEY:
+        try:
+            resp = await _http_client.post(
+                f"{MINIMAX_BASE}/chat/completions",
+                headers=MINIMAX_HEADERS,
+                json={
+                    "model": "MiniMax-M2.7",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                },
+                timeout=30,
+            )
+            resp.raise_for_status()
+            raw = resp.json()["choices"][0]["message"].get("content", "")
+            if isinstance(raw, list):
+                raw = " ".join(b.get("text", "") for b in raw if b.get("type") == "text")
+            result = clean_fn(str(raw))
+            if result:
+                logger.info("%s via MiniMax: %s", log_tag, result[:80])
+                return result
+        except Exception as e:
+            logger.warning("%s MiniMax failed: %s", log_tag, e)
+
+    raise HTTPException(status_code=502, detail=error_detail)
+
+
 # ── 端點：AI 角色外形描述生成 ─────────────────────────────────
 class SuggestVisualRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=30)
@@ -644,58 +703,11 @@ async def suggest_visual_description(req: SuggestVisualRequest, request: Request
         cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
         return cleaned.strip("\"'")[:200]
 
-    async def _call_groq() -> str:
-        resp = await _http_client.post(
-            GROQ_CHAT_URL,
-            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": "llama-3.1-8b-instant",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.7,
-                "max_tokens": 100,
-            },
-            timeout=20,
-        )
-        resp.raise_for_status()
-        return _clean(resp.json()["choices"][0]["message"].get("content", ""))
-
-    async def _call_minimax() -> str:
-        resp = await _http_client.post(
-            f"{MINIMAX_BASE}/chat/completions",
-            headers=MINIMAX_HEADERS,
-            json={
-                "model": "MiniMax-M2.7",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.7,
-                "max_tokens": 100,
-            },
-            timeout=30,
-        )
-        resp.raise_for_status()
-        raw = resp.json()["choices"][0]["message"].get("content", "")
-        if isinstance(raw, list):
-            raw = " ".join(b.get("text", "") for b in raw if b.get("type") == "text")
-        return _clean(str(raw))
-
-    if GROQ_API_KEY:
-        try:
-            desc = await _call_groq()
-            if desc:
-                logger.info("suggest-visual via Groq: %s", desc[:80])
-                return {"description": desc}
-        except Exception as e:
-            logger.warning("suggest-visual Groq failed: %s", e)
-
-    if MINIMAX_API_KEY:
-        try:
-            desc = await _call_minimax()
-            if desc:
-                logger.info("suggest-visual via MiniMax: %s", desc[:80])
-                return {"description": desc}
-        except Exception as e:
-            logger.warning("suggest-visual MiniMax failed: %s", e)
-
-    raise HTTPException(status_code=502, detail="外形描述生成失敗")
+    desc = await _llm_single_string(
+        prompt, _clean, temperature=0.7, max_tokens=100,
+        log_tag="suggest-visual", error_detail="外形描述生成失敗",
+    )
+    return {"description": desc}
 
 
 # ── 端點：AI 角色個性描述生成 ─────────────────────────────────
@@ -725,58 +737,11 @@ async def suggest_personality(req: SuggestPersonalityRequest, request: Request):
         cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
         return cleaned.strip("\"'。").strip()[:100]
 
-    async def _call_groq() -> str:
-        resp = await _http_client.post(
-            GROQ_CHAT_URL,
-            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": "llama-3.1-8b-instant",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.8,
-                "max_tokens": 80,
-            },
-            timeout=20,
-        )
-        resp.raise_for_status()
-        return _clean(resp.json()["choices"][0]["message"].get("content", ""))
-
-    async def _call_minimax() -> str:
-        resp = await _http_client.post(
-            f"{MINIMAX_BASE}/chat/completions",
-            headers=MINIMAX_HEADERS,
-            json={
-                "model": "MiniMax-M2.7",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.8,
-                "max_tokens": 80,
-            },
-            timeout=30,
-        )
-        resp.raise_for_status()
-        raw = resp.json()["choices"][0]["message"].get("content", "")
-        if isinstance(raw, list):
-            raw = " ".join(b.get("text", "") for b in raw if b.get("type") == "text")
-        return _clean(str(raw))
-
-    if GROQ_API_KEY:
-        try:
-            personality = await _call_groq()
-            if personality:
-                logger.info("suggest-personality via Groq: %s", personality)
-                return {"personality": personality}
-        except Exception as e:
-            logger.warning("suggest-personality Groq failed: %s", e)
-
-    if MINIMAX_API_KEY:
-        try:
-            personality = await _call_minimax()
-            if personality:
-                logger.info("suggest-personality via MiniMax: %s", personality)
-                return {"personality": personality}
-        except Exception as e:
-            logger.warning("suggest-personality MiniMax failed: %s", e)
-
-    raise HTTPException(status_code=502, detail="個性描述生成失敗")
+    personality = await _llm_single_string(
+        prompt, _clean, temperature=0.8, max_tokens=80,
+        log_tag="suggest-personality", error_detail="個性描述生成失敗",
+    )
+    return {"personality": personality}
 
 
 # ── 端點：下一幕靈感建議 ──────────────────────────────────────
