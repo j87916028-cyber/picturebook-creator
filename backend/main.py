@@ -2003,6 +2003,22 @@ class SceneLineIn(BaseModel):
     audio_base64: Optional[str] = Field(None, max_length=6_000_000)
     audio_format: Optional[str] = Field(None, max_length=10)
 
+    @field_validator("audio_format", mode="before")
+    @classmethod
+    def _normalise_audio_format(cls, v: object) -> Optional[str]:
+        """Accept only "mp3" or "wav"; coerce everything else to None.
+
+        The value is stripped to alphanumeric characters and lower-cased before
+        the whitelist check.  This mirrors the sanitisation applied at render
+        time in all export functions (_export_html_zip, _export_epub,
+        _export_mp3_zip) and prevents arbitrary strings from being persisted
+        and later embedded in HTML/EPUB/ZIP output.
+        """
+        if v is None:
+            return None
+        clean = re.sub(r"[^a-z0-9]", "", str(v).lower())
+        return clean if clean in ("mp3", "wav") else None
+
 class CharacterIn(BaseModel):
     """Character definition stored alongside a project."""
     id: str = Field("", max_length=64)
