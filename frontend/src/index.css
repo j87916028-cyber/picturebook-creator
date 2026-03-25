@@ -1608,6 +1608,29 @@ body {
   font-size: 0.68rem;
 }
 
+/* Scene completion-status dots (image · audio) */
+.scene-nav-status {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 3px;
+}
+.nav-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+/* Image dot colours */
+.img-dot.dot-ok      { background: #38a169; }   /* green  – done */
+.img-dot.dot-err     { background: #e53e3e; }   /* red    – failed */
+.img-dot.dot-pending { background: #cbd5e0; }   /* grey   – not yet */
+/* Audio dot colours */
+.aud-dot.dot-ok      { background: #38a169; }   /* green  – all lines voiced */
+.aud-dot.dot-partial { background: #d69e2e; }   /* amber  – partial */
+.aud-dot.dot-pending { background: #cbd5e0; }   /* grey   – none yet */
+
 /* ── Playbook bar ─────────────────────────────── */
 .playbook-bar {
   display: flex; align-items: center; gap: 12px;

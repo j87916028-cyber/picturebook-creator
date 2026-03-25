@@ -591,6 +591,9 @@ export default function App() {
     const scene = scenes.find(s => s.id === sceneId)
     if (!scene) return
     const line = scene.lines[lineIndex]
+    // Snapshot old audio so we can restore it if the request fails
+    const prevAudio  = line.audio_base64
+    const prevFormat = line.audio_format
     // Mark as loading (clear audio)
     setScenes(prev => prev.map(s => {
       if (s.id !== sceneId) return s
@@ -598,13 +601,21 @@ export default function App() {
       lines[lineIndex] = { ...lines[lineIndex], audio_base64: undefined, audio_format: undefined }
       return { ...s, lines }
     }))
+    const restoreOldAudio = () => {
+      setScenes(prev => prev.map(s => {
+        if (s.id !== sceneId) return s
+        const lines = [...s.lines]
+        lines[lineIndex] = { ...lines[lineIndex], audio_base64: prevAudio, audio_format: prevFormat }
+        return { ...s, lines }
+      }))
+    }
     try {
       const res = await fetch('/api/generate-voice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: line.text, voice_id: line.voice_id, emotion: line.emotion }),
       })
-      if (!res.ok) return
+      if (!res.ok) { restoreOldAudio(); return }
       const data = await res.json()
       let saved: Scene[] | null = null
       setScenes(prev => {
@@ -618,7 +629,7 @@ export default function App() {
         return next
       })
       if (saved && currentProjectId) autoSave(currentProjectId, saved, characters)
-    } catch {}
+    } catch { restoreOldAudio() }
   }
 
   // Change emotion for a single line and auto-regen voice

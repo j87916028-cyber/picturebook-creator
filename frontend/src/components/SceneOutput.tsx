@@ -39,6 +39,22 @@ function SortableNavChip({
   onClick: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: scene.id })
+
+  // Compute completion status for the two dots (image · audio)
+  const imageStatus: 'ok' | 'err' | 'pending' =
+    scene.image === 'error' ? 'err' :
+    scene.image             ? 'ok'  : 'pending'
+
+  const linesWithAudio = scene.lines.filter(l => l.audio_base64).length
+  const totalLines     = scene.lines.length
+  const audioStatus: 'ok' | 'partial' | 'pending' =
+    totalLines === 0              ? 'pending'  :
+    linesWithAudio === totalLines ? 'ok'       :
+    linesWithAudio > 0            ? 'partial'  : 'pending'
+
+  const imageTip  = imageStatus === 'ok' ? '插圖完成' : imageStatus === 'err' ? '插圖失敗' : '插圖生成中'
+  const audioTip  = audioStatus === 'ok' ? '配音完整' : audioStatus === 'partial' ? `配音 ${linesWithAudio}/${totalLines}` : '配音生成中'
+
   return (
     <div
       ref={setNodeRef}
@@ -55,6 +71,11 @@ function SortableNavChip({
         )}
         <span className="scene-nav-num">第 {index + 1} 幕</span>
         <span className="scene-nav-desc">{scene.description}</span>
+        {/* Completion dots: left = image, right = audio */}
+        <div className="scene-nav-status">
+          <span className={`nav-status-dot img-dot dot-${imageStatus}`} title={imageTip} />
+          <span className={`nav-status-dot aud-dot dot-${audioStatus}`} title={audioTip} />
+        </div>
       </button>
     </div>
   )
