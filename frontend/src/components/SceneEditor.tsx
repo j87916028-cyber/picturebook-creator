@@ -8,10 +8,12 @@ interface GenStatus {
   total: number
 }
 
+type LineLength = 'short' | 'standard' | 'long'
+
 interface Props {
   droppedCharacters: Character[]
   onRemoveCharacter: (id: string) => void
-  onGenerate: (description: string, style: string) => void
+  onGenerate: (description: string, style: string, lineLength: LineLength) => void
   onCancel: () => void
   isLoading: boolean
   genStatus: GenStatus | null
@@ -35,6 +37,7 @@ export default function SceneEditor({
 }: Props) {
   const [description, setDescription] = useState('')
   const [style, setStyle] = useState('溫馨童趣')
+  const [lineLength, setLineLength] = useState<LineLength>('standard')
   const [imageLoading, setImageLoading] = useState(false)
   const [audioLoading, setAudioLoading] = useState(false)
   const [inputError, setInputError] = useState<string | null>(null)
@@ -159,7 +162,7 @@ export default function SceneEditor({
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
               e.preventDefault()
               if (!isLoading && droppedCharacters.length > 0 && description.trim()) {
-                onGenerate(description, style)
+                onGenerate(description, style, lineLength)
               }
             }
           }}
@@ -262,6 +265,30 @@ export default function SceneEditor({
           </div>
         </div>
 
+        {/* 台詞長度設定 */}
+        <div className="style-row">
+          <label>台詞長度</label>
+          <div className="style-buttons">
+            {([
+              { value: 'short',    label: '幼兒（≤12字）' },
+              { value: 'standard', label: '標準（≤20字）' },
+              { value: 'long',     label: '進階（≤35字）' },
+            ] as { value: LineLength; label: string }[]).map(opt => (
+              <button
+                key={opt.value}
+                className={`style-btn ${lineLength === opt.value ? 'active' : ''}`}
+                onClick={() => setLineLength(opt.value)}
+                type="button"
+                title={
+                  opt.value === 'short'    ? '適合 2–4 歲，用詞極簡單' :
+                  opt.value === 'standard' ? '適合 5–7 歲（預設）' :
+                                             '適合 8 歲以上，詞彙較豐富'
+                }
+              >{opt.label}</button>
+            ))}
+          </div>
+        </div>
+
         {/* 角色拖放區 */}
         <div
           ref={setNodeRef}
@@ -305,7 +332,7 @@ export default function SceneEditor({
             <>
               <button
                 className="btn-generate"
-                onClick={() => onGenerate(description, style)}
+                onClick={() => onGenerate(description, style, lineLength)}
                 disabled={droppedCharacters.length === 0 || !description.trim()}
               >
                 {sceneCount > 0 ? `✨ 繼續第 ${sceneCount + 1} 幕` : '✨ 生成繪本場景'}

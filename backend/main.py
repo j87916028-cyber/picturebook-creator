@@ -429,6 +429,7 @@ class GenerateScriptRequest(BaseModel):
     characters: Annotated[List[Character], Field(min_length=1, max_length=6)]
     style: Optional[str] = Field("溫馨童趣", max_length=20)
     story_context: Optional[str] = Field(None, max_length=5000)
+    line_length: Optional[str] = Field("standard", max_length=20)  # 'short' | 'standard' | 'long'
 
 class GenerateLine(BaseModel):
     character_id: str
@@ -882,10 +883,19 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
 - 請使用台灣繁體中文，符合台灣的語言習慣與用語，避免使用中國大陸用語
 - 對話要自然有趣，適合兒童
 - 每個角色至少說一句話
-- 台詞不超過20字/句
+{line_length_rule}
 - 角色在台詞中稱呼其他角色時，只能使用角色列表中的名字，不得自行發明暱稱或別名
 - 直接輸出 JSON，不要思考過程，不要其他說明
 """
+
+    # Build the line-length instruction and substitute it into the prompt
+    _LINE_LENGTH_RULES = {
+        "short":    "- 台詞不超過 12 字/句，用詞要非常簡單，讓幼兒也能聽懂",
+        "standard": "- 台詞不超過 20 字/句",
+        "long":     "- 台詞可長達 35 字/句，可使用較豐富的描述與詞彙",
+    }
+    ll_rule = _LINE_LENGTH_RULES.get(req.line_length or "standard", _LINE_LENGTH_RULES["standard"])
+    prompt = prompt.replace("{line_length_rule}", ll_rule)
 
     if req.story_context:
         prompt += f"\n前情提要（請確保本幕故事自然銜接前情，劇情持續發展，不重複前幕內容）：\n{req.story_context}\n"

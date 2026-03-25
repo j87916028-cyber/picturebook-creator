@@ -249,7 +249,7 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
-  const handleGenerate = async (description: string, style: string) => {
+  const handleGenerate = async (description: string, style: string, lineLength: 'short' | 'standard' | 'long' = 'standard') => {
     if (!description.trim() || droppedCharacters.length === 0) return
 
     // Ensure a project exists before generating
@@ -312,6 +312,7 @@ export default function App() {
           characters: droppedCharacters,
           style,
           story_context: storyContext,
+          line_length: lineLength,
         }),
         signal,
       })
