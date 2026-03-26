@@ -3186,12 +3186,16 @@ def _export_html(
         toc_items = ""
         for i, scene in enumerate(scenes):
             desc = html.escape(scene.get("description", f"第{i+1}幕") or f"第{i+1}幕")
+            toc_title = html.escape(scene.get("title", "").strip())
             has_audio = any(line.get("audio_base64") for line in scene.get("lines", []))
             audio_badge = ' <span class="toc-audio-badge">🔊</span>' if has_audio else ""
+            title_tag = (
+                f' <span class="toc-scene-title">· {toc_title}</span>' if toc_title else ""
+            )
             toc_items += f"""
       <li class="toc-item">
         <a href="#scene-{i}" class="toc-link">
-          <span class="toc-num">第 {i+1} 幕</span>
+          <span class="toc-num">第 {i+1} 幕{title_tag}</span>
           <span class="toc-desc">{desc}</span>
           {audio_badge}
         </a>
@@ -3320,6 +3324,7 @@ def _export_html(
     }}
     .toc-link:hover {{ background: #f0f4ff; color: #667eea; }}
     .toc-num {{ font-weight: 800; color: #667eea; white-space: nowrap; min-width: 4em; }}
+    .toc-scene-title {{ font-size: 0.8rem; font-weight: 600; color: #7c5fcf; background: #f3eeff; border-radius: 4px; padding: 1px 6px; margin-left: 4px; }}
     .toc-desc {{ flex: 1; font-size: 0.92rem; color: #666; }}
     .toc-link:hover .toc-desc {{ color: #667eea; }}
     .toc-audio-badge {{ font-size: 0.8rem; opacity: 0.6; }}
@@ -3600,8 +3605,78 @@ def _export_txt(project_name: str, scenes: list) -> bytes:
     return "\n".join(lines_out).encode("utf-8")
 
 
+def _export_md(project_name: str, scenes: list) -> bytes:
+    """Export the full script as a GitHub-Flavored Markdown file.
+
+    Format:
+        # 《書名》
+        ---
+        ## 第1幕 · 標題（若有）
+        > 風格 | 場景描述
+        🎵 音效建議：...
+        **角色名**：台詞
+        ...
+        ---
+        *共 N 幕 · M 句台詞*
+    """
+    lines_out: list[str] = [
+        f"# 《{project_name}》",
+        "",
+    ]
+
+    total_line_count = 0
+    for i, scene in enumerate(scenes, 1):
+        title  = scene.get("title", "").strip()
+        desc   = scene.get("description", "").strip()
+        style  = scene.get("style", "").strip()
+        sfx    = scene.get("sfx_description", "").strip()
+        script_lines = scene.get("lines", [])
+
+        # Section heading — include title when present
+        heading = f"## 第{i}幕"
+        if title:
+            heading += f" · {title}"
+        lines_out.append(heading)
+        lines_out.append("")
+
+        # Scene meta as blockquote
+        meta_parts = []
+        if style:
+            meta_parts.append(style)
+        if desc:
+            meta_parts.append(desc)
+        if meta_parts:
+            lines_out.append(f"> {' | '.join(meta_parts)}")
+            lines_out.append("")
+
+        # Sound effects hint
+        if sfx:
+            lines_out.append(f"🎵 *{sfx}*")
+            lines_out.append("")
+
+        # Dialogue lines
+        for line in script_lines:
+            char_name = line.get("character_name", "").strip() or "旁白"
+            text      = line.get("text", "").strip()
+            if text:
+                lines_out.append(f"**{char_name}**：{text}")
+                total_line_count += 1
+
+        lines_out.append("")
+        lines_out.append("---")
+        lines_out.append("")
+
+    # Footer
+    lines_out.append(f"*共 {len(scenes)} 幕 · {total_line_count} 句台詞*")
+    lines_out.append("")
+    lines_out.append("*由「繪本有聲書創作工坊」匯出*")
+    lines_out.append("")
+
+    return "\n".join(lines_out).encode("utf-8")
+
+
 # ── GET /api/projects/{project_id}/export ────────────────────
-_EXPORT_FORMAT = Literal["pdf", "epub", "html", "mp3", "txt"]
+_EXPORT_FORMAT = Literal["pdf", "epub", "html", "mp3", "txt", "md"]
 
 @app.get("/api/projects/{project_id}/export")
 async def export_project(
@@ -3676,6 +3751,10 @@ async def export_project(
         data = await loop.run_in_executor(None, _export_mp3_zip, project_name, scenes)
         media_type = "application/zip"
         filename = f"{project_name}_audio.zip"
+    elif format == "md":
+        data = await loop.run_in_executor(None, _export_md, project_name, scenes)
+        media_type = "text/markdown; charset=utf-8"
+        filename = f"{project_name}.md"
     else:  # "txt"
         data = await loop.run_in_executor(None, _export_txt, project_name, scenes)
         media_type = "text/plain; charset=utf-8"

@@ -1600,6 +1600,7 @@ export default function App() {
                   <button onClick={() => handleExport('epub')}>📚 EPUB 3（Apple Books/Kobo）</button>
                   <button onClick={() => handleExport('html')}>🌐 HTML（互動網頁版）</button>
                   <button onClick={() => handleExport('mp3')}>🎵 MP3 音檔包</button>
+                  <button onClick={() => handleExport('md')}>🔖 Markdown（Notion/GitHub）</button>
                   <button onClick={() => handleExport('txt')}>📝 純文字稿本</button>
                 </div>
               )}
