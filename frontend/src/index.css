@@ -3437,6 +3437,14 @@ body {
 .book-nav-dot.active { background: #667eea; border-color: #667eea; }
 .book-nav-dot:hover:not(.active) { border-color: #9fa8da; background: #e8eaf6; }
 .book-nav-counter { font-size: 0.9rem; color: #666; font-weight: 600; flex: 1; text-align: center; }
+.book-nav-select {
+  flex: 1; max-width: 260px;
+  font-size: 0.82rem; padding: 4px 8px;
+  border: 1px solid #ddd; border-radius: 6px;
+  background: #fff; color: #444; cursor: pointer;
+  text-align: center;
+}
+.book-nav-select:focus { outline: 2px solid var(--accent, #7c6fcd); outline-offset: 1px; }
 .book-keyboard-hint {
   text-align: center; font-size: 0.72rem; color: #bbb;
   margin: 0; padding: 4px 0 8px; flex-shrink: 0;

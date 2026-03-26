@@ -496,7 +496,7 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
             ← 上一幕
           </button>
 
-          {/* Page dots — show up to 20; beyond that use a counter */}
+          {/* Page dots ≤ 20; jump-select for larger stories */}
           {scenes.length <= 20 ? (
             <div className="book-nav-dots" role="tablist" aria-label="幕次">
               {scenes.map((_, i) => (
@@ -511,7 +511,19 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
               ))}
             </div>
           ) : (
-            <span className="book-nav-counter">{page + 1} / {scenes.length}</span>
+            <select
+              className="book-nav-select"
+              value={page}
+              onChange={e => setPage(Number(e.target.value))}
+              aria-label="跳至指定幕"
+              title="選擇幕次快速跳轉"
+            >
+              {scenes.map((s, i) => (
+                <option key={i} value={i}>
+                  {`第 ${i + 1} 幕${s.title ? `：${s.title}` : ''}`}
+                </option>
+              ))}
+            </select>
           )}
 
           <button
