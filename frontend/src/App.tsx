@@ -1794,6 +1794,60 @@ export default function App() {
                       })}
                     </div>
                   )}
+
+                  {/* Emotion arc — dominant emotion per scene as coloured dots */}
+                  {scenes.length >= 2 && (() => {
+                    const _emotionMeta: Record<string, { emoji: string; label: string; color: string }> = {
+                      happy:     { emoji: '😄', label: '開心',  color: '#48bb78' },
+                      sad:       { emoji: '😢', label: '難過',  color: '#4299e1' },
+                      angry:     { emoji: '😠', label: '生氣',  color: '#fc8181' },
+                      surprised: { emoji: '😲', label: '驚訝',  color: '#ed8936' },
+                      fearful:   { emoji: '😨', label: '害怕',  color: '#9f7aea' },
+                      disgusted: { emoji: '🤢', label: '厭惡',  color: '#b794f4' },
+                      neutral:   { emoji: '😐', label: '平靜',  color: '#a0aec0' },
+                    }
+                    const arc = scenes.map(s => {
+                      if (s.lines.length === 0) return null
+                      const counts: Record<string, number> = {}
+                      s.lines.forEach(l => {
+                        const e = l.emotion || 'neutral'
+                        counts[e] = (counts[e] ?? 0) + 1
+                      })
+                      return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'neutral'
+                    })
+                    if (arc.every(e => e === null)) return null
+                    return (
+                      <div className="emotion-arc-strip">
+                        <span className="emotion-arc-label">情緒弧線</span>
+                        <div className="emotion-arc-dots">
+                          {arc.map((emotion, i) => {
+                            if (!emotion) return (
+                              <span key={i} className="emotion-arc-empty" title={`第${i + 1}幕（尚無台詞）`} />
+                            )
+                            const meta = _emotionMeta[emotion] ?? _emotionMeta.neutral
+                            return (
+                              <span
+                                key={i}
+                                className="emotion-arc-dot"
+                                style={{ background: meta.color }}
+                                title={`第${i + 1}幕：${meta.emoji} ${meta.label}`}
+                              />
+                            )
+                          })}
+                        </div>
+                        <span className="emotion-arc-legend">
+                          {Object.entries(_emotionMeta)
+                            .filter(([k]) => arc.some(e => e === k))
+                            .map(([, v]) => (
+                              <span key={v.label} className="emotion-arc-legend-item">
+                                <span className="emotion-arc-legend-dot" style={{ background: v.color }} />
+                                {v.emoji} {v.label}
+                              </span>
+                            ))}
+                        </span>
+                      </div>
+                    )
+                  })()}
                 </>
               )
             })()}
