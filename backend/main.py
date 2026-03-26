@@ -25,8 +25,9 @@ import edge_tts
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Annotated, Any, Dict, Literal
 from dotenv import load_dotenv
@@ -221,6 +222,33 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Content-Type"],
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Convert Pydantic 422 validation errors to a human-readable Chinese string.
+
+    FastAPI's default 422 handler returns ``detail`` as a list of error dicts
+    (e.g. ``[{"loc": [...], "msg": "...", "type": "..."}]``).  When the frontend
+    catches this and does ``throw new Error(body.detail ?? ...)``, the array is
+    coerced to the string ``"[object Object]"`` — completely unreadable.
+
+    This handler extracts the first validation error and returns a plain Chinese
+    ``detail`` string, so any frontend ``catch`` block that reads ``body.detail``
+    gets a useful message it can display directly.
+    """
+    errors = exc.errors()
+    logger.warning("Validation error [%s %s]: %s", request.method, request.url.path, errors)
+    if errors:
+        first = errors[0]
+        loc_parts = [str(p) for p in first.get("loc", []) if p not in ("body", "query")]
+        loc_str = " → ".join(loc_parts)
+        msg = first.get("msg", "格式錯誤")
+        detail = f"請求格式錯誤：{loc_str}（{msg}）" if loc_str else f"請求格式錯誤：{msg}"
+    else:
+        detail = "請求格式錯誤"
+    return JSONResponse(status_code=422, content={"detail": detail})
+
 
 MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY")
 MINIMAX_BASE = "https://api.minimax.io/v1"
