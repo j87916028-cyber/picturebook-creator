@@ -80,6 +80,30 @@ class _RateLimiter:
                 del self._calls[k]
         return True
 
+    def time_to_next(self, key: str) -> int:
+        """Seconds until the next call slot opens up for *key*.
+
+        Call this only after ``is_allowed()`` returned ``False``.
+        At that point the bucket still has ``max_calls`` valid entries;
+        the oldest one expires at ``bucket[0] + window_secs``.
+        """
+        bucket = self._calls[key]
+        if not bucket:
+            return 1
+        wait = bucket[0] + self.window_secs - time.monotonic()
+        return max(1, int(wait) + 1)
+
+
+def _suggest_429(limiter: _RateLimiter, key: str) -> HTTPException:
+    """Build a 429 HTTPException with a ``Retry-After`` header so the client
+    knows exactly how many seconds to wait before retrying."""
+    wait = limiter.time_to_next(key)
+    return HTTPException(
+        status_code=429,
+        detail="請求過於頻繁，請稍後再試",
+        headers={"Retry-After": str(wait)},
+    )
+
 
 def _client_ip(request: Request) -> str:
     """Return the real client IP for per-IP rate limiting.
@@ -801,8 +825,9 @@ class SuggestVisualRequest(BaseModel):
 @app.post("/api/suggest-visual-description")
 async def suggest_visual_description(req: SuggestVisualRequest, request: Request):
     """Generate an English visual description for a character suitable for image generation."""
-    if not _rl_suggest.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+    ip = _client_ip(request)
+    if not _rl_suggest.is_allowed(ip):
+        raise _suggest_429(_rl_suggest, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
@@ -837,8 +862,9 @@ class GenerateSummaryRequest(BaseModel):
 @app.post("/api/generate-summary")
 async def generate_summary(req: GenerateSummaryRequest, request: Request):
     """Generate a 2–3 sentence summary of the entire story."""
-    if not _rl_suggest.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+    ip = _client_ip(request)
+    if not _rl_suggest.is_allowed(ip):
+        raise _suggest_429(_rl_suggest, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
@@ -870,8 +896,9 @@ class SuggestPersonalityRequest(BaseModel):
 @app.post("/api/suggest-personality")
 async def suggest_personality(req: SuggestPersonalityRequest, request: Request):
     """Generate a Chinese personality description for a character."""
-    if not _rl_suggest.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+    ip = _client_ip(request)
+    if not _rl_suggest.is_allowed(ip):
+        raise _suggest_429(_rl_suggest, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
@@ -1012,8 +1039,9 @@ async def _llm_suggestions(
 
 @app.post("/api/suggest-next-scene")
 async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
-    if not _rl_suggest.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+    ip = _client_ip(request)
+    if not _rl_suggest.is_allowed(ip):
+        raise _suggest_429(_rl_suggest, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
     char_names = "、".join(c.name for c in req.characters)
@@ -1077,8 +1105,9 @@ class SuggestTitleRequest(BaseModel):
 
 @app.post("/api/suggest-title")
 async def suggest_title(req: SuggestTitleRequest, request: Request):
-    if not _rl_suggest.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+    ip = _client_ip(request)
+    if not _rl_suggest.is_allowed(ip):
+        raise _suggest_429(_rl_suggest, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
@@ -1118,8 +1147,9 @@ class RephraseLineRequest(BaseModel):
 @app.post("/api/rephrase-line")
 async def rephrase_line(req: RephraseLineRequest, request: Request):
     """Return 3 rephrased alternatives for a single dialogue line."""
-    if not _rl_suggest.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+    ip = _client_ip(request)
+    if not _rl_suggest.is_allowed(ip):
+        raise _suggest_429(_rl_suggest, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
@@ -1164,8 +1194,9 @@ class SuggestLineRequest(BaseModel):
 @app.post("/api/suggest-line")
 async def suggest_line(req: SuggestLineRequest, request: Request):
     """Return 3 suggested next lines for a given character in the scene context."""
-    if not _rl_suggest.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+    ip = _client_ip(request)
+    if not _rl_suggest.is_allowed(ip):
+        raise _suggest_429(_rl_suggest, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 

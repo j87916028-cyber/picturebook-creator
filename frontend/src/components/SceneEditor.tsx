@@ -109,6 +109,11 @@ export default function SceneEditor({
     }
   }, [projectId, draftKey])
 
+  // Clean up rate-limit countdown timer on unmount
+  useEffect(() => () => {
+    if (rateLimitTimerRef.current) clearInterval(rateLimitTimerRef.current)
+  }, [])
+
   // Persist description draft and all other settings to localStorage.
   useEffect(() => { localStorage.setItem(draftKey, description) }, [draftKey, description])
   useEffect(() => { localStorage.setItem('scene_style', style) }, [style])
@@ -143,6 +148,9 @@ export default function SceneEditor({
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [suggestLoading, setSuggestLoading] = useState(false)
   const [suggestError, setSuggestError] = useState(false)
+  // When the server returns 429 with a Retry-After header, count down to 0 then allow retry
+  const [rateLimitSecs, setRateLimitSecs] = useState(0)
+  const rateLimitTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const imageInputRef = useRef<HTMLInputElement>(null)
   const audioInputRef = useRef<HTMLInputElement>(null)
@@ -158,7 +166,7 @@ export default function SceneEditor({
   const suggestChars = droppedCharacters.length > 0 ? droppedCharacters : allCharacters
 
   const fetchSuggestions = useCallback(async () => {
-    if (suggestChars.length === 0 || suggestLoading) return
+    if (suggestChars.length === 0 || suggestLoading || rateLimitSecs > 0) return
     setSuggestLoading(true)
     setSuggestError(false)
     try {
@@ -171,6 +179,24 @@ export default function SceneEditor({
           style,
         }),
       })
+      if (res.status === 429) {
+        // Server sent Retry-After — show a countdown so the user knows when to retry
+        const wait = parseInt(res.headers.get('Retry-After') ?? '10', 10)
+        setRateLimitSecs(wait)
+        setSuggestions([])
+        if (rateLimitTimerRef.current) clearInterval(rateLimitTimerRef.current)
+        rateLimitTimerRef.current = setInterval(() => {
+          setRateLimitSecs(prev => {
+            if (prev <= 1) {
+              clearInterval(rateLimitTimerRef.current!)
+              rateLimitTimerRef.current = null
+              return 0
+            }
+            return prev - 1
+          })
+        }, 1000)
+        return
+      }
       if (!res.ok) throw new Error()
       const data = await res.json()
       setSuggestions(data.suggestions ?? [])
@@ -180,7 +206,7 @@ export default function SceneEditor({
     } finally {
       setSuggestLoading(false)
     }
-  }, [storyContext, droppedCharacters, style, suggestLoading])
+  }, [storyContext, droppedCharacters, style, suggestLoading, rateLimitSecs])
 
   // Collapsible editor state: collapsed = slim sticky bar, expanded = full form
   const [collapsed, setCollapsed] = useState(false)
@@ -411,8 +437,8 @@ export default function SceneEditor({
               <button
                 className="btn-suggest-refresh"
                 onClick={fetchSuggestions}
-                disabled={suggestLoading}
-                title="換一批建議"
+                disabled={suggestLoading || rateLimitSecs > 0}
+                title={rateLimitSecs > 0 ? `${rateLimitSecs} 秒後可重試` : '換一批建議'}
               >
                 {suggestLoading ? <span className="spinner-sm" /> : '🔄'}
               </button>
@@ -420,7 +446,12 @@ export default function SceneEditor({
             {suggestLoading && (
               <div className="suggest-loading">靈感生成中...</div>
             )}
-            {!suggestLoading && suggestError && (
+            {!suggestLoading && rateLimitSecs > 0 && (
+              <div className="suggest-error">
+                請求過於頻繁，請等 <strong>{rateLimitSecs}</strong> 秒後再試
+              </div>
+            )}
+            {!suggestLoading && rateLimitSecs === 0 && suggestError && (
               <div className="suggest-error">建議生成失敗，<button className="link-btn" onClick={fetchSuggestions}>重試</button></div>
             )}
             {!suggestLoading && suggestions.length > 0 && (
