@@ -54,6 +54,26 @@ const EMOTION_LABELS: Record<string, string> = {
   neutral:   '😐 平靜',
 }
 
+const EMOTION_COLORS: Record<string, string> = {
+  happy:     '#4caf50',
+  sad:       '#5c9bd6',
+  angry:     '#e53935',
+  surprised: '#ff9800',
+  fearful:   '#7c4dff',
+  disgusted: '#78909c',
+  neutral:   '#bdbdbd',
+}
+
+/** Return the most-frequent non-neutral emotion across a scene's lines, or 'neutral'. */
+function dominantEmotion(lines: { emotion?: string }[]): string {
+  const counts: Record<string, number> = {}
+  for (const l of lines) {
+    if (l.emotion && l.emotion !== 'neutral') counts[l.emotion] = (counts[l.emotion] ?? 0) + 1
+  }
+  const top = Object.entries(counts).sort(([, a], [, b]) => b - a)[0]
+  return top ? top[0] : 'neutral'
+}
+
 // Sortable nav chip — each chip in the scene navigation strip
 function SortableNavChip({
   scene,
@@ -145,6 +165,7 @@ function StoryboardCard({
     linesWithAudio > 0            ? 'partial'  : 'pending'
   const previewLines = scene.lines.slice(0, 3)
   const sceneSecs = Math.round(scene.lines.reduce((m, l) => m + l.text.length, 0) / 4)
+  const domEmotion = scene.lines.length > 0 ? dominantEmotion(scene.lines) : null
 
   return (
     <div className="storyboard-card" onClick={onClick} title="點擊進入編輯此幕">
@@ -162,7 +183,18 @@ function StoryboardCard({
         </div>
       </div>
       <div className="storyboard-info">
-        {scene.title && <h4 className="storyboard-title">《{scene.title}》</h4>}
+        <div className="storyboard-title-row">
+          {scene.title && <h4 className="storyboard-title">《{scene.title}》</h4>}
+          {domEmotion && (
+            <span
+              className="storyboard-emotion-badge"
+              style={{ background: EMOTION_COLORS[domEmotion] ?? '#bdbdbd' }}
+              title={`主要情緒：${EMOTION_LABELS[domEmotion] ?? domEmotion}`}
+            >
+              {EMOTION_LABELS[domEmotion]?.split(' ')[0] ?? '😐'}
+            </span>
+          )}
+        </div>
         <div className="storyboard-desc-row">
           <p className="storyboard-desc">{scene.description}</p>
           {sceneSecs >= 5 && (
