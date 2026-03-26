@@ -899,7 +899,6 @@ export default function App() {
       })
       if (!res.ok) return
       const data = await res.json()
-      let saved: Scene[] | null = null
       setScenes(prev => {
         const updated = prev.map(s => {
           if (s.id !== sceneId) return s
@@ -907,10 +906,9 @@ export default function App() {
           lines[lineIndex] = { ...lines[lineIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
           return { ...s, lines }
         })
-        saved = updated
+        setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, updated, characters) }, 0)
         return updated
       })
-      if (saved && currentProjectId) autoSave(currentProjectId, saved, characters)
     } catch {}
   }, [scenes, currentProjectId, characters, autoSave])
 
@@ -1014,7 +1012,6 @@ export default function App() {
       })
       if (!res.ok) return
       const data = await res.json()
-      let saved: Scene[] | null = null
       setScenes(prev => {
         const next = prev.map(s => {
           if (s.id !== sceneId) return s
@@ -1024,10 +1021,9 @@ export default function App() {
           }
           return { ...s, lines }
         })
-        saved = next
+        setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
         return next
       })
-      if (saved && currentProjectId) autoSave(currentProjectId, saved, characters)
     } catch {}
   }
 
@@ -1058,7 +1054,6 @@ export default function App() {
       })
       if (!res.ok) return
       const data = await res.json()
-      let saved: Scene[] | null = null
       setScenes(prev => {
         const next = prev.map(s => {
           if (s.id !== sceneId) return s
@@ -1068,10 +1063,9 @@ export default function App() {
           }
           return { ...s, lines }
         })
-        saved = next
+        setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
         return next
       })
-      if (saved && currentProjectId) autoSave(currentProjectId, saved, characters)
     } catch {}
   }
 
@@ -1106,7 +1100,6 @@ export default function App() {
       })
       if (!res.ok) { restoreOldAudio(); return }
       const data = await res.json()
-      let saved: Scene[] | null = null
       setScenes(prev => {
         const next = prev.map(s => {
           if (s.id !== sceneId) return s
@@ -1114,10 +1107,9 @@ export default function App() {
           lines[lineIndex] = { ...lines[lineIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
           return { ...s, lines }
         })
-        saved = next
+        setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
         return next
       })
-      if (saved && currentProjectId) autoSave(currentProjectId, saved, characters)
     } catch { restoreOldAudio() }
   }
 
@@ -1151,7 +1143,6 @@ export default function App() {
       })
       if (!res.ok) { restoreOldAudio(); return }
       const data = await res.json()
-      let saved: Scene[] | null = null
       setScenes(prev => {
         const next = prev.map(s => {
           if (s.id !== sceneId) return s
@@ -1159,10 +1150,9 @@ export default function App() {
           lines[lineIndex] = { ...lines[lineIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
           return { ...s, lines }
         })
-        saved = next
+        setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
         return next
       })
-      if (saved && currentProjectId) autoSave(currentProjectId, saved, characters)
     } catch { restoreOldAudio() }
   }
 
@@ -1215,7 +1205,6 @@ export default function App() {
       })
       if (!res.ok) { restoreOldState(); return }
       const data = await res.json()
-      let saved: Scene[] | null = null
       setScenes(prev => {
         const next = prev.map(s => {
           if (s.id !== sceneId) return s
@@ -1223,10 +1212,9 @@ export default function App() {
           lines[lineIndex] = { ...lines[lineIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
           return { ...s, lines }
         })
-        saved = next
+        setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
         return next
       })
-      if (saved && currentProjectId) autoSave(currentProjectId, saved, characters)
     } catch { restoreOldState() }
   }
 
@@ -1254,15 +1242,13 @@ export default function App() {
       })
       if (!res.ok) { setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: 'error' } : s)); return }
       const data = await res.json()
-      let saved: Scene[] | null = null
       setScenes(prev => {
         const next = prev.map(s => s.id === sceneId
           ? { ...s, image: data.url, script: { ...s.script, scene_prompt: prompt } }
           : s)
-        saved = next
+        setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
         return next
       })
-      if (saved && currentProjectId) autoSave(currentProjectId, saved, characters)
     } catch { setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: 'error' } : s)) }
   }
 
