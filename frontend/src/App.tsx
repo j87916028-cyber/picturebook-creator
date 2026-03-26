@@ -38,7 +38,7 @@ function blobChecksum(s: { image?: string; lines?: Array<{ audio_base64?: string
 
 /**
  * Build a compact story context from all scenes up to (but not including) endIndex.
- * Each scene contributes: scene number, description, and first + last dialogue line.
+ * Each scene contributes: scene number, title (if set), description, and first + last dialogue line.
  * This keeps every scene in context for long stories while staying under the
  * backend's 5000-char limit (~200 chars × 25 scenes = ~5000 chars worst case).
  */
@@ -62,7 +62,8 @@ function buildStoryContext(scenes: Scene[], endIndex?: number): string | undefin
       .filter((l): l is NonNullable<typeof l> => l != null)
       .map(l => `${l.character_name}：「${l.text}」`)
       .join('…')
-    return `第${offset + i + 1}幕（${s.description}）：${snippets || '（生成中）'}`
+    const titlePart = s.title ? `《${s.title}》` : ''
+    return `第${offset + i + 1}幕${titlePart}（${s.description}）：${snippets || '（生成中）'}`
   }).join('\n')
 
   // Hard safety cap: description / line text can be long; truncate rather than 422.
