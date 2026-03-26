@@ -3798,6 +3798,46 @@ kbd {
   font-size: 0.72rem; color: rgba(255,255,255,0.45);
   min-width: 28px; text-align: right;
 }
+/* ── Character filter (PlaybackModal) ────────────────────────── */
+.playback-char-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.playback-filter-label {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.4);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.playback-filter-chip {
+  font-size: 0.75rem;
+  border-radius: 14px;
+  padding: 3px 10px;
+  border: 1.5px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.playback-filter-chip:hover {
+  border-color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.12);
+}
+.playback-filter-chip.filter-all {
+  background: rgba(102,126,234,0.35);
+  border-color: rgba(102,126,234,0.65);
+  color: rgba(255,255,255,0.9);
+}
+.playback-filter-chip.filter-on {
+  opacity: 0.92;
+}
 .playback-empty {
   display: flex; flex-direction: column; align-items: center; gap: 16px;
   color: #aab;

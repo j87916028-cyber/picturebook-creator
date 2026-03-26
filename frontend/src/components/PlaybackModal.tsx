@@ -44,8 +44,25 @@ function buildPlaylist(scenes: Scene[]): PlayItem[] {
 }
 
 export default function PlaybackModal({ scenes, characters, onClose, initialSceneIdx = 0 }: Props) {
-  // Memoize so goToScene / keyboard effect don't re-run on every timeupdate render
-  const playlist = useMemo(() => buildPlaylist(scenes), [scenes])
+  // Characters that actually have audio in this story (used for the filter UI)
+  const activeCharacters = useMemo(() => {
+    const ids = new Set<string>()
+    scenes.forEach(s => s.lines.forEach(l => { if (l.audio_base64 && l.character_id) ids.add(l.character_id) }))
+    return characters.filter(c => ids.has(c.id))
+  }, [scenes, characters])
+
+  // null = all characters; Set = only listed characters
+  const [selectedCharIds, setSelectedCharIds] = useState<Set<string> | null>(null)
+
+  // Full playlist; filtered by selectedCharIds when a subset is active
+  const fullPlaylist = useMemo(() => buildPlaylist(scenes), [scenes])
+  const playlist = useMemo(() => {
+    if (selectedCharIds === null) return fullPlaylist
+    return fullPlaylist.filter(p => {
+      const charId = scenes[p.sceneIdx]?.lines[p.lineIdx]?.character_id
+      return charId != null && selectedCharIds.has(charId)
+    })
+  }, [fullPlaylist, selectedCharIds, scenes])
 
   // Find the first playlist entry at or after the requested scene
   const startCursor = (() => {
@@ -95,6 +112,14 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
     document.addEventListener('fullscreenchange', handler)
     return () => document.removeEventListener('fullscreenchange', handler)
   }, [])
+
+  // Reset to first item when the character filter changes
+  const filterInitRef = useRef(true)
+  useEffect(() => {
+    if (filterInitRef.current) { filterInitRef.current = false; return }
+    setCursor(0)
+    setPlaying(false)
+  }, [selectedCharIds])
 
   const current = playlist[cursor]
   const currentScene = current ? scenes[current.sceneIdx] : null
@@ -535,6 +560,46 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
             {loopMode === 'scene' ? '🔂' : '🔁'}
           </button>
         </div>
+
+        {/* Character filter — select which characters to include in playback */}
+        {activeCharacters.length >= 2 && (
+          <div className="playback-char-filter">
+            <span className="playback-filter-label">角色</span>
+            <button
+              className={`playback-filter-chip${selectedCharIds === null ? ' filter-all' : ''}`}
+              onClick={() => setSelectedCharIds(null)}
+              title="播放全部角色的台詞"
+            >全部</button>
+            {activeCharacters.map(c => {
+              const isOn = selectedCharIds === null || selectedCharIds.has(c.id)
+              return (
+                <button
+                  key={c.id}
+                  className={`playback-filter-chip${isOn ? ' filter-on' : ''}`}
+                  style={isOn ? { background: c.color + 'bb', borderColor: c.color, color: '#fff' } : {}}
+                  onClick={() => {
+                    setSelectedCharIds(prev => {
+                      const allIds = new Set(activeCharacters.map(a => a.id))
+                      const base = prev ?? allIds
+                      const next = new Set(base)
+                      if (next.has(c.id)) {
+                        next.delete(c.id)
+                        if (next.size === 0) return allIds // avoid empty filter
+                      } else {
+                        next.add(c.id)
+                        if (next.size === activeCharacters.length) return null
+                      }
+                      return next
+                    })
+                  }}
+                  title={isOn ? `${c.name}（點擊排除此角色）` : `${c.name}（點擊加入播放）`}
+                >
+                  {c.emoji} {c.name}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )
