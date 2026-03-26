@@ -1621,17 +1621,20 @@ export default function SceneOutput({
 
   // ── Cross-scene search ────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('')
-  const matchCount = useMemo(() => {
-    if (!searchQuery.trim()) return 0
+  // Separate counts: how many scenes match by description, how many lines match by text/character
+  const { descMatchCount, lineMatchCount } = useMemo(() => {
+    if (!searchQuery.trim()) return { descMatchCount: 0, lineMatchCount: 0 }
     const q = searchQuery.toLowerCase()
-    return scenes.reduce((n, s) => {
-      const descMatch = s.description.toLowerCase().includes(q) ? 1 : 0
-      const lineMatches = s.lines.filter(l =>
+    let desc = 0, lines = 0
+    scenes.forEach(s => {
+      if (s.description.toLowerCase().includes(q)) desc++
+      lines += s.lines.filter(l =>
         l.text.toLowerCase().includes(q) || l.character_name.toLowerCase().includes(q)
       ).length
-      return n + descMatch + lineMatches
-    }, 0)
+    })
+    return { descMatchCount: desc, lineMatchCount: lines }
   }, [searchQuery, scenes])
+  const matchCount = descMatchCount + lineMatchCount
 
   // Auto-expand scenes that contain matching lines or description when the query changes
   useEffect(() => {
@@ -1822,7 +1825,7 @@ export default function SceneOutput({
             <input
               type="text"
               className="scene-search-input"
-              placeholder="搜尋台詞或角色名稱..."
+              placeholder="搜尋場景描述、台詞或角色..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={e => { if (e.key === 'Escape') setSearchQuery('') }}
@@ -1830,12 +1833,15 @@ export default function SceneOutput({
             {searchQuery ? (
               <>
                 <span className={`scene-search-count${matchCount === 0 ? ' no-results' : ''}`}>
-                  {matchCount > 0 ? `${matchCount} 筆` : '無結果'}
+                  {matchCount === 0 ? '無結果' : [
+                    descMatchCount > 0 ? `${descMatchCount} 幕` : '',
+                    lineMatchCount > 0 ? `${lineMatchCount} 句` : '',
+                  ].filter(Boolean).join('・')}
                 </span>
                 <button className="scene-search-clear" onClick={() => setSearchQuery('')} title="清除搜尋 (Esc)">×</button>
               </>
             ) : (
-              <span className="scene-search-hint">可搜尋台詞文字或角色姓名</span>
+              <span className="scene-search-hint">可搜尋場景描述、台詞或角色姓名</span>
             )}
           </div>
         )}
