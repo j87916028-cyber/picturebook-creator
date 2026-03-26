@@ -1579,7 +1579,9 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
     logger.info("LLM cleaned content: %s", content[:300])
 
     # 方式1：```json ... ``` 或 ``` ... ```
-    code_block = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", content, re.DOTALL)
+    # Use greedy .*  (not .*?) so nested braces inside the code fence are included.
+    # Non-greedy .*? would stop at the FIRST closing brace and truncate nested JSON.
+    code_block = re.search(r"```(?:json)?\s*(\{.*\})\s*```", content, re.DOTALL)
     if code_block:
         content = code_block.group(1)
     else:
@@ -1588,11 +1590,24 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
         if brace_match:
             content = brace_match.group(0)
 
+    def _repair_llm_json(s: str) -> str:
+        """Remove trailing commas that LLMs sometimes emit before } or ].
+
+        Python's json.loads rejects trailing commas (valid in JS, not in JSON spec).
+        Example: {"lines": [...],} → {"lines": [...]}
+        Only called when the initial parse fails, so there is zero overhead on success.
+        """
+        return re.sub(r',\s*([}\]])', r'\1', s)
+
     try:
         data = json.loads(content)
-    except Exception as e:
-        logger.error("JSON parse failed: %s\nContent: %s", e, content[:800])
-        raise HTTPException(status_code=502, detail=f"劇本解析失敗，請重試（{type(e).__name__}）")
+    except Exception:
+        try:
+            data = json.loads(_repair_llm_json(content))
+            logger.info("generate-script: JSON repaired (trailing commas removed)")
+        except Exception as e:
+            logger.error("JSON parse failed after repair: %s\nContent: %s", e, content[:800])
+            raise HTTPException(status_code=502, detail=f"劇本解析失敗，請重試（{type(e).__name__}）")
 
     # Normalize character fields: the LLM may hallucinate character_id or voice_id.
     # Map each line back to canonical character data from req.characters.
