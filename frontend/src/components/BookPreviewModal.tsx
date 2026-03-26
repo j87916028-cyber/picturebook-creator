@@ -287,8 +287,8 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
     return () => window.removeEventListener('keydown', handler)
   }, [onClose, scenes.length, handleAutoPlay, zoomedImg, toggleFullscreen])
 
-  const getCharacter = (name: string): Character | undefined =>
-    characters.find(c => c.name === name)
+  const getCharacter = (id: string): Character | undefined =>
+    characters.find(c => c.id === id)
 
   const isFirst = page === 0
   const isLast  = page === scenes.length - 1
@@ -489,7 +489,7 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
                 <p className="book-no-lines">（此幕尚無台詞）</p>
               )}
               {scene.lines.map((line, i) => {
-                const char = getCharacter(line.character_name)
+                const char = getCharacter(line.character_id)
                 const hasAudio = !!line.audio_base64
                 const isPlaying = playingLine === i
                 return (
