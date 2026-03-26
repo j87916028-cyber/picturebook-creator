@@ -3230,6 +3230,9 @@ body {
   font-size: 0.8rem; font-weight: 700; letter-spacing: 0.02em;
   display: flex; align-items: center; gap: 5px;
 }
+.book-line-emotion {
+  font-size: 0.85rem; opacity: 0.75; margin-left: 1px;
+}
 .book-line-audio-icon {
   font-size: 0.75rem; opacity: 0.4; transition: opacity 0.15s; margin-left: 2px;
 }

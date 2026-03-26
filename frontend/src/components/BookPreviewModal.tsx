@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Scene, Character } from '../types'
 
+const EMOTION_LABELS: Record<string, string> = {
+  happy:     '😄',
+  sad:       '😢',
+  angry:     '😠',
+  surprised: '😲',
+  fearful:   '😨',
+  disgusted: '🤢',
+}
+
 interface Props {
   scenes: Scene[]
   characters: Character[]
@@ -27,6 +36,7 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
   })
   const textRef = useRef<HTMLDivElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
+  const activeLineRef = useRef<HTMLDivElement | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   // Audio playback state
@@ -122,6 +132,15 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
   useEffect(() => {
     localStorage.setItem('book_preview_font_size', fontSize)
   }, [fontSize])
+
+  // Auto-scroll active line into view during auto-play
+  useEffect(() => {
+    if (!autoPlaying || playingLine === null) return
+    const el = activeLineRef.current
+    if (!el || !textRef.current) return
+    // Use scrollIntoView only when the line is outside the visible area of the panel
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [playingLine, autoPlaying])
 
   // Persist speed and apply to active audio when it changes
   useEffect(() => {
@@ -387,12 +406,18 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
                 return (
                   <div
                     key={i}
+                    ref={isPlaying ? activeLineRef : undefined}
                     className={`book-line${isPlaying ? ' playing' : ''}${hasAudio ? ' has-audio' : ''}`}
                     onClick={() => hasAudio && playLine(i)}
                     title={hasAudio ? (isPlaying ? '點擊停止' : '點擊播放此句配音') : undefined}
                   >
                     <div className="book-line-speaker" style={{ color: char?.color ?? '#555' }}>
                       {char?.emoji ?? '🎭'} {line.character_name}
+                      {line.emotion && line.emotion !== 'neutral' && EMOTION_LABELS[line.emotion] && (
+                        <span className="book-line-emotion" title={line.emotion}>
+                          {EMOTION_LABELS[line.emotion]}
+                        </span>
+                      )}
                       {hasAudio && (
                         <span className={`book-line-audio-icon${isPlaying ? ' playing' : ''}`}>
                           {isPlaying ? '⏹' : '🔊'}
