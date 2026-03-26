@@ -719,7 +719,9 @@ class ScriptResponse(BaseModel):
 # ── 端點：取得聲音清單 ────────────────────────────────────────
 @app.get("/api/voices")
 def get_voices():
-    return VOICES
+    # VOICES is a static list that never changes at runtime; allow browsers and
+    # CDN edges to cache the response for 24 hours to reduce unnecessary round trips.
+    return JSONResponse(content=VOICES, headers={"Cache-Control": "public, max-age=86400"})
 
 # ── 語音生成 LRU 快取（記憶體，最多 200 筆，避免重複合成相同台詞）──────
 _TTS_CACHE_MAX = 200
