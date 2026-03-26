@@ -212,6 +212,15 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
     setAudioProgress(pct * 100)
   }
 
+  // Click on playlist-level bar to jump to any line in the full playlist
+  const handlePlaylistSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (playlist.length === 0) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    const idx = Math.min(Math.round(pct * (playlist.length - 1)), playlist.length - 1)
+    goTo(idx)
+  }
+
   // Auto-scroll active transcript line into view
   useEffect(() => {
     activeLineRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
@@ -327,6 +336,7 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
                 <tr><td><kbd>M</kbd></td><td>靜音切換</td></tr>
                 <tr><td><kbd>PageDown</kbd></td><td>跳至下一幕</td></tr>
                 <tr><td><kbd>PageUp</kbd></td><td>跳至上一幕</td></tr>
+                <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td>減慢 / 加快播放速度</td></tr>
                 <tr><td><kbd>F</kbd></td><td>全螢幕切換</td></tr>
                 <tr><td><kbd>Shift+L</kbd></td><td>循環模式切換（關閉 → 全書 → 單幕）</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>關閉播放器</td></tr>
@@ -499,8 +509,13 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
               </span>
             )}
           </div>
-          {/* Playlist-level progress indicator (thin) */}
-          <div className="playback-playlist-bar">
+          {/* Playlist-level progress indicator (thin, clickable) */}
+          <div
+            className="playback-playlist-bar"
+            onClick={handlePlaylistSeek}
+            title="點擊跳至全書任意位置"
+            style={{ cursor: 'pointer' }}
+          >
             <div className="playback-playlist-fill" style={{ width: `${pct}%` }} />
           </div>
         </div>
