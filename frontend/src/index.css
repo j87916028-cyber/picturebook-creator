@@ -3429,3 +3429,48 @@ kbd {
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.9);
 }
+
+/* ── Error Boundary fallback screen ────────────────────────── */
+.error-boundary-overlay {
+  position: fixed; inset: 0; z-index: 99999;
+  background: linear-gradient(135deg, #f5f7ff 0%, #ede9fe 100%);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.error-boundary-card {
+  background: #fff; border-radius: 20px;
+  box-shadow: 0 8px 40px rgba(102,126,234,0.18);
+  padding: 48px 40px; max-width: 520px; width: 100%;
+  text-align: center;
+}
+.error-boundary-icon { font-size: 3.5rem; margin-bottom: 12px; }
+.error-boundary-title {
+  font-size: 1.4rem; font-weight: 700; color: #333;
+  margin: 0 0 12px;
+}
+.error-boundary-desc {
+  font-size: 0.95rem; color: #666; line-height: 1.7;
+  margin: 0 0 20px;
+}
+.error-boundary-detail {
+  background: #f8f4ff; border: 1px solid #e0d7ff;
+  border-radius: 8px; padding: 12px 14px;
+  font-size: 0.8rem; color: #7c5fcf;
+  text-align: left; word-break: break-all; white-space: pre-wrap;
+  max-height: 120px; overflow-y: auto;
+  margin: 0 0 24px;
+}
+.error-boundary-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.error-boundary-btn {
+  padding: 10px 22px; border-radius: 10px; font-size: 0.95rem;
+  font-weight: 600; cursor: pointer; border: none; transition: opacity 0.15s;
+}
+.error-boundary-btn:hover { opacity: 0.85; }
+.error-boundary-btn.primary {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+}
+.error-boundary-btn.secondary {
+  background: #f0ebff; color: #7c5fcf;
+  border: 1.5px solid #d4c8f8;
+}
