@@ -674,7 +674,7 @@ function SceneCard({
           />
         ) : (
           <div className="scene-desc-wrap">
-            <span className="scene-card-desc">{scene.description}</span>
+            <span className="scene-card-desc">{highlightText(scene.description, searchQuery)}</span>
             <button
               className="btn-edit-desc"
               onClick={() => { setEditDescText(scene.description); setEditingDesc(true) }}
@@ -1624,21 +1624,27 @@ export default function SceneOutput({
   const matchCount = useMemo(() => {
     if (!searchQuery.trim()) return 0
     const q = searchQuery.toLowerCase()
-    return scenes.reduce((n, s) => n + s.lines.filter(l =>
-      l.text.toLowerCase().includes(q) || l.character_name.toLowerCase().includes(q)
-    ).length, 0)
+    return scenes.reduce((n, s) => {
+      const descMatch = s.description.toLowerCase().includes(q) ? 1 : 0
+      const lineMatches = s.lines.filter(l =>
+        l.text.toLowerCase().includes(q) || l.character_name.toLowerCase().includes(q)
+      ).length
+      return n + descMatch + lineMatches
+    }, 0)
   }, [searchQuery, scenes])
 
-  // Auto-expand scenes that contain matching lines when the query changes
+  // Auto-expand scenes that contain matching lines or description when the query changes
   useEffect(() => {
     if (!searchQuery.trim()) return
     const q = searchQuery.toLowerCase()
     setCollapsedIds(prev => {
       const next = new Set(prev)
       scenes.forEach(s => {
-        const hasMatch = s.lines.some(l =>
-          l.text.toLowerCase().includes(q) || l.character_name.toLowerCase().includes(q)
-        )
+        const hasMatch =
+          s.description.toLowerCase().includes(q) ||
+          s.lines.some(l =>
+            l.text.toLowerCase().includes(q) || l.character_name.toLowerCase().includes(q)
+          )
         if (hasMatch) next.delete(s.id)
       })
       return next
