@@ -2377,6 +2377,53 @@ body {
   color: #fff;
 }
 
+/* ── Cross-scene search bar ─────────────────────────────────────── */
+.scene-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px 6px;
+  background: #f5f5f7;
+  border-top: 1px solid #e8e8ec;
+}
+.scene-search-icon { font-size: 0.85rem; flex-shrink: 0; }
+.scene-search-input {
+  flex: 1;
+  max-width: 280px;
+  border: 1.5px solid #dde;
+  border-radius: 20px;
+  padding: 4px 11px;
+  font-size: 0.82rem;
+  outline: none;
+  background: #fff;
+  transition: border-color 0.15s;
+}
+.scene-search-input:focus { border-color: #667eea; }
+.scene-search-count {
+  font-size: 0.78rem;
+  color: #667eea;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.scene-search-count.no-results { color: #e53e3e; }
+.scene-search-clear {
+  background: none; border: none; cursor: pointer;
+  color: #bbb; font-size: 1rem; padding: 0 3px; line-height: 1;
+}
+.scene-search-clear:hover { color: #555; }
+.scene-search-hint {
+  font-size: 0.75rem;
+  color: #bbb;
+}
+
+/* Search highlight mark inside dialogue lines */
+.search-hit {
+  background: #fff176;
+  border-radius: 2px;
+  padding: 0 1px;
+  font-style: inherit;
+}
+
 /* ── Storyboard grid view ────────────────────────────────────────── */
 .storyboard-grid {
   display: grid;

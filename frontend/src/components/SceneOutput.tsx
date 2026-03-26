@@ -17,6 +17,24 @@ function resolveImgSrc(image: string): string {
   return `data:image/jpeg;base64,${image}`
 }
 
+// Wrap all occurrences of `query` in `text` with <mark className="search-hit">
+function highlightText(text: string, query: string): React.ReactNode {
+  if (!query.trim()) return text
+  const q = query.toLowerCase()
+  const lower = text.toLowerCase()
+  const nodes: React.ReactNode[] = []
+  let pos = 0
+  let idx = lower.indexOf(q)
+  while (idx !== -1) {
+    if (idx > pos) nodes.push(text.slice(pos, idx))
+    nodes.push(<mark key={idx} className="search-hit">{text.slice(idx, idx + q.length)}</mark>)
+    pos = idx + q.length
+    idx = lower.indexOf(q, pos)
+  }
+  if (pos < text.length) nodes.push(text.slice(pos))
+  return nodes.length === 0 ? text : <>{nodes}</>
+}
+
 const STYLES = ['溫馨童趣', '奇幻冒險', '搞笑幽默', '感動溫情', '懸疑神秘']
 const IMAGE_STYLES = ['水彩繪本', '粉彩卡通', '鉛筆素描', '宮崎駿風', '3D 卡通']
 
@@ -244,6 +262,7 @@ interface SceneCardProps {
   onPlayFromScene: (sceneIndex: number) => void
   onReadFromScene: (sceneIndex: number) => void
   onLinesReorder: (sceneId: string, newLines: ScriptLine[]) => void
+  searchQuery?: string
 }
 
 function SceneCard({
@@ -274,6 +293,7 @@ function SceneCard({
   onPlayFromScene,
   onReadFromScene,
   onLinesReorder,
+  searchQuery = '',
 }: SceneCardProps) {
   const [playingIndex, setPlayingIndex] = useState<number | null>(null)
   const [playProgress, setPlayProgress] = useState(0)  // 0–100 percent
@@ -1040,7 +1060,7 @@ function SceneCard({
                 >
                   <div className="dialogue-speaker">
                     <span className="speaker-emoji">{char?.emoji || '🎭'}</span>
-                    <span className="speaker-name" style={{ color }}>{line.character_name}</span>
+                    <span className="speaker-name" style={{ color }}>{highlightText(line.character_name, searchQuery)}</span>
                     {emotionRegenIndex === i ? (
                       <span className="emotion-badge emotion-regen-badge">
                         <span className="spinner-sm" /> 換情緒中...
@@ -1161,7 +1181,7 @@ function SceneCard({
                       </div>
                     ) : (
                       <div className="dialogue-text-row">
-                        <p className="dialogue-text">{line.text}</p>
+                        <p className="dialogue-text">{highlightText(line.text, searchQuery)}</p>
                         <div className="line-move-btns">
                           <button
                             className="btn-move-line"
@@ -1599,6 +1619,32 @@ export default function SceneOutput({
     [scenes]
   )
 
+  // ── Cross-scene search ────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState('')
+  const matchCount = useMemo(() => {
+    if (!searchQuery.trim()) return 0
+    const q = searchQuery.toLowerCase()
+    return scenes.reduce((n, s) => n + s.lines.filter(l =>
+      l.text.toLowerCase().includes(q) || l.character_name.toLowerCase().includes(q)
+    ).length, 0)
+  }, [searchQuery, scenes])
+
+  // Auto-expand scenes that contain matching lines when the query changes
+  useEffect(() => {
+    if (!searchQuery.trim()) return
+    const q = searchQuery.toLowerCase()
+    setCollapsedIds(prev => {
+      const next = new Set(prev)
+      scenes.forEach(s => {
+        const hasMatch = s.lines.some(l =>
+          l.text.toLowerCase().includes(q) || l.character_name.toLowerCase().includes(q)
+        )
+        if (hasMatch) next.delete(s.id)
+      })
+      return next
+    })
+  }, [searchQuery, scenes])
+
   if (scenes.length === 0) return null
 
   const scrollToScene = (index: number) => {
@@ -1762,6 +1808,31 @@ export default function SceneOutput({
             </button>
           </div>
         )}
+
+        {/* Cross-scene search bar */}
+        {viewMode === 'detail' && (
+          <div className="scene-search-bar">
+            <span className="scene-search-icon">🔍</span>
+            <input
+              type="text"
+              className="scene-search-input"
+              placeholder="搜尋台詞或角色名稱..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Escape') setSearchQuery('') }}
+            />
+            {searchQuery ? (
+              <>
+                <span className={`scene-search-count${matchCount === 0 ? ' no-results' : ''}`}>
+                  {matchCount > 0 ? `${matchCount} 筆` : '無結果'}
+                </span>
+                <button className="scene-search-clear" onClick={() => setSearchQuery('')} title="清除搜尋 (Esc)">×</button>
+              </>
+            ) : (
+              <span className="scene-search-hint">可搜尋台詞文字或角色姓名</span>
+            )}
+          </div>
+        )}
       </div>
 
       {showPlayback && (
@@ -1828,6 +1899,7 @@ export default function SceneOutput({
               onPlayFromScene={handlePlayFromScene}
               onReadFromScene={handleReadFromScene}
               onLinesReorder={onLinesReorder}
+              searchQuery={searchQuery}
             />
           </div>
         ))
