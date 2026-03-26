@@ -230,6 +230,24 @@ export default function App() {
     if (generateRateLimitTimerRef.current) clearInterval(generateRateLimitTimerRef.current)
   }, [])
 
+  // ── Warn before unload when there is unsaved data ──────────────
+  // Guards against accidental tab close / refresh when autosave failed
+  // or when a save is still pending in the debounce queue.
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      const hasPending  = pendingSaveRef.current !== null
+      const hasFailed   = savedStatus === 'failed'
+      if (hasPending || hasFailed) {
+        e.preventDefault()
+        // Modern browsers ignore the custom string, but setting returnValue
+        // still triggers the native "Leave site?" dialog.
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [savedStatus])
+
   // ── Auto-init: fetch projects on mount, auto-load most recent ──
   useEffect(() => {
     const init = async () => {
