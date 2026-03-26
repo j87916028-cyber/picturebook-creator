@@ -4249,7 +4249,12 @@ async def export_project(
     _db_required()
     _validate_uuid(project_id)
 
-    # Load project from DB
+    # Load project from DB.
+    # Only fetch the `image` column for formats that actually embed illustrations.
+    # For text-only exports (txt, md, json, mp3) the image column can be hundreds of
+    # KB of base64 per scene and is immediately discarded — skip it to cut DB payload.
+    _FORMATS_NEED_IMAGE = frozenset({"pdf", "epub", "html", "images"})
+    _image_col = "image" if format in _FORMATS_NEED_IMAGE else "'' AS image"
     async with _db_pool.acquire() as conn:
         proj = await conn.fetchrow(
             "SELECT id, name, characters FROM projects WHERE id = $1", project_id
@@ -4257,7 +4262,7 @@ async def export_project(
         if proj is None:
             raise HTTPException(status_code=404, detail="專案不存在")
         scene_rows = await conn.fetch(
-            "SELECT idx, title, description, style, line_length, notes, script, lines, image FROM scenes "
+            f"SELECT idx, title, description, style, line_length, notes, script, lines, {_image_col} FROM scenes "
             "WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
