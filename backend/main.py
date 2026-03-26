@@ -2905,17 +2905,22 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
 
     resolved = [_resolve_scene(s) for s in req.scenes]
 
-    # Compute cover thumbnail only from freshly-uploaded images (not preserved ones).
-    # CPU-bound; done before acquiring the write connection to keep transaction short.
+    # Cover thumbnail is always derived from scene idx=0 (the opening scene).
+    # Only recompute when scene 0 carries a freshly-uploaded image (preserve_blobs=False);
+    # if scene 0 is unchanged the existing cover_image is kept via COALESCE below.
+    # Previously we used the first *any* new image, which caused the cover to flip to
+    # a later scene whenever that scene was regenerated while scene 0 stayed the same.
+    # CPU-bound; done before acquiring the write connection to keep the transaction short.
     cover_thumb: str | None = None
-    first_new_image = next(
-        (s.image for s in req.scenes
-         if not s.preserve_blobs and s.image and s.image not in ("", "error")),
-        None,
-    )
-    if first_new_image:
+    first_scene = next((s for s in req.scenes if s.idx == 0), None)
+    if (
+        first_scene is not None
+        and not first_scene.preserve_blobs
+        and first_scene.image
+        and first_scene.image not in ("", "error")
+    ):
         cover_thumb = await asyncio.get_running_loop().run_in_executor(
-            None, _make_cover_thumbnail, first_new_image
+            None, _make_cover_thumbnail, first_scene.image
         )
 
     async with _db_pool.acquire() as conn:
