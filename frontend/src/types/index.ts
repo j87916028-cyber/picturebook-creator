@@ -46,6 +46,8 @@ export interface Scene {
   /** True once the voice-generation pass for this scene has completed (success or failure).
    *  Used to distinguish "still loading" from "generation finished but audio failed". */
   voices_attempted?: boolean
+  /** When true, the scene is protected from batch / accidental regeneration. */
+  is_locked?: boolean
 }
 
 export const CHARACTER_COLORS = [
@@ -76,5 +78,6 @@ export interface ProjectDetail extends ProjectMeta {
     script: ScriptResponse
     lines: ScriptLine[]
     image: string
+    is_locked?: boolean
   }>
 }

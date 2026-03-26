@@ -237,6 +237,7 @@ interface Props {
   onSceneTitleUpdate: (sceneId: string, newTitle: string) => void
   onSceneNotesUpdate: (sceneId: string, newNotes: string) => void
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string) => Promise<void>
+  onSceneLockToggle: (sceneId: string) => void
   onBatchRegenVoice: () => void
   onSceneRegenAllVoices: (sceneId: string) => Promise<void>
   batchRegenStatus: { done: number; total: number } | null
@@ -272,6 +273,7 @@ interface SceneCardProps {
   onSceneTitleUpdate: (sceneId: string, newTitle: string) => void
   onSceneNotesUpdate: (sceneId: string, newNotes: string) => void
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string) => Promise<void>
+  onSceneLockToggle: (sceneId: string) => void
   onSceneRegenAllVoices: (sceneId: string) => Promise<void>
   onFocusScene: () => void
   isFocused: boolean
@@ -306,6 +308,7 @@ function SceneCard({
   onSceneTitleUpdate,
   onSceneNotesUpdate,
   onSceneRegen,
+  onSceneLockToggle,
   onSceneRegenAllVoices,
   onFocusScene,
   isFocused,
@@ -866,6 +869,14 @@ function SceneCard({
             <span className="scene-notes-hint">{notesText.length}/2000 · 僅自用，不匯出</span>
           </div>
         )}
+        {/* Scene lock toggle — protects this scene from batch / accidental regeneration */}
+        <button
+          className={`btn-scene-lock${scene.is_locked ? ' locked' : ''}`}
+          onClick={() => onSceneLockToggle(scene.id)}
+          title={scene.is_locked ? '解鎖此幕（允許重新生成）' : '鎖定此幕（防止意外覆寫）'}
+        >
+          {scene.is_locked ? '🔒' : '🔓'}
+        </button>
         <div className="scene-header-right">
           {hasAudio && (
             <button
@@ -1765,6 +1776,7 @@ export default function SceneOutput({
   onSceneTitleUpdate,
   onSceneNotesUpdate,
   onSceneRegen,
+  onSceneLockToggle,
   onBatchRegenVoice,
   onSceneRegenAllVoices,
   batchRegenStatus,
@@ -2251,6 +2263,7 @@ export default function SceneOutput({
               onSceneTitleUpdate={onSceneTitleUpdate}
               onSceneNotesUpdate={onSceneNotesUpdate}
               onSceneRegen={onSceneRegen}
+              onSceneLockToggle={onSceneLockToggle}
               onSceneRegenAllVoices={onSceneRegenAllVoices}
               onFocusScene={() => focusScene(scene.id)}
               isFocused={scenes.filter(s => s.id !== scene.id).every(s => collapsedIds.has(s.id))}

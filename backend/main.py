@@ -212,6 +212,12 @@ ALTER TABLE scenes
   ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';
 """
 
+# Migration: add is_locked column to scenes (prevents accidental regeneration)
+_ALTER_SCENES_LOCKED = """
+ALTER TABLE scenes
+  ADD COLUMN IF NOT EXISTS is_locked BOOLEAN NOT NULL DEFAULT FALSE;
+"""
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _http_client, _db_pool
@@ -235,6 +241,7 @@ async def lifespan(app: FastAPI):
                 await conn.execute(_ALTER_SCENES_LINE_LENGTH)
                 await conn.execute(_ALTER_SCENES_TITLE)
                 await conn.execute(_ALTER_SCENES_NOTES)
+                await conn.execute(_ALTER_SCENES_LOCKED)
             logger.info("PostgreSQL pool created and schema applied")
         except Exception as exc:
             logger.warning("Failed to connect to PostgreSQL: %s — DB features disabled", exc)
@@ -2378,6 +2385,8 @@ class SceneIn(BaseModel):
     # have not changed since the last save.  The backend reads the existing
     # blobs from the DB and merges them in before writing.
     preserve_blobs: bool = False
+    # When True the scene is protected from batch/accidental regeneration
+    is_locked: bool = False
 
     @field_validator("line_length", mode="before")
     @classmethod
@@ -2685,7 +2694,7 @@ async def get_project(project_id: str, request: Request):
         if proj is None:
             raise HTTPException(status_code=404, detail="專案不存在")
         scenes = await conn.fetch(
-            "SELECT id, idx, title, description, style, line_length, script, lines, image, notes FROM scenes WHERE project_id = $1 ORDER BY idx",
+            "SELECT id, idx, title, description, style, line_length, script, lines, image, notes, is_locked FROM scenes WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
     raw_chars = proj["characters"]
@@ -2708,6 +2717,7 @@ async def get_project(project_id: str, request: Request):
                 "lines": json.loads(s["lines"]) if isinstance(s["lines"], str) else s["lines"],
                 "image": s["image"],
                 "notes": s["notes"] or "",
+                "is_locked": bool(s["is_locked"]),
             }
             for s in scenes
         ],
@@ -2842,6 +2852,7 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
             json.dumps(merged, ensure_ascii=False),
             image,
             scene.notes,
+            scene.is_locked,
         )
 
     resolved = [_resolve_scene(s) for s in req.scenes]
@@ -2869,8 +2880,8 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
             if resolved:
                 await conn.executemany(
                     """
-                    INSERT INTO scenes (project_id, idx, title, description, style, line_length, script, lines, image, notes)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10)
+                    INSERT INTO scenes (project_id, idx, title, description, style, line_length, script, lines, image, notes, is_locked)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11)
                     """,
                     resolved,
                 )

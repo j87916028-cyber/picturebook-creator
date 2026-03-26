@@ -300,6 +300,7 @@ export default function App() {
       lines: s.lines,
       image: s.image,
       voices_attempted: true,  // scenes from DB are fully generated
+      is_locked: s.is_locked ?? false,
     }))
     setScenes(loaded)
     // Always replace characters with the loaded project's list — including empty [].
@@ -368,6 +369,7 @@ export default function App() {
             style: s.style,
             line_length: s.line_length ?? 'standard',
             notes: s.notes ?? '',
+            is_locked: s.is_locked ?? false,
             script: s.script,
             // Strip audio_base64 / audio_format from lines when blobs are unchanged;
             // JSON.stringify omits undefined values automatically.
@@ -1176,12 +1178,22 @@ export default function App() {
     } catch { setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: 'error' } : s)) }
   }
 
+  // Toggle the is_locked flag on a scene (protects it from batch regen)
+  const handleSceneLockToggle = useCallback((sceneId: string) => {
+    setScenes(prev => {
+      const next = prev.map(s => s.id === sceneId ? { ...s, is_locked: !s.is_locked } : s)
+      if (currentProjectId) autoSave(currentProjectId, next, characters)
+      return next
+    })
+  }, [currentProjectId, characters, autoSave])
+
   // Batch-regenerate all lines that are missing audio (e.g. after a voice change)
   const handleBatchRegenVoice = async () => {
     // Collect every (sceneId, lineIndex) that has text but no audio
     type Task = { sceneId: string; lineIndex: number; text: string; voice_id: string; emotion: string }
     const tasks: Task[] = []
     for (const scene of scenes) {
+      if (scene.is_locked) continue  // skip locked scenes
       scene.lines.forEach((line, i) => {
         if (line.text && !line.audio_base64) {
           tasks.push({ sceneId: scene.id, lineIndex: i, text: line.text, voice_id: line.voice_id, emotion: line.emotion || 'neutral' })
@@ -1281,7 +1293,7 @@ export default function App() {
 
   // Batch-regenerate ALL scene images (force-refresh, including existing ones)
   const handleBatchRegenAllImages = async () => {
-    const targets = scenes.filter(s => s.script?.scene_prompt)
+    const targets = scenes.filter(s => !s.is_locked && s.script?.scene_prompt)
     if (targets.length === 0) return
     batchAbortRef.current?.abort()
     const batchController = new AbortController()
@@ -1326,7 +1338,7 @@ export default function App() {
 
   // Batch-regenerate images for all scenes that are missing or errored
   const handleBatchRegenImages = async () => {
-    const targets = scenes.filter(s => !s.image || s.image === 'error')
+    const targets = scenes.filter(s => !s.is_locked && (!s.image || s.image === 'error'))
     if (targets.length === 0) return
 
     batchAbortRef.current?.abort()
@@ -1384,6 +1396,7 @@ export default function App() {
     // `scenes` here refers to the closure-captured state at call time (correct).
     const oldScene = scenes.find(s => s.id === sceneId)
     if (!oldScene) return
+    if (oldScene.is_locked) return  // locked scenes cannot be regenerated
 
     batchAbortRef.current?.abort()
 
@@ -2182,6 +2195,7 @@ export default function App() {
               onSceneTitleUpdate={handleSceneTitleUpdate}
               onSceneNotesUpdate={handleSceneNotesUpdate}
               onSceneRegen={handleSceneRegen}
+              onSceneLockToggle={handleSceneLockToggle}
               onBatchRegenVoice={handleBatchRegenVoice}
               onSceneRegenAllVoices={handleSceneRegenAllVoices}
               batchRegenStatus={batchRegenStatus}

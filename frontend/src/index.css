@@ -1666,6 +1666,14 @@ body {
   color: #99a; cursor: pointer; transition: all 0.12s; white-space: nowrap;
 }
 .btn-scene-collapse:hover { border-color: #667eea; color: #667eea; background: #f0f4ff; }
+.btn-scene-lock {
+  background: none; border: 1.5px solid #dde; border-radius: 7px;
+  padding: 3px 7px; font-size: 1rem; cursor: pointer;
+  transition: all 0.12s; white-space: nowrap; align-self: flex-start;
+  opacity: 0.55;
+}
+.btn-scene-lock:hover { opacity: 1; border-color: #f0a000; background: #fff8e8; }
+.btn-scene-lock.locked { opacity: 1; border-color: #e67e22; background: #fff3e0; }
 .scene-card-collapsed { padding-bottom: 0; }
 .scene-header-thumb {
   width: 52px;
