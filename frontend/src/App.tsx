@@ -699,13 +699,15 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
-  // Batch AI title generation — fills in titles for all untitled scenes sequentially
+  // Batch AI title generation — fills in titles for all untitled scenes (up to 3 concurrent)
   const handleBatchGenerateTitles = async () => {
     const untitled = scenes.filter(s => !s.title?.trim())
     if (untitled.length === 0 || !currentProjectId) return
     setBatchTitleStatus({ done: 0, total: untitled.length })
-    let latestScenes = scenes
-    for (const scene of untitled) {
+
+    const titleResults = new Map<string, string>()
+
+    const tasks = untitled.map(scene => async () => {
       const sceneChars = characters.filter(c => scene.lines.some(l => l.character_id === c.id))
       if (sceneChars.length > 0) {
         try {
@@ -720,17 +722,26 @@ export default function App() {
           })
           if (res.ok) {
             const data = await res.json()
-            if (data.title) {
-              latestScenes = latestScenes.map(s => s.id === scene.id ? { ...s, title: data.title } : s)
-              setScenes(latestScenes)
-            }
+            if (data.title) titleResults.set(scene.id, data.title)
           }
         } catch { /* silent */ }
       }
-      setBatchTitleStatus(prev => prev ? { ...prev, done: prev.done + 1 } : null)
-    }
+    })
+
+    await throttled(tasks, 3, (done, total) => {
+      setBatchTitleStatus({ done, total })
+      setScenes(prev => prev.map(s => {
+        const t = titleResults.get(s.id)
+        return t ? { ...s, title: t } : s
+      }))
+    })
+
     setBatchTitleStatus(null)
-    autoSave(currentProjectId, latestScenes, characters)
+    const finalScenes = scenes.map(s => {
+      const t = titleResults.get(s.id)
+      return t ? { ...s, title: t } : s
+    })
+    autoSave(currentProjectId, finalScenes, characters)
   }
 
   // Edit private director/author notes for a scene (never exported)
