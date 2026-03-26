@@ -674,7 +674,7 @@ function SceneCard({
               onDoubleClick={e => { e.stopPropagation(); setEditingTitle(true) }}
               title={scene.title ? '雙擊編輯標題' : '雙擊新增幕次標題'}
             >
-              {scene.title || <span className="scene-title-placeholder">雙擊加標題</span>}
+              {scene.title ? highlightText(scene.title, searchQuery) : <span className="scene-title-placeholder">雙擊加標題</span>}
             </span>
           )}
           {sceneSecs >= 5 && (
@@ -1732,22 +1732,23 @@ export default function SceneOutput({
 
   // ── Cross-scene search ────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('')
-  // Separate counts: how many scenes match by description, how many lines match by text/character
-  const { descMatchCount, lineMatchCount } = useMemo(() => {
-    if (!searchQuery.trim()) return { descMatchCount: 0, lineMatchCount: 0 }
+  // Separate counts: how many scenes match by title, description, or lines
+  const { titleMatchCount, descMatchCount, lineMatchCount } = useMemo(() => {
+    if (!searchQuery.trim()) return { titleMatchCount: 0, descMatchCount: 0, lineMatchCount: 0 }
     const q = searchQuery.toLowerCase()
-    let desc = 0, lines = 0
+    let titles = 0, desc = 0, lines = 0
     scenes.forEach(s => {
+      if (s.title?.toLowerCase().includes(q)) titles++
       if (s.description.toLowerCase().includes(q)) desc++
       lines += s.lines.filter(l =>
         l.text.toLowerCase().includes(q) || l.character_name.toLowerCase().includes(q)
       ).length
     })
-    return { descMatchCount: desc, lineMatchCount: lines }
+    return { titleMatchCount: titles, descMatchCount: desc, lineMatchCount: lines }
   }, [searchQuery, scenes])
-  const matchCount = descMatchCount + lineMatchCount
+  const matchCount = titleMatchCount + descMatchCount + lineMatchCount
 
-  // Auto-expand scenes that contain matching lines or description when the query changes
+  // Auto-expand scenes that contain matching title, description, or lines when the query changes
   useEffect(() => {
     if (!searchQuery.trim()) return
     const q = searchQuery.toLowerCase()
@@ -1755,6 +1756,7 @@ export default function SceneOutput({
       const next = new Set(prev)
       scenes.forEach(s => {
         const hasMatch =
+          s.title?.toLowerCase().includes(q) ||
           s.description.toLowerCase().includes(q) ||
           s.lines.some(l =>
             l.text.toLowerCase().includes(q) || l.character_name.toLowerCase().includes(q)
@@ -1936,7 +1938,7 @@ export default function SceneOutput({
             <input
               type="text"
               className="scene-search-input"
-              placeholder="搜尋場景描述、台詞或角色..."
+              placeholder="搜尋幕次標題、場景描述、台詞或角色..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={e => { if (e.key === 'Escape') setSearchQuery('') }}
@@ -1945,6 +1947,7 @@ export default function SceneOutput({
               <>
                 <span className={`scene-search-count${matchCount === 0 ? ' no-results' : ''}`}>
                   {matchCount === 0 ? '無結果' : [
+                    titleMatchCount > 0 ? `${titleMatchCount} 標題` : '',
                     descMatchCount > 0 ? `${descMatchCount} 幕` : '',
                     lineMatchCount > 0 ? `${lineMatchCount} 句` : '',
                   ].filter(Boolean).join('・')}
@@ -1952,7 +1955,7 @@ export default function SceneOutput({
                 <button className="scene-search-clear" onClick={() => setSearchQuery('')} title="清除搜尋 (Esc)">×</button>
               </>
             ) : (
-              <span className="scene-search-hint">可搜尋場景描述、台詞或角色姓名</span>
+              <span className="scene-search-hint">可搜尋幕次標題、場景描述、台詞或角色姓名</span>
             )}
           </div>
         )}
