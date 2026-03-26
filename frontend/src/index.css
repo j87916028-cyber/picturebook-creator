@@ -2885,6 +2885,14 @@ kbd {
   background: rgba(0,0,0,0.6); color: #dde; font-size: 0.78rem;
   padding: 3px 10px; border-radius: 20px; backdrop-filter: blur(4px);
 }
+.playback-scene-desc {
+  font-size: 0.88rem; color: rgba(255,255,255,0.65); font-style: italic;
+  text-align: center; max-width: 520px; line-height: 1.45;
+  padding: 0 8px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+  animation: playback-fadein 0.35s ease-out both;
+}
 /* Karaoke transcript panel */
 .playback-transcript {
   width: 100%; max-width: 520px;

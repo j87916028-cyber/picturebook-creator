@@ -322,6 +322,13 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
           <div className="playback-scene-badge">{sceneProgress}</div>
         </div>
 
+        {/* Scene description subtitle */}
+        {currentScene?.description && (
+          <p className="playback-scene-desc" key={current?.sceneIdx}>
+            {currentScene.description}
+          </p>
+        )}
+
         {/* Speaking character indicator */}
         {currentChar && playing && (
           <div className="playback-speaker-bar">
