@@ -1450,7 +1450,7 @@ export default function App() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      const extMap: Record<string, string> = { pdf: 'pdf', epub: 'epub', html: 'html', mp3: 'zip' }
+      const extMap: Record<string, string> = { pdf: 'pdf', epub: 'epub', html: 'html', mp3: 'zip', images: 'zip' }
       const ext = extMap[format] || format
       a.download = `${projectName || '繪本'}.${ext}`
       a.click()
@@ -1669,6 +1669,7 @@ export default function App() {
                   <button onClick={() => handleExport('mp3')}>🎵 MP3 音檔包</button>
                   <button onClick={() => handleExport('md')}>🔖 Markdown（Notion/GitHub）</button>
                   <button onClick={() => handleExport('txt')}>📝 純文字稿本</button>
+                  <button onClick={() => handleExport('images')}>🖼️ 插圖包（ZIP）</button>
                 </div>
               )}
             </div>

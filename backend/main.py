@@ -3719,8 +3719,70 @@ def _export_md(project_name: str, scenes: list) -> bytes:
     return "\n".join(lines_out).encode("utf-8")
 
 
+def _export_images_zip(project_name: str, scenes: list) -> bytes:
+    """Pack every scene illustration into a ZIP archive.
+
+    Each image is stored as ``第NN幕_標題.jpg`` (or ``.png`` / ``.webp``,
+    depending on the data URI MIME type).  Scenes with no image are skipped.
+    A README.txt is always included to describe the contents.
+    """
+    buf = io.BytesIO()
+    has_any_image = False
+    readme_lines: list[str] = [
+        f"《{project_name}》場景插圖",
+        "=" * 40,
+        "",
+    ]
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for i, scene in enumerate(scenes, 1):
+            image = scene.get("image", "") or ""
+            title = (scene.get("title") or "").strip()
+            desc  = (scene.get("description") or "").strip()[:30]
+
+            label = f"第{i:02d}幕"
+            if title:
+                safe_title = re.sub(r'[\\/:*?"<>|]', "_", title)
+                label += f"_{safe_title}"
+
+            readme_lines.append(f"{label}：{desc}")
+
+            if not image or image == "error":
+                readme_lines.append("  （無插圖）")
+                readme_lines.append("")
+                continue
+
+            try:
+                if image.startswith("data:"):
+                    header, b64 = image.split(",", 1)
+                    mime = header.split(";")[0].split(":")[-1]
+                    ext  = mime.split("/")[-1] if "/" in mime else "jpg"
+                    image_bytes = base64.b64decode(b64)
+                else:
+                    image_bytes = base64.b64decode(image)
+                    ext = "jpg"
+                filename = f"{label}.{ext}"
+                zf.writestr(filename, image_bytes)
+                readme_lines.append(f"  → {filename}")
+                has_any_image = True
+            except Exception as e:
+                logger.warning("Images ZIP decode failed scene %d: %s", i, e)
+                readme_lines.append("  （插圖解碼失敗）")
+
+            readme_lines.append("")
+
+        readme_lines += [
+            "=" * 40,
+            f"共 {len(scenes)} 幕" + ("" if has_any_image else "，尚未生成任何插圖"),
+        ]
+        if not has_any_image:
+            readme_lines.append("請先在創作工坊中生成插圖後再匯出。")
+        zf.writestr("README.txt", "\n".join(readme_lines).encode("utf-8"))
+
+    return buf.getvalue()
+
+
 # ── GET /api/projects/{project_id}/export ────────────────────
-_EXPORT_FORMAT = Literal["pdf", "epub", "html", "mp3", "txt", "md"]
+_EXPORT_FORMAT = Literal["pdf", "epub", "html", "mp3", "txt", "md", "images"]
 
 @app.get("/api/projects/{project_id}/export")
 async def export_project(
@@ -3800,6 +3862,10 @@ async def export_project(
         data = await loop.run_in_executor(None, _export_md, project_name, scenes)
         media_type = "text/markdown; charset=utf-8"
         filename = f"{project_name}.md"
+    elif format == "images":
+        data = await loop.run_in_executor(None, _export_images_zip, project_name, scenes)
+        media_type = "application/zip"
+        filename = f"{project_name}_插圖.zip"
     else:  # "txt"
         data = await loop.run_in_executor(None, _export_txt, project_name, scenes)
         media_type = "text/plain; charset=utf-8"
