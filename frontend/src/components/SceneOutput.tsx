@@ -349,6 +349,7 @@ function SceneCard({
   const [charChangeIndex, setCharChangeIndex] = useState<number | null>(null)
   const [rephraseLoading, setRephraseLoading] = useState(false)
   const [rephraseSuggestions, setRephraseSuggestions] = useState<string[]>([])
+  const [rephraseError, setRephraseError] = useState(false)
   const [rephraseRateLimit, setRephraseRateLimit] = useState(0)
   const rephraseRateLimitRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [regenImage, setRegenImage] = useState(false)
@@ -364,6 +365,7 @@ function SceneCard({
   const [addLineLoading, setAddLineLoading] = useState(false)
   const [lineSuggestLoading, setLineSuggestLoading] = useState(false)
   const [lineSuggestions, setLineSuggestions] = useState<string[]>([])
+  const [lineSuggestError, setLineSuggestError] = useState(false)
   const [lineSuggestRateLimit, setLineSuggestRateLimit] = useState(0)
   const lineSuggestRateLimitRef = useRef<ReturnType<typeof setInterval> | null>(null)
   // null = append to end; number = insert after that line index
@@ -1360,6 +1362,7 @@ function SceneCard({
                             onClick={async () => {
                               setRephraseLoading(true)
                               setRephraseSuggestions([])
+                              setRephraseError(false)
                               try {
                                 const res = await fetch('/api/rephrase-line', {
                                   method: 'POST',
@@ -1384,8 +1387,10 @@ function SceneCard({
                                 } else if (res.ok) {
                                   const data = await res.json()
                                   setRephraseSuggestions(data.suggestions ?? [])
+                                } else {
+                                  setRephraseError(true)
                                 }
-                              } catch {}
+                              } catch { setRephraseError(true) }
                               finally { setRephraseLoading(false) }
                             }}
                           >
@@ -1396,6 +1401,9 @@ function SceneCard({
                           <div className="suggest-ratelimit-msg">
                             請求過於頻繁，請等 <strong>{rephraseRateLimit}</strong> 秒後再試
                           </div>
+                        )}
+                        {rephraseError && !rephraseLoading && (
+                          <div className="suggest-error">潤色建議生成失敗，請稍後再試</div>
                         )}
                         {rephraseSuggestions.length > 0 && (
                           <div className="rephrase-suggestions">
@@ -1639,6 +1647,7 @@ function SceneCard({
                     if (!char) return
                     setLineSuggestLoading(true)
                     setLineSuggestions([])
+                    setLineSuggestError(false)
                     try {
                       const contextLines = insertAfterIndex !== null
                         ? scene.lines.slice(0, insertAfterIndex + 1)
@@ -1671,8 +1680,10 @@ function SceneCard({
                       } else if (res.ok) {
                         const data = await res.json()
                         setLineSuggestions(data.suggestions ?? [])
+                      } else {
+                        setLineSuggestError(true)
                       }
-                    } catch {}
+                    } catch { setLineSuggestError(true) }
                     finally { setLineSuggestLoading(false) }
                   }}
                 >
@@ -1691,6 +1702,9 @@ function SceneCard({
                 <div className="suggest-ratelimit-msg">
                   請求過於頻繁，請等 <strong>{lineSuggestRateLimit}</strong> 秒後再試
                 </div>
+              )}
+              {lineSuggestError && !lineSuggestLoading && (
+                <div className="suggest-error">台詞建議生成失敗，請稍後再試</div>
               )}
               {lineSuggestions.length > 0 && (
                 <div className="rephrase-suggestions">
