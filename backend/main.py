@@ -218,6 +218,13 @@ ALTER TABLE scenes
   ADD COLUMN IF NOT EXISTS is_locked BOOLEAN NOT NULL DEFAULT FALSE;
 """
 
+# Indexes: created once at startup; IF NOT EXISTS makes them safe to re-run.
+# idx_scenes_project_id  — speeds up every per-project query (get, save, export, delete)
+#                          PostgreSQL does NOT auto-create an index for FK references.
+# idx_projects_updated_at — speeds up list_projects ORDER BY updated_at DESC LIMIT 200
+_IDX_SCENES_PROJECT_ID = "CREATE INDEX IF NOT EXISTS idx_scenes_project_id ON scenes (project_id);"
+_IDX_PROJECTS_UPDATED_AT = "CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON projects (updated_at DESC);"
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _http_client, _db_pool
@@ -242,6 +249,8 @@ async def lifespan(app: FastAPI):
                 await conn.execute(_ALTER_SCENES_TITLE)
                 await conn.execute(_ALTER_SCENES_NOTES)
                 await conn.execute(_ALTER_SCENES_LOCKED)
+                await conn.execute(_IDX_SCENES_PROJECT_ID)
+                await conn.execute(_IDX_PROJECTS_UPDATED_AT)
             logger.info("PostgreSQL pool created and schema applied")
         except Exception as exc:
             logger.warning("Failed to connect to PostgreSQL: %s — DB features disabled", exc)
