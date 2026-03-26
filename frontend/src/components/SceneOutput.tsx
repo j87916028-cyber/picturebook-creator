@@ -2209,6 +2209,28 @@ export default function SceneOutput({
                 </span>
               )}
             </span>
+            {/* Emotional arc bar — one segment per scene, coloured by dominant emotion */}
+            {scenes.length >= 2 && scenes.some(s => s.lines.some(l => l.emotion && l.emotion !== 'neutral')) && (
+              <div
+                className="story-arc-bar"
+                title="故事情感弧線：每一格代表一幕的主要情緒，點擊可跳至該幕"
+              >
+                {scenes.map((scene, i) => {
+                  const dom = dominantEmotion(scene.lines)
+                  const color = EMOTION_COLORS[dom] ?? '#bdbdbd'
+                  const label = EMOTION_LABELS[dom] ?? '😐 平靜'
+                  return (
+                    <div
+                      key={scene.id}
+                      className="arc-segment"
+                      style={{ background: color, flex: 1 }}
+                      title={`第${i + 1}幕${scene.title ? `《${scene.title}》` : ''}：${label}`}
+                      onClick={() => scrollToScene(i)}
+                    />
+                  )
+                })}
+              </div>
+            )}
             {charStats.length > 0 && (
               <div className="stats-chars">
                 {charStats.map(c => (

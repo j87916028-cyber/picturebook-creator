@@ -2833,6 +2833,30 @@ body {
   opacity: 0.85;
 }
 
+/* Story emotional arc bar */
+.story-arc-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  flex: 1;
+  min-width: 80px;
+  gap: 2px;
+  background: #ebebf0;
+  cursor: pointer;
+}
+.arc-segment {
+  height: 100%;
+  border-radius: 2px;
+  opacity: 0.78;
+  transition: opacity 0.15s, transform 0.15s;
+  min-width: 4px;
+}
+.arc-segment:hover {
+  opacity: 1;
+  transform: scaleY(1.25);
+}
+
 /* ── View-mode toggle (detail ↔ storyboard) ─────────────────────── */
 .btn-view-toggle {
   margin-left: auto;
