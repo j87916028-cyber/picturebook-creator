@@ -21,10 +21,17 @@ services:
     ports:
       - "8001:8000"
     environment:
-      - MINIMAX_API_KEY=${MINIMAX_API_KEY}
-      - GROQ_API_KEY=${GROQ_API_KEY}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY:-}
+      - POLLINATIONS_API_KEY=${POLLINATIONS_API_KEY:-}
+      # iFlytek TTS (optional, best Chinese TTS quality)
+      - XFYUN_APP_ID=${XFYUN_APP_ID:-}
+      - XFYUN_API_KEY=${XFYUN_API_KEY:-}
+      - XFYUN_API_SECRET=${XFYUN_API_SECRET:-}
+      # Comma-separated CORS origins (optional, defaults to localhost dev ports)
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
       - DATABASE_URL=postgresql://app:secret@postgres:5432/picturebook
     depends_on:
       postgres:
