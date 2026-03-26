@@ -2823,14 +2823,15 @@ async def save_project_characters(project_id: str, req: SaveCharactersRequest, r
     _db_required()
     _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT id FROM projects WHERE id = $1", project_id)
-        if row is None:
-            raise HTTPException(status_code=404, detail="專案不存在")
-        await conn.execute(
-            "UPDATE projects SET characters = $1::jsonb, updated_at = NOW() WHERE id = $2",
+        # Combine existence check + update into a single round-trip with RETURNING.
+        # Mirrors the pattern used by rename_project; avoids a separate SELECT query.
+        row = await conn.fetchrow(
+            "UPDATE projects SET characters = $1::jsonb, updated_at = NOW() WHERE id = $2 RETURNING id",
             json.dumps([c.model_dump() for c in req.characters], ensure_ascii=False),
             project_id,
         )
+        if row is None:
+            raise HTTPException(status_code=404, detail="專案不存在")
     return {"ok": True}
 
 
