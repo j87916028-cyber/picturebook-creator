@@ -101,6 +101,8 @@ export default function App() {
   const [error, setError] = useState('')
   const [planWarning, setPlanWarning] = useState<'voice' | 'image' | null>(null)
   const voiceDoneRef = useRef(0)
+  const [generateRateLimitSecs, setGenerateRateLimitSecs] = useState(0)
+  const generateRateLimitTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [batchRegenStatus, setBatchRegenStatus] = useState<{ done: number; total: number } | null>(null)
   const [batchImageStatus, setBatchImageStatus] = useState<{ done: number; total: number } | null>(null)
 
@@ -474,6 +476,17 @@ export default function App() {
         signal,
       })
       if (!scriptRes.ok) {
+        if (scriptRes.status === 429) {
+          const wait = parseInt(scriptRes.headers.get('Retry-After') ?? '10', 10)
+          setGenerateRateLimitSecs(wait)
+          if (generateRateLimitTimerRef.current) clearInterval(generateRateLimitTimerRef.current)
+          generateRateLimitTimerRef.current = setInterval(() => {
+            setGenerateRateLimitSecs(prev => {
+              if (prev <= 1) { clearInterval(generateRateLimitTimerRef.current!); generateRateLimitTimerRef.current = null; return 0 }
+              return prev - 1
+            })
+          }, 1000)
+        }
         const body = await scriptRes.json().catch(() => ({}))
         throw new Error(body.detail ?? `劇本生成失敗（${scriptRes.status}）`)
       }
@@ -1699,6 +1712,7 @@ export default function App() {
                 storyContext={storyContext}
                 focusTrigger={editorFocusTrigger}
                 projectId={currentProjectId}
+                generateRateLimitSecs={generateRateLimitSecs}
               />
             </div>
 

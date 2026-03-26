@@ -94,13 +94,13 @@ class _RateLimiter:
         return max(1, int(wait) + 1)
 
 
-def _suggest_429(limiter: _RateLimiter, key: str) -> HTTPException:
+def _rl_429(limiter: _RateLimiter, key: str, detail: str = "請求過於頻繁，請稍後再試") -> HTTPException:
     """Build a 429 HTTPException with a ``Retry-After`` header so the client
     knows exactly how many seconds to wait before retrying."""
     wait = limiter.time_to_next(key)
     return HTTPException(
         status_code=429,
-        detail="請求過於頻繁，請稍後再試",
+        detail=detail,
         headers={"Retry-After": str(wait)},
     )
 
@@ -675,7 +675,7 @@ _VOICE_SAMPLE: dict[str, str] = {
 @app.get("/api/voices/{voice_id}/preview")
 async def voice_preview(voice_id: str, request: Request):
     if not _rl_voice.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+        raise _rl_429(_rl_voice, _client_ip(request))
     if voice_id not in VALID_VOICE_IDS:
         raise HTTPException(status_code=404, detail="找不到此聲音")
     if voice_id in _voice_preview_cache:
@@ -727,7 +727,7 @@ class GenerateTitleRequest(BaseModel):
 @app.post("/api/generate-title")
 async def generate_title(req: GenerateTitleRequest, request: Request):
     if not _rl_title.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+        raise _rl_429(_rl_title, _client_ip(request))
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
     char_names = "、".join(c.name for c in req.characters)
@@ -834,7 +834,7 @@ async def suggest_visual_description(req: SuggestVisualRequest, request: Request
     """Generate an English visual description for a character suitable for image generation."""
     ip = _client_ip(request)
     if not _rl_suggest.is_allowed(ip):
-        raise _suggest_429(_rl_suggest, ip)
+        raise _rl_429(_rl_suggest, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
@@ -871,7 +871,7 @@ async def generate_summary(req: GenerateSummaryRequest, request: Request):
     """Generate a 2–3 sentence summary of the entire story."""
     ip = _client_ip(request)
     if not _rl_suggest.is_allowed(ip):
-        raise _suggest_429(_rl_suggest, ip)
+        raise _rl_429(_rl_suggest, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
@@ -905,7 +905,7 @@ async def suggest_personality(req: SuggestPersonalityRequest, request: Request):
     """Generate a Chinese personality description for a character."""
     ip = _client_ip(request)
     if not _rl_suggest.is_allowed(ip):
-        raise _suggest_429(_rl_suggest, ip)
+        raise _rl_429(_rl_suggest, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
@@ -1048,7 +1048,7 @@ async def _llm_suggestions(
 async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
     ip = _client_ip(request)
     if not _rl_suggest.is_allowed(ip):
-        raise _suggest_429(_rl_suggest, ip)
+        raise _rl_429(_rl_suggest, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
     char_names = "、".join(c.name for c in req.characters)
@@ -1114,7 +1114,7 @@ class SuggestTitleRequest(BaseModel):
 async def suggest_title(req: SuggestTitleRequest, request: Request):
     ip = _client_ip(request)
     if not _rl_suggest.is_allowed(ip):
-        raise _suggest_429(_rl_suggest, ip)
+        raise _rl_429(_rl_suggest, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
@@ -1156,7 +1156,7 @@ async def rephrase_line(req: RephraseLineRequest, request: Request):
     """Return 3 rephrased alternatives for a single dialogue line."""
     ip = _client_ip(request)
     if not _rl_suggest.is_allowed(ip):
-        raise _suggest_429(_rl_suggest, ip)
+        raise _rl_429(_rl_suggest, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
@@ -1203,7 +1203,7 @@ async def suggest_line(req: SuggestLineRequest, request: Request):
     """Return 3 suggested next lines for a given character in the scene context."""
     ip = _client_ip(request)
     if not _rl_suggest.is_allowed(ip):
-        raise _suggest_429(_rl_suggest, ip)
+        raise _rl_429(_rl_suggest, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
@@ -1249,7 +1249,7 @@ async def suggest_line(req: SuggestLineRequest, request: Request):
 @app.post("/api/generate-script", response_model=ScriptResponse)
 async def generate_script(req: GenerateScriptRequest, request: Request):
     if not _rl_script.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+        raise _rl_429(_rl_script, _client_ip(request))
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未正確設定，請聯絡管理員")
 
@@ -1505,7 +1505,7 @@ def _emotion_prosody_params(emotion: Optional[str], voice_id: str = "") -> dict[
 @app.post("/api/generate-voice")
 async def generate_voice(req: GenerateVoiceRequest, request: Request):
     if not _rl_voice.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+        raise _rl_429(_rl_voice, _client_ip(request))
 
     # ── 0. LRU 快取命中（相同 voice_id + emotion + text → 直接返回）──────
     _cache_key = (req.voice_id, req.emotion or "", req.text)
@@ -1903,7 +1903,7 @@ def _generate_scene_image_pillow(prompt: str, width: int = 800, height: int = 60
 @app.post("/api/generate-image")
 async def generate_image(req: GenerateImageRequest, request: Request):
     if not _rl_image.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+        raise _rl_429(_rl_image, _client_ip(request))
 
     # Use the caller-supplied seed for cross-scene consistency; fall back to
     # a random seed when none is provided (e.g. standalone regen without context).
@@ -1987,7 +1987,7 @@ IMAGE_DESCRIBE_PROMPT = (
 @app.post("/api/recognize-image")
 async def recognize_image(request: Request, file: UploadFile = File(...)):
     if not _rl_recognize.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+        raise _rl_429(_rl_recognize, _client_ip(request))
     if not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="GROQ_API_KEY 未設定，服務無法使用")
 
@@ -2066,7 +2066,7 @@ GROQ_TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
 @app.post("/api/transcribe")
 async def transcribe_audio(request: Request, file: UploadFile = File(...)):
     if not _rl_transcribe.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+        raise _rl_429(_rl_transcribe, _client_ip(request))
     if not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="GROQ_API_KEY 未設定，服務無法使用")
 
@@ -2281,7 +2281,7 @@ def _validate_uuid(value: str) -> str:
 @app.get("/api/projects")
 async def list_projects(request: Request):
     if not _rl_project.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+        raise _rl_429(_rl_project, _client_ip(request))
     _db_required()
     async with _db_pool.acquire() as conn:
         rows = await conn.fetch(
@@ -2315,7 +2315,7 @@ async def list_projects(request: Request):
 @app.post("/api/projects", status_code=201)
 async def create_project(req: CreateProjectRequest, request: Request):
     if not _rl_project.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+        raise _rl_429(_rl_project, _client_ip(request))
     _db_required()
     async with _db_pool.acquire() as conn:
         row = await conn.fetchrow(
@@ -2335,7 +2335,7 @@ async def create_project(req: CreateProjectRequest, request: Request):
 async def duplicate_project(project_id: str, request: Request):
     """Deep-copy a project: all scenes, characters, images, and cover thumbnail."""
     if not _rl_project.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+        raise _rl_429(_rl_project, _client_ip(request))
     _db_required()
     _validate_uuid(project_id)
 
@@ -2406,7 +2406,7 @@ async def duplicate_project(project_id: str, request: Request):
 @app.get("/api/projects/{project_id}")
 async def get_project(project_id: str, request: Request):
     if not _rl_project.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+        raise _rl_429(_rl_project, _client_ip(request))
     _db_required()
     _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
@@ -2453,7 +2453,7 @@ class SaveCharactersRequest(BaseModel):
 async def save_project_characters(project_id: str, req: SaveCharactersRequest, request: Request):
     """Persist just the characters list for a project (lightweight, no scene touch)."""
     if not _rl_project.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+        raise _rl_429(_rl_project, _client_ip(request))
     _db_required()
     _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
@@ -2472,7 +2472,7 @@ async def save_project_characters(project_id: str, req: SaveCharactersRequest, r
 @app.patch("/api/projects/{project_id}")
 async def rename_project(project_id: str, req: RenameProjectRequest, request: Request):
     if not _rl_project.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+        raise _rl_429(_rl_project, _client_ip(request))
     _db_required()
     _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
@@ -2499,7 +2499,7 @@ async def rename_project(project_id: str, req: RenameProjectRequest, request: Re
 @app.delete("/api/projects/{project_id}")
 async def delete_project(project_id: str, request: Request):
     if not _rl_project.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+        raise _rl_429(_rl_project, _client_ip(request))
     _db_required()
     _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
@@ -2515,7 +2515,7 @@ async def delete_project(project_id: str, request: Request):
 @app.put("/api/projects/{project_id}/scenes")
 async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request):
     if not _rl_project.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
+        raise _rl_429(_rl_project, _client_ip(request))
     _db_required()
     _validate_uuid(project_id)
 
@@ -3610,7 +3610,7 @@ async def export_project(
     format: _EXPORT_FORMAT = "pdf",
 ):
     if not _rl_export.is_allowed(_client_ip(request)):
-        raise HTTPException(status_code=429, detail="匯出請求過於頻繁，請稍後再試")
+        raise _rl_429(_rl_export, _client_ip(request), "匯出請求過於頻繁，請稍後再試")
     _db_required()
     _validate_uuid(project_id)
 

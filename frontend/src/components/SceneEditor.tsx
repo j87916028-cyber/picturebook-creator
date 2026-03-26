@@ -24,6 +24,7 @@ interface Props {
   storyContext?: string   // context from previous scenes for suggestions
   focusTrigger?: number  // increment to focus the description textarea
   projectId?: string | null  // scope the description draft to the current project
+  generateRateLimitSecs?: number  // countdown from App when generate-script hits 429
 }
 
 const STYLES = ['溫馨童趣', '奇幻冒險', '搞笑幽默', '感動溫情', '懸疑神秘']
@@ -54,6 +55,7 @@ export default function SceneEditor({
   storyContext,
   focusTrigger,
   projectId,
+  generateRateLimitSecs = 0,
 }: Props) {
   // Scope the draft key to the current project so switching projects never
   // leaks a stale description into a different project's editor.
@@ -373,7 +375,7 @@ export default function SceneEditor({
           onKeyDown={e => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
               e.preventDefault()
-              if (!isLoading && droppedCharacters.length > 0 && description.trim()) {
+              if (!isLoading && generateRateLimitSecs <= 0 && droppedCharacters.length > 0 && description.trim()) {
                 onGenerate(description, style, lineLength, false, imageStyle)
               }
             }
@@ -655,9 +657,12 @@ export default function SceneEditor({
               <button
                 className="btn-generate"
                 onClick={() => onGenerate(description, style, lineLength, false, imageStyle)}
-                disabled={droppedCharacters.length === 0 || !description.trim()}
+                disabled={droppedCharacters.length === 0 || !description.trim() || generateRateLimitSecs > 0}
+                title={generateRateLimitSecs > 0 ? `請求過於頻繁，請等 ${generateRateLimitSecs} 秒後再試` : undefined}
               >
-                {sceneCount > 0 ? `✨ 繼續第 ${sceneCount + 1} 幕` : '✨ 生成繪本場景'}
+                {generateRateLimitSecs > 0
+                  ? `⏳ 請稍候 ${generateRateLimitSecs} 秒…`
+                  : sceneCount > 0 ? `✨ 繼續第 ${sceneCount + 1} 幕` : '✨ 生成繪本場景'}
               </button>
               {sceneCount > 0 && (
                 <button
@@ -679,8 +684,8 @@ export default function SceneEditor({
                     const desc = description.trim() || '故事結尾'
                     onGenerate(desc, style, lineLength, true, imageStyle)
                   }}
-                  disabled={droppedCharacters.length === 0}
-                  title="讓 AI 自動為故事寫一個圓滿結尾"
+                  disabled={droppedCharacters.length === 0 || generateRateLimitSecs > 0}
+                  title={generateRateLimitSecs > 0 ? `請稍候 ${generateRateLimitSecs} 秒` : '讓 AI 自動為故事寫一個圓滿結尾'}
                 >
                   🏁 生成結尾
                 </button>
