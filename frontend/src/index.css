@@ -867,8 +867,10 @@ body {
   line-height: 1;
 }
 .undo-toast-dismiss:hover { color: #ccc; }
-/* Scene-level undo toast stacks 68px above the line-level toast */
+/* Scene/char undo toasts stack above the line-level toast */
 .undo-toast-stacked { bottom: 96px; }
+/* Character-level undo toast: teal accent to differentiate from line/scene toasts */
+.undo-toast-char { border-left: 3px solid #38b2ac; }
 
 /* Voice-regen hint toast — appears bottom-right, distinct from undo toasts */
 .voice-regen-toast {

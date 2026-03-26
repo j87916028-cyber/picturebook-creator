@@ -128,6 +128,11 @@ export default function App() {
   const [undoSceneState, setUndoSceneState] = useState<UndoSceneState | null>(null)
   const undoSceneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Undo-delete state for characters: remembers the last deleted character for 5 seconds
+  type UndoCharState = { char: Character; index: number }
+  const [undoCharState, setUndoCharState] = useState<UndoCharState | null>(null)
+  const undoCharTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Voice-regen hint: shown when a character voice change cleared existing audio lines
   const [voiceRegenCount, setVoiceRegenCount] = useState(0)
   const voiceRegenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -605,6 +610,17 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
+  const handleUndoCharDelete = () => {
+    if (!undoCharState) return
+    if (undoCharTimerRef.current) clearTimeout(undoCharTimerRef.current)
+    const { char, index } = undoCharState
+    setUndoCharState(null)
+    const next = [...characters]
+    next.splice(index, 0, char)    // re-insert at original position
+    setCharacters(next)
+    if (currentProjectId) saveCharacters(currentProjectId, next)
+  }
+
   // Reorder scenes by new ID order (from drag-and-drop)
   const handleScenesReorder = (orderedIds: string[]) => {
     const idToScene = new Map(scenes.map(s => [s.id, s]))
@@ -729,9 +745,9 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
-  // Global Ctrl+Z / Cmd+Z: undo the most recent delete (line takes priority over scene)
+  // Global Ctrl+Z / Cmd+Z: undo the most recent delete (line > scene > character priority)
   useEffect(() => {
-    if (!undoState && !undoSceneState) return
+    if (!undoState && !undoSceneState && !undoCharState) return
     const onKeyDown = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.key !== 'z') return
       const target = e.target as Element
@@ -742,11 +758,12 @@ export default function App() {
       ) return
       e.preventDefault()
       if (undoState) handleUndoDelete()
-      else handleUndoSceneDelete()
+      else if (undoSceneState) handleUndoSceneDelete()
+      else handleUndoCharDelete()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [undoState, undoSceneState]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [undoState, undoSceneState, undoCharState]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Append or insert a new dialogue line and generate its voice.
   // insertAfterIndex: undefined = append; number = insert after that line index.
@@ -1593,6 +1610,18 @@ export default function App() {
             onChange={updated => {
               // Build a lookup of what changed from the current characters array
               const prevMap = new Map(characters.map(c => [c.id, c]))
+              const updatedIds = new Set(updated.map(u => u.id))
+
+              // Detect a single-character deletion → arm undo toast
+              const deletedChars = characters.filter(c => !updatedIds.has(c.id))
+              if (deletedChars.length === 1) {
+                const deletedChar = deletedChars[0]
+                const originalIndex = characters.findIndex(c => c.id === deletedChar.id)
+                setUndoCharState({ char: deletedChar, index: originalIndex })
+                if (undoCharTimerRef.current) clearTimeout(undoCharTimerRef.current)
+                undoCharTimerRef.current = setTimeout(() => setUndoCharState(null), 5000)
+              }
+
               const changed = new Map(
                 updated
                   .filter(u => {
@@ -1819,6 +1848,15 @@ export default function App() {
           <span className="undo-toast-msg">🎬 第 {undoSceneState.index + 1} 幕已刪除</span>
           <button className="undo-toast-btn" onClick={handleUndoSceneDelete}>復原 (Ctrl+Z)</button>
           <button className="undo-toast-dismiss" onClick={() => { if (undoSceneTimerRef.current) clearTimeout(undoSceneTimerRef.current); setUndoSceneState(null) }} title="關閉">✕</button>
+        </div>
+      )}
+
+      {/* Undo-delete toast (character) */}
+      {undoCharState && (
+        <div className={`undo-toast undo-toast-char${undoState || undoSceneState ? ' undo-toast-stacked' : ''}`}>
+          <span className="undo-toast-msg">👤 角色「{undoCharState.char.emoji} {undoCharState.char.name}」已刪除</span>
+          <button className="undo-toast-btn" onClick={handleUndoCharDelete}>復原 (Ctrl+Z)</button>
+          <button className="undo-toast-dismiss" onClick={() => { if (undoCharTimerRef.current) clearTimeout(undoCharTimerRef.current); setUndoCharState(null) }} title="關閉">✕</button>
         </div>
       )}
 
