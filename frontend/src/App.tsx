@@ -48,13 +48,23 @@ function buildStoryContext(scenes: Scene[], endIndex?: number): string | undefin
 
   // All `story_context` backend fields are capped at 5000 chars (Pydantic max_length).
   // For long stories, including every scene can exceed this limit and cause 422 errors.
-  // Keep only the most recent 8 scenes — they provide the most useful continuity signal;
-  // earlier scenes add little narrative value and inflate the context size rapidly.
+  // Strategy: always include scene 1 (story setup — world, characters, tone) + the last
+  // MAX_SCENES-1 scenes (continuity).  Sending only the tail loses the opening context
+  // that anchors the AI's understanding of the story; scene 1 costs only one slot.
   const MAX_SCENES = 8
-  const offset = relevant.length > MAX_SCENES ? relevant.length - MAX_SCENES : 0
-  const recent  = relevant.slice(-MAX_SCENES)
 
-  const context = recent.map((s, i) => {
+  let selected: Array<{ scene: Scene; num: number }>
+  if (relevant.length <= MAX_SCENES) {
+    selected = relevant.map((s, i) => ({ scene: s, num: i + 1 }))
+  } else {
+    const tailStart = relevant.length - (MAX_SCENES - 1)
+    selected = [
+      { scene: relevant[0], num: 1 },
+      ...relevant.slice(tailStart).map((s, i) => ({ scene: s, num: tailStart + i + 1 })),
+    ]
+  }
+
+  const context = selected.map(({ scene: s, num }) => {
     const lines = s.lines.filter(l => l.text)
     const first = lines[0]
     const last  = lines.length > 1 ? lines[lines.length - 1] : null
@@ -63,7 +73,7 @@ function buildStoryContext(scenes: Scene[], endIndex?: number): string | undefin
       .map(l => `${l.character_name}：「${l.text}」`)
       .join('…')
     const titlePart = s.title ? `《${s.title}》` : ''
-    return `第${offset + i + 1}幕${titlePart}（${s.description}）：${snippets || '（生成中）'}`
+    return `第${num}幕${titlePart}（${s.description}）：${snippets || '（生成中）'}`
   }).join('\n')
 
   // Hard safety cap: description / line text can be long; truncate rather than 422.
