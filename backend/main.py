@@ -1451,7 +1451,7 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
       "character_id": "角色ID（原封不動複製）",
       "voice_id": "聲音ID（原封不動複製）",
       "text": "這個角色說的話（自然口語，適合大聲朗讀）",
-      "emotion": "happy|sad|surprised|angry|neutral 其中一個"
+      "emotion": "happy|sad|angry|surprised|fearful|disgusted|neutral 其中一個（開心|難過|生氣|驚訝|害怕|厭惡|平靜）"
     }}
   ],
   "scene_prompt": "English image generation prompt for FLUX AI, {_img_style} style.{_char_visual_note} Describe each character's exact visual details first (body shape, colors, clothing, accessories, expression), then the scene background and mood. Use specific visual adjectives. 40-70 words total.",
