@@ -2594,6 +2594,15 @@ body {
 }
 .export-menu button:hover { background: #f0f4ff; color: #667eea; }
 .export-menu-divider { border: none; border-top: 1px solid #eee; margin: 4px 6px; }
+.export-menu-row { display: flex; align-items: stretch; gap: 2px; }
+.export-menu-row-main { flex: 1; }
+.export-menu-preview-btn {
+  flex-shrink: 0; width: auto !important; padding: 9px 10px !important;
+  background: #f0f4ff !important; color: #667eea !important;
+  border: 1px solid #c8d4f0 !important; border-radius: 8px !important;
+  font-size: 0.8rem !important; font-weight: 600; white-space: nowrap;
+}
+.export-menu-preview-btn:hover { background: #e0e8ff !important; }
 
 /* ── AI Title Suggest ──────────────────────────── */
 .title-suggest-wrap {

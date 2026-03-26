@@ -1978,7 +1978,14 @@ export default function App() {
                 <div className="export-menu">
                   <button onClick={() => handleExport('pdf')}>📄 PDF（印刷/Gumroad）</button>
                   <button onClick={() => handleExport('epub')}>📚 EPUB 3（Apple Books/Kobo）</button>
-                  <button onClick={() => handleExport('html')}>🌐 HTML（互動網頁版）</button>
+                  <div className="export-menu-row">
+                    <button className="export-menu-row-main" onClick={() => handleExport('html')}>🌐 HTML（互動網頁版）</button>
+                    <button
+                      className="export-menu-preview-btn"
+                      onClick={() => { setExportOpen(false); window.open(`/api/projects/${currentProjectId}/export?format=html&inline=true`, '_blank') }}
+                      title="在新分頁預覽互動網頁版（不下載）"
+                    >預覽</button>
+                  </div>
                   <button onClick={() => handleExport('mp3')}>🎵 MP3 音檔包</button>
                   <button onClick={() => handleExport('md')}>🔖 Markdown（Notion/GitHub）</button>
                   <button onClick={() => handleExport('txt')}>📝 純文字稿本</button>

@@ -4173,6 +4173,7 @@ async def export_project(
     request: Request,
     project_id: str,
     format: _EXPORT_FORMAT = "pdf",
+    inline: bool = False,
 ):
     ip = _client_ip(request)
     if not _rl_export.is_allowed(ip):
@@ -4262,10 +4263,13 @@ async def export_project(
         media_type = "text/plain; charset=utf-8"
         filename = f"{project_name}_劇本.txt"
 
-    # URL-encode filename for Content-Disposition
+    # URL-encode filename for Content-Disposition (RFC 5987)
     encoded_filename = urllib.parse.quote(filename)
+    # `inline=True` is intended for HTML previews opened in a new browser tab;
+    # the browser renders the document instead of triggering a download.
+    disposition = "inline" if (inline and format == "html") else "attachment"
     headers = {
-        "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}",
+        "Content-Disposition": f"{disposition}; filename*=UTF-8''{encoded_filename}",
         "Content-Length": str(len(data)),
     }
     return StreamingResponse(io.BytesIO(data), media_type=media_type, headers=headers)
