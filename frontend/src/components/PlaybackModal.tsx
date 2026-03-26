@@ -118,7 +118,7 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
   const togglePlay = useCallback(() => {
     setPlaying(p => {
       if (p) audioRef.current?.pause()
-      else audioRef.current?.play()
+      else audioRef.current?.play().catch(() => {})
       return !p
     })
   }, [])
@@ -128,7 +128,11 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
     if (!currentLine?.audio_base64) return
     const src = `data:audio/${currentLine.audio_format || 'mp3'};base64,${currentLine.audio_base64}`
     if (audioRef.current) {
+      // Pause first to cancel any in-flight play() Promise before changing src,
+      // preventing AbortError in browsers that enforce the play/pause ordering rule.
+      audioRef.current.pause()
       audioRef.current.src = src
+      audioRef.current.currentTime = 0
       audioRef.current.playbackRate = speed
       if (playing) {
         audioRef.current.play().catch(() => {})
