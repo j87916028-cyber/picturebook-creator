@@ -287,10 +287,11 @@ export default function App() {
       voices_attempted: true,  // scenes from DB are fully generated
     }))
     setScenes(loaded)
+    // Always replace characters with the loaded project's list — including empty [].
+    // The previous guard (length > 0) caused cross-project leakage: switching to a
+    // new/empty project left the previous project's characters visible.
     const loadedChars = proj.characters ?? []
-    if (loadedChars.length > 0) {
-      setCharacters(loadedChars)
-    }
+    setCharacters(loadedChars)
 
     // Restore drop zone: use the characters that appeared in the last scene so the
     // user can immediately continue generating without having to re-drag.
@@ -1611,6 +1612,8 @@ export default function App() {
     setCurrentProjectId(id || null)
     setProjectName(name)
     setScenes([])
+    setCharacters([])
+    setDroppedCharacters([])
     setError('')
     setPlanWarning(null)
   }
