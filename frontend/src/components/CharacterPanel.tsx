@@ -171,10 +171,13 @@ function CharacterForm({
   const [emojiTab, setEmojiTab] = useState(0)
   const [suggestingVisual, setSuggestingVisual] = useState(false)
   const [suggestingPersonality, setSuggestingPersonality] = useState(false)
+  const [personalityError, setPersonalityError] = useState<string | null>(null)
+  const [visualError, setVisualError] = useState<string | null>(null)
 
   const handleSuggestPersonality = async () => {
     if (!form.name.trim() || suggestingPersonality) return
     setSuggestingPersonality(true)
+    setPersonalityError(null)
     try {
       const res = await fetch('/api/suggest-personality', {
         method: 'POST',
@@ -185,12 +188,22 @@ function CharacterForm({
           style: localStorage.getItem('scene_style') || '溫馨童趣',
         }),
       })
-      if (!res.ok) return
-      const data = await res.json()
-      if (data.personality) {
-        setForm(f => ({ ...f, personality: data.personality.slice(0, 100) }))
+      if (res.status === 429) {
+        const wait = parseInt(res.headers.get('Retry-After') ?? '10', 10)
+        const msg = `請求過於頻繁，請 ${wait} 秒後再試`
+        setPersonalityError(msg)
+        setTimeout(() => setPersonalityError(e => e === msg ? null : e), wait * 1000)
+      } else if (res.ok) {
+        const data = await res.json()
+        if (data.personality) setForm(f => ({ ...f, personality: data.personality.slice(0, 100) }))
+      } else {
+        setPersonalityError('個性建議生成失敗，請稍後再試')
+        setTimeout(() => setPersonalityError(null), 5000)
       }
-    } catch {} finally {
+    } catch {
+      setPersonalityError('個性建議生成失敗，請確認網路連線')
+      setTimeout(() => setPersonalityError(null), 5000)
+    } finally {
       setSuggestingPersonality(false)
     }
   }
@@ -198,6 +211,7 @@ function CharacterForm({
   const handleSuggestVisual = async () => {
     if (!form.name.trim() || suggestingVisual) return
     setSuggestingVisual(true)
+    setVisualError(null)
     try {
       const res = await fetch('/api/suggest-visual-description', {
         method: 'POST',
@@ -209,12 +223,22 @@ function CharacterForm({
           style: localStorage.getItem('scene_style') || '溫馨童趣',
         }),
       })
-      if (!res.ok) return
-      const data = await res.json()
-      if (data.description) {
-        setForm(f => ({ ...f, visual_description: data.description.slice(0, 200) }))
+      if (res.status === 429) {
+        const wait = parseInt(res.headers.get('Retry-After') ?? '10', 10)
+        const msg = `請求過於頻繁，請 ${wait} 秒後再試`
+        setVisualError(msg)
+        setTimeout(() => setVisualError(e => e === msg ? null : e), wait * 1000)
+      } else if (res.ok) {
+        const data = await res.json()
+        if (data.description) setForm(f => ({ ...f, visual_description: data.description.slice(0, 200) }))
+      } else {
+        setVisualError('外形描述生成失敗，請稍後再試')
+        setTimeout(() => setVisualError(null), 5000)
       }
-    } catch {} finally {
+    } catch {
+      setVisualError('外形描述生成失敗，請確認網路連線')
+      setTimeout(() => setVisualError(null), 5000)
+    } finally {
       setSuggestingVisual(false)
     }
   }
@@ -276,6 +300,7 @@ function CharacterForm({
             {suggestingPersonality ? <span className="spinner-sm" /> : '✨ AI'}
           </button>
         </div>
+        {personalityError && <div className="suggest-error">{personalityError}</div>}
       </div>
       <div className="form-row">
         <label>
@@ -299,6 +324,7 @@ function CharacterForm({
             {suggestingVisual ? <span className="spinner-sm" /> : '✨ AI'}
           </button>
         </div>
+        {visualError && <div className="suggest-error">{visualError}</div>}
       </div>
       <div className="form-row">
         <label>角色顏色</label>
