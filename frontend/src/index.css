@@ -228,6 +228,13 @@ body {
   opacity: 0.35; transition: opacity 0.15s;
 }
 .card-duplicate:hover { opacity: 1; }
+.card-library {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.82rem; padding: 2px 4px; line-height: 1;
+  opacity: 0.35; transition: opacity 0.15s;
+}
+.card-library:hover { opacity: 1; }
+.card-library.in-library { opacity: 0.9; }
 .card-delete {
   background: none; border: none; cursor: pointer;
   color: #ccc; font-size: 1.2rem; padding: 0 4px;
@@ -453,6 +460,71 @@ body {
   margin-left: 2px;
   color: #aaa;
 }
+
+/* ── Character Library ───────────────────────── */
+.library-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.library-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 0;
+}
+.library-entry {
+  display: flex;
+  align-items: stretch;
+  border: 1.5px solid;
+  border-radius: 20px;
+  overflow: hidden;
+  background: white;
+  transition: box-shadow 0.15s;
+}
+.library-entry:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+.library-entry-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+  transition: background 0.15s;
+}
+.library-entry-main:hover:not(:disabled) { background: rgba(0,0,0,0.03); }
+.library-entry-main:disabled { cursor: default; opacity: 0.65; }
+.library-entry-main.in-project { opacity: 0.65; cursor: default; }
+.library-entry-emoji { font-size: 1rem; flex-shrink: 0; }
+.library-entry-name { font-size: 0.82rem; font-weight: 700; flex-shrink: 0; }
+.library-entry-personality {
+  font-size: 0.72rem;
+  color: #999;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+.library-status-in { margin-left: auto; font-size: 0.75rem; color: #22c55e; font-weight: 700; flex-shrink: 0; }
+.library-status-add { margin-left: auto; font-size: 0.9rem; color: #667eea; flex-shrink: 0; }
+.library-entry-delete {
+  padding: 0 10px;
+  background: none;
+  border: none;
+  border-left: 1px solid rgba(0,0,0,0.08);
+  cursor: pointer;
+  color: #ccc;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, background 0.15s;
+}
+.library-entry-delete:hover { color: #ef4444; background: #fef2f2; }
 
 /* ── Right Panel ─────────────────────────────── */
 .right-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }

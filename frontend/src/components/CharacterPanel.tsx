@@ -350,6 +350,17 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showPresets, setShowPresets] = useState(false)
 
+  // Cross-project character library (persisted to localStorage)
+  const [library, setLibrary] = useState<Character[]>(() => {
+    try { return JSON.parse(localStorage.getItem('character_library') || '[]') }
+    catch { return [] }
+  })
+  const [showLibrary, setShowLibrary] = useState(false)
+
+  useEffect(() => {
+    localStorage.setItem('character_library', JSON.stringify(library))
+  }, [library])
+
   useEffect(() => {
     fetch('/api/voices')
       .then(r => r.json())
@@ -435,6 +446,21 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
     onChange([...characters, newChar])
   }
 
+  // Save a character to the cross-project library (dedup by name)
+  const handleSaveToLibrary = (char: Character) => {
+    if (library.some(c => c.name === char.name)) return
+    setLibrary(prev => [...prev, char])
+  }
+
+  // Load a character from library into current project (new ID to avoid conflicts)
+  const handleLoadFromLibrary = (char: Character) => {
+    if (characters.some(c => c.name === char.name)) return
+    onChange([...characters, {
+      ...char,
+      id: `char_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    }])
+  }
+
   return (
     <div className="character-panel">
       <div className="panel-header">
@@ -457,6 +483,8 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
               voiceLabel={voices.find(v => v.id === c.voice_id)?.label}
               isInScene={droppedCharacterIds.includes(c.id)}
               onAddToScene={onAddToScene ? () => onAddToScene(c) : undefined}
+              onSaveToLibrary={() => handleSaveToLibrary(c)}
+              isInLibrary={library.some(l => l.name === c.name)}
             />
             {editingId === c.id && (
               <CharacterForm
@@ -504,6 +532,48 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
           </div>
         )}
       </div>
+
+      {/* Cross-project character library */}
+      {library.length > 0 && (
+        <div className="library-section">
+          <button
+            className="btn-preset-toggle"
+            onClick={() => setShowLibrary(v => !v)}
+            title="從角色庫載入跨專案保存的角色"
+          >
+            {showLibrary ? '▲' : '▼'} 我的角色庫（{library.length}）
+          </button>
+          {showLibrary && (
+            <div className="library-chips">
+              {library.map(char => {
+                const inProject = characters.some(c => c.name === char.name)
+                return (
+                  <div key={char.id} className="library-entry" style={{ borderColor: char.color }}>
+                    <button
+                      className={`library-entry-main${inProject ? ' in-project' : ''}`}
+                      onClick={() => handleLoadFromLibrary(char)}
+                      disabled={inProject}
+                      title={inProject ? '已在當前專案的角色列表中' : `新增「${char.name}」到本專案`}
+                    >
+                      <span className="library-entry-emoji">{char.emoji}</span>
+                      <span className="library-entry-name" style={{ color: char.color }}>{char.name}</span>
+                      <span className="library-entry-personality">{char.personality}</span>
+                      {inProject
+                        ? <span className="library-status-in">✓</span>
+                        : <span className="library-status-add">＋</span>}
+                    </button>
+                    <button
+                      className="library-entry-delete"
+                      onClick={() => setLibrary(prev => prev.filter(c => c.id !== char.id))}
+                      title={`從角色庫移除「${char.name}」`}
+                    >×</button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {showAddForm ? (
         <CharacterForm

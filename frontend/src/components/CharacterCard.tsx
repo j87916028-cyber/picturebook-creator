@@ -16,9 +16,11 @@ interface Props {
   voiceLabel?: string     // display name of the assigned voice
   isInScene?: boolean     // whether this character is already in the scene drop zone
   onAddToScene?: () => void  // click-to-add fallback (mobile / accessibility)
+  onSaveToLibrary?: () => void  // save this character to the cross-project library
+  isInLibrary?: boolean         // whether this character is already in the library
 }
 
-export default function CharacterCard({ character, onDelete, onEdit, onDuplicate, onMoveUp, onMoveDown, isDragging = false, lineCount, sceneIndices, voiceLabel, isInScene, onAddToScene }: Props) {
+export default function CharacterCard({ character, onDelete, onEdit, onDuplicate, onMoveUp, onMoveDown, isDragging = false, lineCount, sceneIndices, voiceLabel, isInScene, onAddToScene, onSaveToLibrary, isInLibrary }: Props) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: character.id,
     data: { character },
@@ -156,6 +158,13 @@ export default function CharacterCard({ character, onDelete, onEdit, onDuplicate
           onClick={e => { e.stopPropagation(); onDuplicate(character.id) }}
           title="複製角色"
         >📋</button>
+        {onSaveToLibrary && (
+          <button
+            className={`card-library${isInLibrary ? ' in-library' : ''}`}
+            onClick={e => { e.stopPropagation(); if (!isInLibrary) onSaveToLibrary() }}
+            title={isInLibrary ? '已存入角色庫' : '存入我的角色庫（跨專案保存）'}
+          >{isInLibrary ? '🔖' : '📚'}</button>
+        )}
         <button
           className={`card-delete${confirmDelete ? ' confirm' : ''}`}
           onClick={handleDeleteClick}
