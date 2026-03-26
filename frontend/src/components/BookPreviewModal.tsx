@@ -26,6 +26,10 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
   // When autoPlay is active, advance through lines automatically
   const autoPlayRef = useRef(false)
   const [autoPlaying, setAutoPlaying] = useState(false)
+  // Cross-scene autoplay: set to true when the last line of a scene ends and there are more scenes
+  const pendingAutoStartRef = useRef(false)
+  // Incrementing counter that triggers the cross-scene auto-start effect
+  const [autoStartTrigger, setAutoStartTrigger] = useState(0)
 
   const scene = scenes[page]
   const imgSrc = scene?.image ? resolveImgSrc(scene.image) : ''
@@ -39,20 +43,28 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
     }
     setPlayingLine(null)
     autoPlayRef.current = false
+    pendingAutoStartRef.current = false
     setAutoPlaying(false)
   }, [])
 
-  // Reset image-loaded flag, scroll back to top, stop audio, and close zoom when page changes
+  // Reset image-loaded flag, scroll back to top, stop audio, and close zoom when page changes.
+  // If pendingAutoStartRef is set, signal the auto-start effect instead of doing a full stop.
   useEffect(() => {
     setImgLoaded(false)
     setZoomedImg(false)
     if (textRef.current) textRef.current.scrollTop = 0
-    stopAudio()
+    const shouldContinue = pendingAutoStartRef.current
+    pendingAutoStartRef.current = false
+    stopAudio()                // clears autoPlayRef + setAutoPlaying(false)
+    if (shouldContinue) {
+      setAutoStartTrigger(n => n + 1)   // triggers the cross-scene auto-start effect below
+    }
   }, [page, stopAudio])
 
   const handleDownloadImage = () => {
     if (!imgSrc) return
-    const filename = `第${page + 1}幕插圖`
+    const titleSuffix = scene?.title ? `_${scene.title}` : ''
+    const filename = `第${page + 1}幕${titleSuffix}插圖`
     if (imgSrc.startsWith('data:')) {
       const ext = imgSrc.match(/^data:image\/(\w+)/)?.[1] ?? 'png'
       const a = document.createElement('a')
@@ -109,8 +121,14 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
           (l, i) => i > lineIdx && !!l.audio_base64
         )
         if (nextIdx >= 0) {
+          // More lines in this scene
           playLine(nextIdx)
+        } else if (page < scenes.length - 1) {
+          // Last line of scene — advance to next scene and continue playing
+          pendingAutoStartRef.current = true
+          setPage(p => p + 1)
         } else {
+          // Story finished
           autoPlayRef.current = false
           setAutoPlaying(false)
         }
@@ -143,6 +161,18 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
     setAutoPlaying(true)
     playLine(firstIdx)
   }, [autoPlaying, scene, stopAudio, playLine])
+
+  // Cross-scene auto-start: fires after page advances from a cross-scene autoplay signal.
+  // autoStartTrigger increments in the page-change effect when pendingAutoStartRef was true.
+  // By the time this effect runs, scene/playLine are already updated for the new page.
+  useEffect(() => {
+    if (autoStartTrigger === 0 || !scene) return
+    const firstIdx = scene.lines.findIndex(l => !!l.audio_base64)
+    if (firstIdx < 0) return
+    autoPlayRef.current = true
+    setAutoPlaying(true)
+    playLine(firstIdx)
+  }, [autoStartTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasAnyAudio = scene?.lines.some(l => !!l.audio_base64) ?? false
 
@@ -196,7 +226,7 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
             <button
               className={`book-auto-play-btn${autoPlaying ? ' playing' : ''}`}
               onClick={handleAutoPlay}
-              title={autoPlaying ? '停止播放（Space）' : '自動朗讀此幕（Space）'}
+              title={autoPlaying ? '停止播放（Space）' : page < scenes.length - 1 ? '自動朗讀（可跨幕連續播放，Space）' : '自動朗讀此幕（Space）'}
             >
               {autoPlaying ? '⏹ 停止' : '▶ 朗讀'}
             </button>
