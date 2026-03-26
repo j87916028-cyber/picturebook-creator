@@ -675,8 +675,9 @@ _VOICE_SAMPLE: dict[str, str] = {
 
 @app.get("/api/voices/{voice_id}/preview")
 async def voice_preview(voice_id: str, request: Request):
-    if not _rl_voice.is_allowed(_client_ip(request)):
-        raise _rl_429(_rl_voice, _client_ip(request))
+    ip = _client_ip(request)
+    if not _rl_voice.is_allowed(ip):
+        raise _rl_429(_rl_voice, ip)
     if voice_id not in VALID_VOICE_IDS:
         raise HTTPException(status_code=404, detail="找不到此聲音")
     if voice_id in _voice_preview_cache:
@@ -727,8 +728,9 @@ class GenerateTitleRequest(BaseModel):
 
 @app.post("/api/generate-title")
 async def generate_title(req: GenerateTitleRequest, request: Request):
-    if not _rl_title.is_allowed(_client_ip(request)):
-        raise _rl_429(_rl_title, _client_ip(request))
+    ip = _client_ip(request)
+    if not _rl_title.is_allowed(ip):
+        raise _rl_429(_rl_title, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
     char_names = "、".join(c.name for c in req.characters)
@@ -1249,8 +1251,9 @@ async def suggest_line(req: SuggestLineRequest, request: Request):
 
 @app.post("/api/generate-script", response_model=ScriptResponse)
 async def generate_script(req: GenerateScriptRequest, request: Request):
-    if not _rl_script.is_allowed(_client_ip(request)):
-        raise _rl_429(_rl_script, _client_ip(request))
+    ip = _client_ip(request)
+    if not _rl_script.is_allowed(ip):
+        raise _rl_429(_rl_script, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未正確設定，請聯絡管理員")
 
@@ -1508,8 +1511,9 @@ def _emotion_prosody_params(emotion: Optional[str], voice_id: str = "") -> dict[
 # 優先順序：科大訊飛（設定後）→ Edge TTS → Groq Orpheus（緊急備用）
 @app.post("/api/generate-voice")
 async def generate_voice(req: GenerateVoiceRequest, request: Request):
-    if not _rl_voice.is_allowed(_client_ip(request)):
-        raise _rl_429(_rl_voice, _client_ip(request))
+    ip = _client_ip(request)
+    if not _rl_voice.is_allowed(ip):
+        raise _rl_429(_rl_voice, ip)
 
     # ── 0. LRU 快取命中（相同 voice_id + emotion + text → 直接返回）──────
     _cache_key = (req.voice_id, req.emotion or "", req.text)
@@ -1906,8 +1910,9 @@ def _generate_scene_image_pillow(prompt: str, width: int = 800, height: int = 60
 # ── 端點：生成場景圖片（HuggingFace → Pollinations → Pillow）─────────
 @app.post("/api/generate-image")
 async def generate_image(req: GenerateImageRequest, request: Request):
-    if not _rl_image.is_allowed(_client_ip(request)):
-        raise _rl_429(_rl_image, _client_ip(request))
+    ip = _client_ip(request)
+    if not _rl_image.is_allowed(ip):
+        raise _rl_429(_rl_image, ip)
 
     # Use the caller-supplied seed for cross-scene consistency; fall back to
     # a random seed when none is provided (e.g. standalone regen without context).
@@ -1990,8 +1995,9 @@ IMAGE_DESCRIBE_PROMPT = (
 
 @app.post("/api/recognize-image")
 async def recognize_image(request: Request, file: UploadFile = File(...)):
-    if not _rl_recognize.is_allowed(_client_ip(request)):
-        raise _rl_429(_rl_recognize, _client_ip(request))
+    ip = _client_ip(request)
+    if not _rl_recognize.is_allowed(ip):
+        raise _rl_429(_rl_recognize, ip)
     if not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="GROQ_API_KEY 未設定，服務無法使用")
 
@@ -2069,8 +2075,9 @@ GROQ_TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
 
 @app.post("/api/transcribe")
 async def transcribe_audio(request: Request, file: UploadFile = File(...)):
-    if not _rl_transcribe.is_allowed(_client_ip(request)):
-        raise _rl_429(_rl_transcribe, _client_ip(request))
+    ip = _client_ip(request)
+    if not _rl_transcribe.is_allowed(ip):
+        raise _rl_429(_rl_transcribe, ip)
     if not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="GROQ_API_KEY 未設定，服務無法使用")
 
@@ -2284,8 +2291,9 @@ def _validate_uuid(value: str) -> str:
 # ── GET /api/projects ─────────────────────────────────────────
 @app.get("/api/projects")
 async def list_projects(request: Request):
-    if not _rl_project.is_allowed(_client_ip(request)):
-        raise _rl_429(_rl_project, _client_ip(request))
+    ip = _client_ip(request)
+    if not _rl_project.is_allowed(ip):
+        raise _rl_429(_rl_project, ip)
     _db_required()
     async with _db_pool.acquire() as conn:
         rows = await conn.fetch(
@@ -2318,8 +2326,9 @@ async def list_projects(request: Request):
 # ── POST /api/projects ────────────────────────────────────────
 @app.post("/api/projects", status_code=201)
 async def create_project(req: CreateProjectRequest, request: Request):
-    if not _rl_project.is_allowed(_client_ip(request)):
-        raise _rl_429(_rl_project, _client_ip(request))
+    ip = _client_ip(request)
+    if not _rl_project.is_allowed(ip):
+        raise _rl_429(_rl_project, ip)
     _db_required()
     async with _db_pool.acquire() as conn:
         row = await conn.fetchrow(
@@ -2338,8 +2347,9 @@ async def create_project(req: CreateProjectRequest, request: Request):
 @app.post("/api/projects/{project_id}/duplicate", status_code=201)
 async def duplicate_project(project_id: str, request: Request):
     """Deep-copy a project: all scenes, characters, images, and cover thumbnail."""
-    if not _rl_project.is_allowed(_client_ip(request)):
-        raise _rl_429(_rl_project, _client_ip(request))
+    ip = _client_ip(request)
+    if not _rl_project.is_allowed(ip):
+        raise _rl_429(_rl_project, ip)
     _db_required()
     _validate_uuid(project_id)
 
@@ -2409,8 +2419,9 @@ async def duplicate_project(project_id: str, request: Request):
 # ── GET /api/projects/{project_id} ───────────────────────────
 @app.get("/api/projects/{project_id}")
 async def get_project(project_id: str, request: Request):
-    if not _rl_project.is_allowed(_client_ip(request)):
-        raise _rl_429(_rl_project, _client_ip(request))
+    ip = _client_ip(request)
+    if not _rl_project.is_allowed(ip):
+        raise _rl_429(_rl_project, ip)
     _db_required()
     _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
@@ -2456,8 +2467,9 @@ class SaveCharactersRequest(BaseModel):
 @app.put("/api/projects/{project_id}/characters")
 async def save_project_characters(project_id: str, req: SaveCharactersRequest, request: Request):
     """Persist just the characters list for a project (lightweight, no scene touch)."""
-    if not _rl_project.is_allowed(_client_ip(request)):
-        raise _rl_429(_rl_project, _client_ip(request))
+    ip = _client_ip(request)
+    if not _rl_project.is_allowed(ip):
+        raise _rl_429(_rl_project, ip)
     _db_required()
     _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
@@ -2475,8 +2487,9 @@ async def save_project_characters(project_id: str, req: SaveCharactersRequest, r
 # ── PATCH /api/projects/{project_id} ─────────────────────────
 @app.patch("/api/projects/{project_id}")
 async def rename_project(project_id: str, req: RenameProjectRequest, request: Request):
-    if not _rl_project.is_allowed(_client_ip(request)):
-        raise _rl_429(_rl_project, _client_ip(request))
+    ip = _client_ip(request)
+    if not _rl_project.is_allowed(ip):
+        raise _rl_429(_rl_project, ip)
     _db_required()
     _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
@@ -2502,8 +2515,9 @@ async def rename_project(project_id: str, req: RenameProjectRequest, request: Re
 # ── DELETE /api/projects/{project_id} ────────────────────────
 @app.delete("/api/projects/{project_id}")
 async def delete_project(project_id: str, request: Request):
-    if not _rl_project.is_allowed(_client_ip(request)):
-        raise _rl_429(_rl_project, _client_ip(request))
+    ip = _client_ip(request)
+    if not _rl_project.is_allowed(ip):
+        raise _rl_429(_rl_project, ip)
     _db_required()
     _validate_uuid(project_id)
     async with _db_pool.acquire() as conn:
@@ -2518,8 +2532,9 @@ async def delete_project(project_id: str, request: Request):
 # ── PUT /api/projects/{project_id}/scenes ────────────────────
 @app.put("/api/projects/{project_id}/scenes")
 async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request):
-    if not _rl_project.is_allowed(_client_ip(request)):
-        raise _rl_429(_rl_project, _client_ip(request))
+    ip = _client_ip(request)
+    if not _rl_project.is_allowed(ip):
+        raise _rl_429(_rl_project, ip)
     _db_required()
     _validate_uuid(project_id)
 
@@ -3693,8 +3708,9 @@ async def export_project(
     project_id: str,
     format: _EXPORT_FORMAT = "pdf",
 ):
-    if not _rl_export.is_allowed(_client_ip(request)):
-        raise _rl_429(_rl_export, _client_ip(request), "匯出請求過於頻繁，請稍後再試")
+    ip = _client_ip(request)
+    if not _rl_export.is_allowed(ip):
+        raise _rl_429(_rl_export, ip, "匯出請求過於頻繁，請稍後再試")
     _db_required()
     _validate_uuid(project_id)
 
