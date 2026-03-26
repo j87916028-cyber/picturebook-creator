@@ -296,7 +296,7 @@ interface Props {
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
   onSceneTitleUpdate: (sceneId: string, newTitle: string) => void
   onSceneNotesUpdate: (sceneId: string, newNotes: string) => void
-  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string) => Promise<void>
+  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string, lineCount?: string) => Promise<void>
   onSceneLockToggle: (sceneId: string) => void
   onBatchRegenVoice: () => void
   onSceneRegenAllVoices: (sceneId: string) => Promise<void>
@@ -341,7 +341,7 @@ interface SceneCardProps {
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
   onSceneTitleUpdate: (sceneId: string, newTitle: string) => void
   onSceneNotesUpdate: (sceneId: string, newNotes: string) => void
-  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string) => Promise<void>
+  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string, lineCount?: string) => Promise<void>
   onSceneLockToggle: (sceneId: string) => void
   onSceneRegenAllVoices: (sceneId: string) => Promise<void>
   onFocusScene: () => void
@@ -524,6 +524,10 @@ function SceneCard({
   const [regenMood, setRegenMood] = useState<string>(
     () => localStorage.getItem('scene_mood') ?? ''
   )
+  const [regenLineCount, setRegenLineCount] = useState<'few' | 'standard' | 'many'>(() => {
+    const saved = localStorage.getItem('scene_line_count')
+    return (saved === 'few' || saved === 'many') ? saved : 'standard'
+  })
   // Persist regen-form selections so they survive page refresh and stay in sync
   // with SceneEditor (which reads these same keys on init).
   useEffect(() => { localStorage.setItem('scene_image_style', regenImageStyle) }, [regenImageStyle])
@@ -531,6 +535,7 @@ function SceneCard({
     if (regenMood) localStorage.setItem('scene_mood', regenMood)
     else localStorage.removeItem('scene_mood')
   }, [regenMood])
+  useEffect(() => { localStorage.setItem('scene_line_count', regenLineCount) }, [regenLineCount])
   const [regenLoading, setRegenLoading] = useState(false)
   const [regenError, setRegenError] = useState<string | null>(null)
   const [regenAllVoicesLoading, setRegenAllVoicesLoading] = useState(false)
@@ -763,7 +768,7 @@ function SceneCard({
     setRegenLoading(true)
     setRegenError(null)
     try {
-      await onSceneRegen(scene.id, regenDesc.trim(), regenStyle, regenLineLength, regenImageStyle, regenMood || undefined)
+      await onSceneRegen(scene.id, regenDesc.trim(), regenStyle, regenLineLength, regenImageStyle, regenMood || undefined, regenLineCount)
       setShowRegenForm(false)
     } catch (e) {
       setRegenError(e instanceof Error ? e.message : '重新生成失敗，請稍後重試')
@@ -1178,6 +1183,28 @@ function SceneCard({
                   className={`style-btn ${regenLineLength === opt.value ? 'active' : ''}`}
                   onClick={() => setRegenLineLength(opt.value)}
                   type="button"
+                >{opt.label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="style-row" style={{ marginTop: '6px' }}>
+            <label style={{ fontSize: '0.8rem', color: '#888', whiteSpace: 'nowrap' }}>台詞數量</label>
+            <div className="style-buttons">
+              {([
+                { value: 'few',      label: '精簡（3-5句）' },
+                { value: 'standard', label: '標準（6-9句）' },
+                { value: 'many',     label: '豐富（10-14句）' },
+              ] as { value: 'few' | 'standard' | 'many'; label: string }[]).map(opt => (
+                <button
+                  key={opt.value}
+                  className={`style-btn ${regenLineCount === opt.value ? 'active' : ''}`}
+                  onClick={() => setRegenLineCount(opt.value)}
+                  type="button"
+                  title={
+                    opt.value === 'few'      ? '適合輕快節奏或簡短幕次' :
+                    opt.value === 'standard' ? '標準節奏（預設）' :
+                                               '適合高潮或情感濃烈的幕次'
+                  }
                 >{opt.label}</button>
               ))}
             </div>

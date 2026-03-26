@@ -1513,7 +1513,7 @@ export default function App() {
   }
 
   // Re-generate entire scene
-  const handleSceneRegen = async (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string) => {
+  const handleSceneRegen = async (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string, lineCount?: string) => {
     // Snapshot the old scene BEFORE clearing — needed for rollback on failure.
     // `scenes` here refers to the closure-captured state at call time (correct).
     const oldScene = scenes.find(s => s.id === sceneId)
@@ -1557,7 +1557,7 @@ export default function App() {
           style,
           story_context: storyContext,
           line_length: effectiveLineLength,
-          line_count: localStorage.getItem('scene_line_count') ?? 'standard',
+          line_count: lineCount ?? localStorage.getItem('scene_line_count') ?? 'standard',
           image_style: imageStyle ?? localStorage.getItem('scene_image_style') ?? undefined,
           mood: mood || undefined,
         }),
