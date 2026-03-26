@@ -207,6 +207,7 @@ interface Props {
   onBatchRegenVoice: () => void
   batchRegenStatus: { done: number; total: number } | null
   onBatchRegenImages: () => void
+  onBatchRegenAllImages: () => void
   batchImageStatus: { done: number; total: number } | null
   onLinesReorder: (sceneId: string, newLines: ScriptLine[]) => void
   onScrollToEditor?: () => void
@@ -1434,6 +1435,7 @@ export default function SceneOutput({
   onBatchRegenVoice,
   batchRegenStatus,
   onBatchRegenImages,
+  onBatchRegenAllImages,
   batchImageStatus,
   onLinesReorder,
   onScrollToEditor,
@@ -1511,6 +1513,10 @@ export default function SceneOutput({
     () => scenes.filter(s => !s.image || s.image === 'error').length,
     [scenes]
   )
+  const hasImages = useMemo(
+    () => scenes.some(s => s.image && s.image !== 'error'),
+    [scenes]
+  )
   const totalLines = useMemo(
     () => scenes.reduce((n, s) => n + s.lines.length, 0),
     [scenes]
@@ -1547,7 +1553,7 @@ export default function SceneOutput({
   return (
     <div className="scene-output-panel">
       <div className="scene-sticky-bar">
-        {(hasAudio || missingAudioCount > 0 || missingImageCount > 0) && (
+        {(hasAudio || missingAudioCount > 0 || missingImageCount > 0 || hasImages) && (
           <div className="playbook-bar">
             {hasAudio && (
               <button className="btn-playbook" onClick={() => { setPlaybackStartScene(0); setShowPlayback(true) }}>
@@ -1576,6 +1582,18 @@ export default function SceneOutput({
                 {batchImageStatus
                   ? `🖼️ 插圖中 ${batchImageStatus.done}/${batchImageStatus.total}…`
                   : `🖼️ 補齊插圖（${missingImageCount}）`}
+              </button>
+            )}
+            {hasImages && missingImageCount === 0 && (
+              <button
+                className="btn-batch-regen btn-batch-image"
+                onClick={onBatchRegenAllImages}
+                disabled={batchImageStatus !== null || batchRegenStatus !== null}
+                title="用目前 AI 重新生成所有場景插圖（更換畫風或角色設定後使用）"
+              >
+                {batchImageStatus
+                  ? `🖼️ 重生中 ${batchImageStatus.done}/${batchImageStatus.total}…`
+                  : '🖼️ 全部重新生圖'}
               </button>
             )}
             <span className="playbook-hint">

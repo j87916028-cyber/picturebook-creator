@@ -986,6 +986,40 @@ export default function App() {
     setTimeout(() => setBatchRegenStatus(null), 1500)
   }
 
+  // Batch-regenerate ALL scene images (force-refresh, including existing ones)
+  const handleBatchRegenAllImages = async () => {
+    const targets = scenes.filter(s => s.script?.scene_prompt)
+    if (targets.length === 0) return
+    setBatchImageStatus({ done: 0, total: targets.length })
+    const imageTasks = targets.map(scene => async () => {
+      const prompt = scene.script.scene_prompt
+      setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, image: '' } : s))
+      try {
+        const res = await fetch('/api/generate-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt,
+            seed: stableImageSeed(characters, localStorage.getItem('scene_image_style') ?? ''),
+          }),
+        })
+        if (!res.ok) { setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, image: 'error' } : s)); return }
+        const data = await res.json()
+        setScenes(prev => {
+          const next = prev.map(s => s.id === scene.id ? { ...s, image: data.url } : s)
+          setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
+          return next
+        })
+      } catch {
+        setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, image: 'error' } : s))
+      } finally {
+        setBatchImageStatus(prev => prev ? { ...prev, done: prev.done + 1 } : null)
+      }
+    })
+    await throttled(imageTasks, 2)
+    setTimeout(() => setBatchImageStatus(null), 1500)
+  }
+
   // Batch-regenerate images for all scenes that are missing or errored
   const handleBatchRegenImages = async () => {
     const targets = scenes.filter(s => !s.image || s.image === 'error')
@@ -1617,6 +1651,7 @@ export default function App() {
               onBatchRegenVoice={handleBatchRegenVoice}
               batchRegenStatus={batchRegenStatus}
               onBatchRegenImages={handleBatchRegenImages}
+              onBatchRegenAllImages={handleBatchRegenAllImages}
               batchImageStatus={batchImageStatus}
               onLinesReorder={handleLinesReorder}
               onScrollToEditor={() => {
