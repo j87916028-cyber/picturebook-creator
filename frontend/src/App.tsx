@@ -280,6 +280,7 @@ export default function App() {
       description: s.description,
       style: s.style,
       line_length: s.line_length ?? 'standard',
+      notes: s.notes ?? '',
       script: s.script,
       lines: s.lines,
       image: s.image,

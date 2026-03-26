@@ -72,6 +72,7 @@ export interface ProjectDetail extends ProjectMeta {
     description: string
     style: string
     line_length?: 'short' | 'standard' | 'long'
+    notes?: string
     script: ScriptResponse
     lines: ScriptLine[]
     image: string
