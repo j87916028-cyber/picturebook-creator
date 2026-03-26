@@ -17,6 +17,7 @@ function resolveImgSrc(image: string): string {
 export default function BookPreviewModal({ scenes, characters, initialScene = 0, onClose }: Props) {
   const [page, setPage] = useState(Math.min(initialScene, scenes.length - 1))
   const [imgLoaded, setImgLoaded] = useState(false)
+  const [zoomedImg, setZoomedImg] = useState(false)
   const textRef = useRef<HTMLDivElement>(null)
 
   // Audio playback state
@@ -41,12 +42,37 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
     setAutoPlaying(false)
   }, [])
 
-  // Reset image-loaded flag, scroll back to top, and stop audio when page changes
+  // Reset image-loaded flag, scroll back to top, stop audio, and close zoom when page changes
   useEffect(() => {
     setImgLoaded(false)
+    setZoomedImg(false)
     if (textRef.current) textRef.current.scrollTop = 0
     stopAudio()
   }, [page, stopAudio])
+
+  const handleDownloadImage = () => {
+    if (!imgSrc) return
+    const filename = `第${page + 1}幕插圖`
+    if (imgSrc.startsWith('data:')) {
+      const ext = imgSrc.match(/^data:image\/(\w+)/)?.[1] ?? 'png'
+      const a = document.createElement('a')
+      a.href = imgSrc
+      a.download = `${filename}.${ext}`
+      a.click()
+    } else {
+      fetch(imgSrc)
+        .then(r => r.blob())
+        .then(blob => {
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `${filename}.jpg`
+          a.click()
+          URL.revokeObjectURL(url)
+        })
+        .catch(() => {})
+    }
+  }
 
   // Stop audio on unmount
   useEffect(() => () => stopAudio(), [stopAudio])
@@ -130,6 +156,7 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
         e.preventDefault()
         setPage(p => Math.max(p - 1, 0))
       } else if (e.key === 'Escape') {
+        if (zoomedImg) { setZoomedImg(false); return }
         onClose()
       } else if (e.key === 'Home') {
         e.preventDefault()
@@ -144,7 +171,7 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [onClose, scenes.length, handleAutoPlay])
+  }, [onClose, scenes.length, handleAutoPlay, zoomedImg])
 
   const getCharacter = (name: string): Character | undefined =>
     characters.find(c => c.name === name)
@@ -183,10 +210,18 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
                   key={imgSrc}
                   src={imgSrc}
                   alt={`第 ${page + 1} 幕插圖`}
-                  className={`book-preview-img${imgLoaded ? ' loaded' : ''}`}
+                  className={`book-preview-img${imgLoaded ? ' loaded' : ''}${imgLoaded ? ' zoomable' : ''}`}
                   onLoad={() => setImgLoaded(true)}
+                  onClick={() => imgLoaded && setZoomedImg(true)}
+                  title={imgLoaded ? '點擊放大插圖' : undefined}
                 />
                 {!imgLoaded && <div className="book-img-placeholder">🎨</div>}
+                {imgLoaded && (
+                  <div className="book-img-actions">
+                    <button className="book-img-action-btn" onClick={() => setZoomedImg(true)} title="放大插圖">🔍</button>
+                    <button className="book-img-action-btn" onClick={handleDownloadImage} title="下載插圖">💾</button>
+                  </div>
+                )}
               </>
             ) : (
               <div className="book-img-placeholder">🎨</div>
@@ -274,6 +309,24 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
         {/* ── Keyboard hint ── */}
         <p className="book-keyboard-hint">← → 翻頁 · Space 朗讀 · Esc 關閉</p>
       </div>
+
+      {/* ── Image lightbox ── */}
+      {zoomedImg && imgSrc && (
+        <div className="book-img-lightbox" onClick={() => setZoomedImg(false)}>
+          <button className="book-img-lightbox-close" onClick={() => setZoomedImg(false)} title="關閉放大 (Esc)">✕</button>
+          <button
+            className="book-img-lightbox-download"
+            onClick={e => { e.stopPropagation(); handleDownloadImage() }}
+            title="下載插圖"
+          >💾 下載</button>
+          <img
+            src={imgSrc}
+            alt={`第 ${page + 1} 幕插圖（放大）`}
+            className="book-img-lightbox-img"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }

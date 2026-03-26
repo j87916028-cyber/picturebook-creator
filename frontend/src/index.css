@@ -2781,6 +2781,21 @@ body {
   opacity: 0; transition: opacity 0.3s;
 }
 .book-preview-img.loaded { opacity: 1; }
+.book-preview-img.zoomable { cursor: zoom-in; }
+/* Hover action buttons overlay on image */
+.book-img-actions {
+  position: absolute; bottom: 10px; right: 10px;
+  display: flex; gap: 6px;
+  opacity: 0; transition: opacity 0.2s;
+}
+.book-preview-image-panel:hover .book-img-actions { opacity: 1; }
+.book-img-action-btn {
+  background: rgba(0,0,0,0.55); color: #fff;
+  border: none; border-radius: 6px;
+  padding: 5px 9px; font-size: 1rem; cursor: pointer;
+  backdrop-filter: blur(4px); transition: background 0.15s;
+}
+.book-img-action-btn:hover { background: rgba(0,0,0,0.8); }
 .book-img-placeholder {
   font-size: 4rem; color: #ccc;
   position: absolute; top: 50%; left: 50%;
@@ -2874,6 +2889,35 @@ body {
 .btn-book-preview:hover { opacity: 0.85; }
 /* Per-scene read button (small, beside play) */
 .btn-read-scene { font-size: 0.9rem !important; padding: 3px 7px !important; }
+/* Image lightbox (book preview zoom) */
+.book-img-lightbox {
+  position: fixed; inset: 0; z-index: 11000;
+  background: rgba(0,0,0,0.88);
+  display: flex; align-items: center; justify-content: center;
+  cursor: zoom-out; animation: fadeIn 0.15s ease;
+}
+.book-img-lightbox-img {
+  max-width: 90vw; max-height: 88vh;
+  object-fit: contain; border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  cursor: default;
+}
+.book-img-lightbox-close {
+  position: absolute; top: 16px; right: 20px;
+  background: rgba(255,255,255,0.15); color: #fff;
+  border: none; border-radius: 50%;
+  width: 36px; height: 36px; font-size: 1.1rem; cursor: pointer;
+  transition: background 0.15s;
+}
+.book-img-lightbox-close:hover { background: rgba(255,255,255,0.3); }
+.book-img-lightbox-download {
+  position: absolute; top: 16px; right: 66px;
+  background: rgba(255,255,255,0.15); color: #fff;
+  border: none; border-radius: 20px;
+  padding: 6px 14px; font-size: 0.9rem; cursor: pointer;
+  transition: background 0.15s;
+}
+.book-img-lightbox-download:hover { background: rgba(255,255,255,0.3); }
 /* Responsive: stack image above text on narrow screens */
 @media (max-width: 620px) {
   .book-preview-body { flex-direction: column; }
