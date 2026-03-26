@@ -251,6 +251,7 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
     )
   }
 
+  const currentSceneTitle = current ? (scenes[current.sceneIdx]?.title ?? '') : ''
   const sceneProgress = current
     ? `第 ${current.sceneIdx + 1} 幕／共 ${scenes.length} 幕`
     : ''
@@ -319,14 +320,19 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
           ) : (
             <div key={current?.sceneIdx} className="playback-image-placeholder">🖼️</div>
           )}
-          <div className="playback-scene-badge">{sceneProgress}</div>
+          <div className="playback-scene-badge">
+            {sceneProgress}
+            {currentSceneTitle && <span className="playback-scene-badge-title">《{currentSceneTitle}》</span>}
+          </div>
         </div>
 
         {/* Scene description subtitle */}
-        {currentScene?.description && (
-          <p className="playback-scene-desc" key={current?.sceneIdx}>
-            {currentScene.description}
-          </p>
+        {(currentSceneTitle || currentScene?.description) && (
+          <div className="playback-scene-desc-wrap" key={current?.sceneIdx}>
+            {currentScene?.description && (
+              <p className="playback-scene-desc">{currentScene.description}</p>
+            )}
+          </div>
         )}
 
         {/* Speaking character indicator */}
@@ -429,13 +435,16 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
                   className={`playback-scene-chip${isCurrentScene ? ' active' : ''}${!hasAudio ? ' no-audio' : ''}`}
                   onClick={() => { if (hasAudio) goToScene(si) }}
                   disabled={!hasAudio}
-                  title={hasAudio ? `跳至第 ${si + 1} 幕` : `第 ${si + 1} 幕（無音訊）`}
+                  title={hasAudio
+                    ? (scene.title ? `跳至第 ${si + 1} 幕《${scene.title}》` : `跳至第 ${si + 1} 幕`)
+                    : (scene.title ? `第 ${si + 1} 幕《${scene.title}》（無音訊）` : `第 ${si + 1} 幕（無音訊）`)}
                 >
                   {thumb
                     ? <img src={thumb} alt={`第${si + 1}幕`} className="chip-thumb" />
                     : <span className="chip-fallback">🖼️</span>
                   }
                   <span className="chip-num">{si + 1}</span>
+                  {scene.title && <span className="chip-title">{scene.title}</span>}
                 </button>
               )
             })}

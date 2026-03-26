@@ -3122,6 +3122,10 @@ kbd {
   position: absolute; bottom: 10px; left: 12px;
   background: rgba(0,0,0,0.6); color: #dde; font-size: 0.78rem;
   padding: 3px 10px; border-radius: 20px; backdrop-filter: blur(4px);
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+}
+.playback-scene-badge-title {
+  font-size: 0.72rem; color: #c8b8ff; font-weight: 600; line-height: 1.2;
 }
 .playback-scene-desc {
   font-size: 0.88rem; color: rgba(255,255,255,0.65); font-style: italic;
@@ -3236,6 +3240,13 @@ kbd {
 .playback-scene-chip.active .chip-num {
   background: rgba(102,126,234,0.85);
   border-radius: 3px; padding: 1px 3px;
+}
+.playback-scene-chip .chip-title {
+  position: absolute; top: 2px; left: 0; right: 0;
+  font-size: 0.55rem; font-weight: 700; text-align: center;
+  color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  padding: 0 3px; line-height: 1.2;
 }
 .playback-scene-chip.no-audio { opacity: 0.3; cursor: default; }
 .playback-progress-wrap {
