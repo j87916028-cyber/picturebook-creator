@@ -2467,19 +2467,31 @@ async def list_projects(request: Request):
     async with _db_pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT p.id, p.name, p.created_at, p.updated_at,
-                   p.cover_image,
-                   COUNT(s.id)::int AS scene_count,
-                   COALESCE(SUM(jsonb_array_length(s.lines)), 0)::int AS line_count,
-                   COALESCE(SUM((
-                       SELECT COALESCE(SUM(length(l->>'text')), 0)
-                       FROM jsonb_array_elements(s.lines) AS l
-                   )), 0)::int AS total_chars
-            FROM projects p
-            LEFT JOIN scenes s ON s.project_id = p.id
-            GROUP BY p.id
+            WITH top_projects AS (
+                SELECT id, name, created_at, updated_at, cover_image
+                FROM projects
+                ORDER BY updated_at DESC
+                LIMIT 200
+            )
+            SELECT p.id, p.name, p.created_at, p.updated_at, p.cover_image,
+                   COALESCE(ss.scene_count, 0)::int AS scene_count,
+                   COALESCE(ss.line_count,  0)::int AS line_count,
+                   COALESCE(ss.total_chars, 0)::int AS total_chars
+            FROM top_projects p
+            LEFT JOIN (
+                SELECT
+                    project_id,
+                    COUNT(*)::int                                              AS scene_count,
+                    COALESCE(SUM(jsonb_array_length(lines)), 0)::int          AS line_count,
+                    COALESCE(SUM((
+                        SELECT COALESCE(SUM(length(l->>'text')), 0)
+                        FROM jsonb_array_elements(lines) AS l
+                    )), 0)::int                                                AS total_chars
+                FROM scenes
+                WHERE project_id IN (SELECT id FROM top_projects)
+                GROUP BY project_id
+            ) ss ON ss.project_id = p.id
             ORDER BY p.updated_at DESC
-            LIMIT 200
             """
         )
     return [
