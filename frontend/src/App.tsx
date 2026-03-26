@@ -2075,8 +2075,12 @@ export default function App() {
                   }
                 }
 
-                // Sync scene lines: update name/voice, clear audio if voice changed
-                setScenes(prev => prev.map(scene => ({
+                // Sync scene lines: update name/voice, clear audio if voice changed.
+                // Compute the next scenes explicitly (not via functional updater) so we
+                // can pass them directly to autoSave.  This ensures the updated voice_ids
+                // are persisted to the DB immediately — without this, closing the browser
+                // before any other scene edit would leave the old voice_id on the lines.
+                const nextScenes = scenes.map(scene => ({
                   ...scene,
                   lines: scene.lines.map(line => {
                     const upd = changed.get(line.character_id)
@@ -2090,7 +2094,9 @@ export default function App() {
                       audio_format: voiceChanged ? undefined : line.audio_format,
                     }
                   }),
-                })))
+                }))
+                setScenes(nextScenes)
+                if (currentProjectId) autoSave(currentProjectId, nextScenes, updated)
 
                 // Show regen hint if any audio was cleared
                 if (clearedCount > 0) {
