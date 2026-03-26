@@ -2524,6 +2524,7 @@ body {
   transition: background 0.1s;
 }
 .export-menu button:hover { background: #f0f4ff; color: #667eea; }
+.export-menu-divider { border: none; border-top: 1px solid #eee; margin: 4px 6px; }
 
 /* ── AI Title Suggest ──────────────────────────── */
 .title-suggest-wrap {

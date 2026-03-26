@@ -3807,8 +3807,72 @@ def _export_images_zip(project_name: str, scenes: list) -> bytes:
     return buf.getvalue()
 
 
+def _export_json_backup(project_name: str, scenes: list, characters: list) -> bytes:
+    """Export a portable JSON backup of the story structure.
+
+    The backup includes: project name, characters, and all scenes with their
+    scripts and dialogue lines.  Media blobs (audio_base64, image) are stripped
+    to keep the file small and shareable.  The file can be used as a text
+    archive or re-imported into another instance in the future.
+
+    Format:
+        {
+          "version": 1,
+          "name": "書名",
+          "exported_at": "ISO-8601 timestamp",
+          "characters": [{id, name, personality, visual_description, voice_id, color, emoji}, ...],
+          "scenes": [{idx, title, description, style, line_length, notes,
+                      scene_prompt, sfx_description, lines: [{character_name,
+                      character_id, voice_id, text, emotion}, ...]}, ...]
+        }
+    """
+    from datetime import datetime, timezone
+    data = {
+        "version": 1,
+        "name": project_name,
+        "exported_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "characters": [
+            {
+                "id":                  c.get("id", ""),
+                "name":                c.get("name", ""),
+                "personality":         c.get("personality", ""),
+                "visual_description":  c.get("visual_description", "") or "",
+                "voice_id":            c.get("voice_id", ""),
+                "color":               c.get("color", ""),
+                "emoji":               c.get("emoji", "🎭"),
+            }
+            for c in characters
+        ],
+        "scenes": [
+            {
+                "idx":             s.get("idx", i),
+                "title":           s.get("title", "") or "",
+                "description":     s.get("description", ""),
+                "style":           s.get("style", ""),
+                "line_length":     s.get("line_length", "standard") or "standard",
+                "notes":           s.get("notes", "") or "",
+                "scene_prompt":    s.get("scene_prompt", "") or "",
+                "sfx_description": s.get("sfx_description", "") or "",
+                "lines": [
+                    {
+                        "character_name": ln.get("character_name", ""),
+                        "character_id":   ln.get("character_id", ""),
+                        "voice_id":       ln.get("voice_id", ""),
+                        "text":           ln.get("text", ""),
+                        "emotion":        ln.get("emotion", "neutral"),
+                    }
+                    for ln in s.get("lines", [])
+                    if ln.get("text", "").strip()
+                ],
+            }
+            for i, s in enumerate(scenes, 1)
+        ],
+    }
+    return json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+
+
 # ── GET /api/projects/{project_id}/export ────────────────────
-_EXPORT_FORMAT = Literal["pdf", "epub", "html", "mp3", "txt", "md", "images"]
+_EXPORT_FORMAT = Literal["pdf", "epub", "html", "mp3", "txt", "md", "images", "json"]
 
 @app.get("/api/projects/{project_id}/export")
 async def export_project(
@@ -3830,7 +3894,7 @@ async def export_project(
         if proj is None:
             raise HTTPException(status_code=404, detail="專案不存在")
         scene_rows = await conn.fetch(
-            "SELECT idx, title, description, style, script, lines, image FROM scenes "
+            "SELECT idx, title, description, style, line_length, notes, script, lines, image FROM scenes "
             "WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
@@ -3856,13 +3920,16 @@ async def export_project(
         if isinstance(raw_script, str):
             raw_script = json.loads(raw_script)
         scenes.append({
-            "idx": row["idx"],
-            "title": row["title"] or "",
-            "description": row["description"],
-            "style": row["style"],
+            "idx":             row["idx"],
+            "title":           row["title"] or "",
+            "description":     row["description"],
+            "style":           row["style"],
+            "line_length":     row["line_length"] or "standard",
+            "notes":           row["notes"] or "",
+            "scene_prompt":    raw_script.get("scene_prompt", ""),
             "sfx_description": raw_script.get("sfx_description", ""),
-            "lines": raw_lines,
-            "image": row["image"],
+            "lines":           raw_lines,
+            "image":           row["image"],
         })
 
     # Run CPU-bound export functions in a thread pool to avoid blocking
@@ -3892,6 +3959,10 @@ async def export_project(
         data = await loop.run_in_executor(None, _export_images_zip, project_name, scenes)
         media_type = "application/zip"
         filename = f"{project_name}_插圖.zip"
+    elif format == "json":
+        data = await loop.run_in_executor(None, _export_json_backup, project_name, scenes, raw_chars)
+        media_type = "application/json; charset=utf-8"
+        filename = f"{project_name}_備份.json"
     else:  # "txt"
         data = await loop.run_in_executor(None, _export_txt, project_name, scenes)
         media_type = "text/plain; charset=utf-8"
