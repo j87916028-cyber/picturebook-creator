@@ -1287,6 +1287,7 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
                     "model": "MiniMax-M2.7",
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.8,
+                    "max_tokens": 2000,
                 },
                 timeout=90,
             )
