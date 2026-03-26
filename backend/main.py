@@ -3408,9 +3408,26 @@ def _export_html(
 
   <script>
     // ── per-line playback ──
+    // Stop any ongoing Play-All sequence, clear highlights, then play the
+    // clicked line in isolation.  This prevents audio overlap when the user
+    // clicks a specific line's "▶ 播放" button while auto-play is active.
     function playLine(sceneIdx, lineIdx) {{
+      document.querySelectorAll('audio').forEach(function(a) {{ a.pause(); a.currentTime = 0; }});
+      document.querySelectorAll('.dialogue-line.playing').forEach(function(el) {{ el.classList.remove('playing'); }});
+      if (_cursor >= 0) {{
+        _paused = true;
+        var playBtn = document.getElementById('btn-play-all');
+        if (playBtn) playBtn.textContent = '▶ 繼續';
+      }}
+      var lineEl = document.getElementById('line-' + sceneIdx + '-' + lineIdx);
+      if (lineEl) {{ lineEl.classList.add('playing'); lineEl.scrollIntoView({{ behavior: 'smooth', block: 'center' }}); }}
       var audio = document.getElementById('audio-' + sceneIdx + '-' + lineIdx);
-      if (audio) {{ audio.currentTime = 0; audio.play(); }}
+      if (audio) {{
+        audio.currentTime = 0;
+        audio.playbackRate = _speed;
+        audio.onended = function() {{ if (lineEl) lineEl.classList.remove('playing'); }};
+        audio.play().catch(function() {{ if (lineEl) lineEl.classList.remove('playing'); }});
+      }}
     }}
 
     // ── Play-All logic ──
