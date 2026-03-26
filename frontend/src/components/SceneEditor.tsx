@@ -51,7 +51,13 @@ export default function SceneEditor({
   storyContext,
   focusTrigger,
 }: Props) {
-  const [description, setDescription] = useState('')
+  // Restore description draft from localStorage so the user doesn't lose work on
+  // accidental page refresh. The draft is cleared after a scene is successfully
+  // generated (sceneCount increments) and when the user resets the project.
+  const [description, setDescription] = useState<string>(
+    () => localStorage.getItem('scene_description_draft') || ''
+  )
+  const prevSceneCountRef = useRef(sceneCount)
 
   // Restore last-used style from localStorage; if it was a custom (non-preset) value,
   // pre-fill the custom input so the user doesn't lose their setting across page loads.
@@ -83,10 +89,20 @@ export default function SceneEditor({
   const [audioLoading, setAudioLoading] = useState(false)
   const [inputError, setInputError] = useState<string | null>(null)
 
-  // Persist style, lineLength, and imageStyle to localStorage whenever they change.
+  // Persist description draft and all other settings to localStorage.
+  useEffect(() => { localStorage.setItem('scene_description_draft', description) }, [description])
   useEffect(() => { localStorage.setItem('scene_style', style) }, [style])
   useEffect(() => { localStorage.setItem('scene_line_length', lineLength) }, [lineLength])
   useEffect(() => { localStorage.setItem('scene_image_style', imageStyle) }, [imageStyle])
+
+  // When sceneCount increases a scene was successfully generated — clear the draft.
+  useEffect(() => {
+    if (sceneCount > prevSceneCountRef.current) {
+      setDescription('')
+      localStorage.removeItem('scene_description_draft')
+    }
+    prevSceneCountRef.current = sceneCount
+  }, [sceneCount])
 
   // Elapsed-time counter for script generation step
   const [scriptElapsed, setScriptElapsed] = useState(0)
@@ -502,7 +518,15 @@ export default function SceneEditor({
                 {sceneCount > 0 ? `✨ 繼續第 ${sceneCount + 1} 幕` : '✨ 生成繪本場景'}
               </button>
               {sceneCount > 0 && (
-                <button className="btn-reset" onClick={onReset} title="清除所有幕次，重新開始">
+                <button
+                  className="btn-reset"
+                  onClick={() => {
+                    setDescription('')
+                    localStorage.removeItem('scene_description_draft')
+                    onReset()
+                  }}
+                  title="清除所有幕次，重新開始"
+                >
                   🔄 重新開始
                 </button>
               )}
