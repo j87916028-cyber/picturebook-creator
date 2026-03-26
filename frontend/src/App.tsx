@@ -1028,6 +1028,44 @@ export default function App() {
     setTimeout(() => setBatchRegenStatus(null), 1500)
   }
 
+  // Force-regenerate ALL voice lines in one specific scene.
+  // Clears existing audio first so stale audio doesn't remain after a voice change.
+  const handleSceneRegenAllVoices = async (sceneId: string) => {
+    const scene = scenes.find(s => s.id === sceneId)
+    if (!scene || scene.lines.length === 0) return
+
+    // Clear audio on all lines in the scene immediately so the UI shows loading state
+    setScenes(prev => prev.map(s => {
+      if (s.id !== sceneId) return s
+      return { ...s, lines: s.lines.map(l => ({ ...l, audio_base64: undefined, audio_format: undefined })) }
+    }))
+
+    const linesToRegen = scene.lines.map((line, i) => ({ line, i })).filter(({ line }) => !!line.text)
+    const tasks = linesToRegen.map(({ line, i }) => async () => {
+      try {
+        const res = await fetch('/api/generate-voice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: line.text, voice_id: line.voice_id, emotion: line.emotion || 'neutral' }),
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        setScenes(prev => {
+          const next = prev.map(s => {
+            if (s.id !== sceneId) return s
+            const lines = [...s.lines]
+            lines[i] = { ...lines[i], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+            return { ...s, lines }
+          })
+          setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
+          return next
+        })
+      } catch {}
+    })
+
+    await throttled(tasks, 4)
+  }
+
   // Batch-regenerate ALL scene images (force-refresh, including existing ones)
   const handleBatchRegenAllImages = async () => {
     const targets = scenes.filter(s => s.script?.scene_prompt)
@@ -1706,6 +1744,7 @@ export default function App() {
               onSceneDescriptionUpdate={handleSceneDescriptionUpdate}
               onSceneRegen={handleSceneRegen}
               onBatchRegenVoice={handleBatchRegenVoice}
+              onSceneRegenAllVoices={handleSceneRegenAllVoices}
               batchRegenStatus={batchRegenStatus}
               onBatchRegenImages={handleBatchRegenImages}
               onBatchRegenAllImages={handleBatchRegenAllImages}

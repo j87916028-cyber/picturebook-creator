@@ -206,6 +206,7 @@ interface Props {
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string) => Promise<void>
   onBatchRegenVoice: () => void
+  onSceneRegenAllVoices: (sceneId: string) => Promise<void>
   batchRegenStatus: { done: number; total: number } | null
   onBatchRegenImages: () => void
   onBatchRegenAllImages: () => void
@@ -235,6 +236,7 @@ interface SceneCardProps {
   onImageUpload: (sceneId: string, dataUrl: string) => void
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string) => Promise<void>
+  onSceneRegenAllVoices: (sceneId: string) => Promise<void>
   onPlayFromScene: (sceneIndex: number) => void
   onReadFromScene: (sceneIndex: number) => void
   onLinesReorder: (sceneId: string, newLines: ScriptLine[]) => void
@@ -261,6 +263,7 @@ function SceneCard({
   onImageUpload,
   onSceneDescriptionUpdate,
   onSceneRegen,
+  onSceneRegenAllVoices,
   onPlayFromScene,
   onReadFromScene,
   onLinesReorder,
@@ -347,6 +350,7 @@ function SceneCard({
   )
   const [regenLoading, setRegenLoading] = useState(false)
   const [regenError, setRegenError] = useState<string | null>(null)
+  const [regenAllVoicesLoading, setRegenAllVoicesLoading] = useState(false)
   const [expandedImage, setExpandedImage] = useState(false)
 
   const getCharacter = (id: string) => characters.find(c => c.id === id)
@@ -741,6 +745,18 @@ function SceneCard({
             </button>
           </>
         )}
+        <button
+          className="btn-scene-action btn-regen-all-voices"
+          onClick={async () => {
+            setRegenAllVoicesLoading(true)
+            try { await onSceneRegenAllVoices(scene.id) }
+            finally { setRegenAllVoicesLoading(false) }
+          }}
+          disabled={regenAllVoicesLoading || isGenerating || regenLoading}
+          title="清除並重新生成此幕所有配音（更換角色聲音後使用）"
+        >
+          {regenAllVoicesLoading ? <><span className="spinner-sm" /> 配音中...</> : '🎤 重新生成全部配音'}
+        </button>
         <button
           className="btn-scene-action"
           onClick={() => {
@@ -1443,6 +1459,7 @@ export default function SceneOutput({
   onSceneDescriptionUpdate,
   onSceneRegen,
   onBatchRegenVoice,
+  onSceneRegenAllVoices,
   batchRegenStatus,
   onBatchRegenImages,
   onBatchRegenAllImages,
@@ -1773,6 +1790,7 @@ export default function SceneOutput({
               onImageUpload={onImageUpload}
               onSceneDescriptionUpdate={onSceneDescriptionUpdate}
               onSceneRegen={onSceneRegen}
+              onSceneRegenAllVoices={onSceneRegenAllVoices}
               onPlayFromScene={handlePlayFromScene}
               onReadFromScene={handleReadFromScene}
               onLinesReorder={onLinesReorder}
