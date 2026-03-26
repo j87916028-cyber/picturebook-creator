@@ -1560,7 +1560,23 @@ export default function App() {
     setExportOpen(false)
     try {
       const res = await fetch(`/api/projects/${currentProjectId}/export?format=${format}`)
-      if (!res.ok) throw new Error('匯出失敗')
+      if (!res.ok) {
+        let msg = '匯出失敗'
+        let autoHideMs = 8000
+        if (res.status === 429) {
+          const wait = parseInt(res.headers.get('Retry-After') ?? '10', 10)
+          msg = `匯出請求過於頻繁，請 ${wait} 秒後再試`
+          autoHideMs = wait * 1000
+        } else {
+          try {
+            const body = await res.json()
+            if (body?.detail) msg = body.detail
+          } catch {}
+        }
+        setError(msg)
+        setTimeout(() => setError(e => e === msg ? '' : e), autoHideMs)
+        return
+      }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -1570,8 +1586,10 @@ export default function App() {
       a.download = `${projectName || '繪本'}.${ext}`
       a.click()
       URL.revokeObjectURL(url)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '匯出失敗')
+    } catch {
+      const msg = '匯出失敗，請確認網路連線'
+      setError(msg)
+      setTimeout(() => setError(e => e === msg ? '' : e), 6000)
     } finally {
       setExporting(false)
     }
