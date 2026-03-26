@@ -356,6 +356,8 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
     catch { return [] }
   })
   const [showLibrary, setShowLibrary] = useState(false)
+  const importInputRef = useRef<HTMLInputElement>(null)
+  const [importMsg, setImportMsg] = useState<string | null>(null)
 
   useEffect(() => {
     localStorage.setItem('character_library', JSON.stringify(library))
@@ -461,6 +463,66 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
     }])
   }
 
+  // Export library as a JSON file for backup or sharing across devices
+  const handleExportLibrary = () => {
+    if (library.length === 0) return
+    // Strip internal IDs — they're meaningless on other devices/browsers
+    const data = JSON.stringify(library.map(({ id: _id, ...rest }) => rest), null, 2)
+    const blob = new Blob([data], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = '角色庫.json'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // Import characters from a JSON file into the library, skipping duplicates by name
+  const handleImportLibrary = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (importInputRef.current) importInputRef.current.value = ''
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => {
+      try {
+        const parsed = JSON.parse(ev.target?.result as string)
+        if (!Array.isArray(parsed)) throw new Error('not array')
+        const newChars: Character[] = parsed
+          .filter((c: unknown): c is Record<string, unknown> =>
+            !!c && typeof c === 'object' && typeof (c as Record<string, unknown>).name === 'string'
+          )
+          .map(c => ({
+            id: `char_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            name: String(c.name || '').slice(0, 30),
+            personality: String(c.personality || '').slice(0, 100),
+            visual_description: c.visual_description ? String(c.visual_description).slice(0, 200) : undefined,
+            voice_id: String(c.voice_id || ''),
+            color: typeof c.color === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(c.color) ? c.color : '#667eea',
+            emoji: String(c.emoji || '🎭').slice(0, 10),
+          }))
+          .filter(c => c.name.trim().length > 0)
+        if (newChars.length === 0) {
+          setImportMsg('未找到有效角色資料')
+          setTimeout(() => setImportMsg(null), 3500)
+          return
+        }
+        setLibrary(prev => {
+          const existingNames = new Set(prev.map(c => c.name))
+          const added = newChars.filter(c => !existingNames.has(c.name))
+          const skipped = newChars.length - added.length
+          setImportMsg(`已匯入 ${added.length} 個角色${skipped > 0 ? `（${skipped} 個重複略過）` : ''}`)
+          setTimeout(() => setImportMsg(null), 4000)
+          return [...prev, ...added]
+        })
+        setShowLibrary(true)
+      } catch {
+        setImportMsg('檔案格式錯誤，請選擇正確的 JSON 角色庫檔案')
+        setTimeout(() => setImportMsg(null), 4000)
+      }
+    }
+    reader.readAsText(file)
+  }
+
   return (
     <div className="character-panel">
       <div className="panel-header">
@@ -536,13 +598,20 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
       {/* Cross-project character library */}
       {library.length > 0 && (
         <div className="library-section">
-          <button
-            className="btn-preset-toggle"
-            onClick={() => setShowLibrary(v => !v)}
-            title="從角色庫載入跨專案保存的角色"
-          >
-            {showLibrary ? '▲' : '▼'} 我的角色庫（{library.length}）
-          </button>
+          <div className="library-header-row">
+            <button
+              className="btn-preset-toggle"
+              onClick={() => setShowLibrary(v => !v)}
+              title="從角色庫載入跨專案保存的角色"
+            >
+              {showLibrary ? '▲' : '▼'} 我的角色庫（{library.length}）
+            </button>
+            <button
+              className="btn-library-action"
+              onClick={handleExportLibrary}
+              title="匯出角色庫為 JSON 檔案（可在其他裝置或瀏覽器匯入）"
+            >💾 匯出</button>
+          </div>
           {showLibrary && (
             <div className="library-chips">
               {library.map(char => {
@@ -588,6 +657,25 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
           ＋ 自訂角色
         </button>
       )}
+
+      {/* Library import — always accessible so users can restore/migrate their library */}
+      <div className="library-import-row">
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".json,application/json"
+          style={{ display: 'none' }}
+          onChange={handleImportLibrary}
+        />
+        <button
+          className="btn-library-action btn-library-import"
+          onClick={() => importInputRef.current?.click()}
+          title="從 JSON 檔案匯入角色庫（支援跨裝置、跨瀏覽器）"
+        >
+          📥 匯入角色庫
+        </button>
+        {importMsg && <span className="library-import-msg">{importMsg}</span>}
+      </div>
     </div>
   )
 }
