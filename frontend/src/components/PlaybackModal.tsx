@@ -65,8 +65,13 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
     return isFinite(saved) && saved >= 0 && saved <= 1 ? saved : 1.0
   })
   const [muted, setMuted] = useState(false)
-  const [loop, setLoop] = useState(false)
-  const loopRef = useRef(false)
+  // loopMode: 'none' = no loop | 'all' = loop playlist | 'scene' = loop current scene
+  type LoopMode = 'none' | 'all' | 'scene'
+  const [loopMode, setLoopMode] = useState<LoopMode>(() => {
+    const saved = localStorage.getItem('pb_loop')
+    return (saved === 'all' || saved === 'scene') ? saved : 'none'
+  })
+  const loopModeRef = useRef<LoopMode>(loopMode)
   const [showHelp, setShowHelp] = useState(false)
   const [audioProgress, setAudioProgress] = useState(0)   // 0–100 within current line
   const [audioDuration, setAudioDuration] = useState(0)   // seconds
@@ -183,20 +188,38 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
     activeLineRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [cursor])
 
-  // Keep loopRef in sync so handleEnded always reads the latest value
-  useEffect(() => { loopRef.current = loop }, [loop])
+  // Keep loopModeRef in sync so handleEnded always reads the latest value
+  useEffect(() => { loopModeRef.current = loopMode }, [loopMode])
 
-  // Auto-advance when audio ends; restart from beginning when loop is on
+  // Persist loop preference
+  useEffect(() => { localStorage.setItem('pb_loop', loopMode) }, [loopMode])
+
+  // Auto-advance when audio ends
   const handleEnded = useCallback(() => {
-    if (cursor < playlist.length - 1) {
-      setCursor(c => c + 1)
-    } else if (loopRef.current) {
+    const mode = loopModeRef.current
+    const currentSceneIdx = playlist[cursor]?.sceneIdx
+    const nextCursor = cursor + 1
+    const nextSceneIdx = playlist[nextCursor]?.sceneIdx
+
+    if (mode === 'scene') {
+      // If next line is in the same scene, advance normally; otherwise loop scene
+      if (nextCursor < playlist.length && nextSceneIdx === currentSceneIdx) {
+        setCursor(nextCursor)
+      } else {
+        // Jump back to the first line of the current scene
+        const sceneStart = playlist.findIndex(p => p.sceneIdx === currentSceneIdx)
+        setCursor(sceneStart >= 0 ? sceneStart : 0)
+        setPlaying(true)
+      }
+    } else if (nextCursor < playlist.length) {
+      setCursor(nextCursor)
+    } else if (mode === 'all') {
       setCursor(0)
       setPlaying(true)
     } else {
       setPlaying(false)
     }
-  }, [cursor, playlist.length])
+  }, [cursor, playlist])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -211,7 +234,7 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
       else if (e.key === 'PageDown') { e.preventDefault(); if (current) goToScene(current.sceneIdx + 1) }
       else if (e.key === 'PageUp')   { e.preventDefault(); if (current) goToScene(current.sceneIdx - 1) }
       else if (e.key === 'f' || e.key === 'F') toggleFullscreen()
-      else if (e.key === 'L') setLoop(v => !v)
+      else if (e.key === 'L') setLoopMode(m => m === 'none' ? 'all' : m === 'all' ? 'scene' : 'none')
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -273,7 +296,7 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
                 <tr><td><kbd>PageDown</kbd></td><td>跳至下一幕</td></tr>
                 <tr><td><kbd>PageUp</kbd></td><td>跳至上一幕</td></tr>
                 <tr><td><kbd>F</kbd></td><td>全螢幕切換</td></tr>
-                <tr><td><kbd>Shift+L</kbd></td><td>循環播放切換</td></tr>
+                <tr><td><kbd>Shift+L</kbd></td><td>循環模式切換（關閉 → 全書 → 單幕）</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>關閉播放器</td></tr>
               </tbody>
             </table>
@@ -481,11 +504,15 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
           </div>
 
           <button
-            className={`playback-loop-btn${loop ? ' active' : ''}`}
-            onClick={() => setLoop(v => !v)}
-            title={loop ? '關閉循環播放 (Shift+L)' : '開啟循環播放 (Shift+L)'}
+            className={`playback-loop-btn${loopMode !== 'none' ? ' active' : ''}`}
+            onClick={() => setLoopMode(m => m === 'none' ? 'all' : m === 'all' ? 'scene' : 'none')}
+            title={
+              loopMode === 'none'  ? '點擊開啟全書循環 (Shift+L)' :
+              loopMode === 'all'   ? '全書循環中，點擊切換單幕循環 (Shift+L)' :
+                                     '單幕循環中，點擊關閉循環 (Shift+L)'
+            }
           >
-            🔁
+            {loopMode === 'scene' ? '🔂' : '🔁'}
           </button>
         </div>
       </div>
