@@ -478,7 +478,8 @@ function SceneCard({
 
   const handleDownloadImage = () => {
     if (!scene.image) return
-    const filename = `第${sceneIndex + 1}幕插圖`
+    const titleSuffix = scene.title ? `_${scene.title}` : ''
+    const filename = `第${sceneIndex + 1}幕${titleSuffix}插圖`
     if (scene.image.startsWith('data:')) {
       // data: URI — browser can download directly
       const ext = scene.image.match(/^data:image\/(\w+)/)?.[1] ?? 'png'
@@ -512,7 +513,8 @@ function SceneCard({
         return `${emoji}${l.character_name}：「${l.text}」`
       })
       .join('\n')
-    const text = `第${sceneIndex + 1}幕：${scene.description}\n${lines}`
+    const titlePart = scene.title ? `《${scene.title}》` : ''
+    const text = `第${sceneIndex + 1}幕${titlePart}：${scene.description}\n${lines}`
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
@@ -1369,7 +1371,8 @@ function SceneCard({
                               const url = URL.createObjectURL(blob)
                               const a = document.createElement('a')
                               a.href = url
-                              a.download = `第${sceneIndex + 1}幕_第${i + 1}句_${line.character_name}.${fmt}`
+                              const sceneLabel = scene.title ? `第${sceneIndex + 1}幕_${scene.title}` : `第${sceneIndex + 1}幕`
+                              a.download = `${sceneLabel}_第${i + 1}句_${line.character_name}.${fmt}`
                               a.click()
                               URL.revokeObjectURL(url)
                             }}
