@@ -5,6 +5,7 @@ import CharacterPanel from './components/CharacterPanel'
 import SceneEditor from './components/SceneEditor'
 import SceneOutput from './components/SceneOutput'
 import ProjectPanel from './components/ProjectPanel'
+import KeyboardShortcutsModal from './components/KeyboardShortcutsModal'
 
 /**
  * Derive a stable seed from the project's character set and image style.
@@ -179,6 +180,9 @@ export default function App() {
   const [titleSuggestions, setTitleSuggestions] = useState<string[]>([])
   const [titleSuggestLoading, setTitleSuggestLoading] = useState(false)
   const titleSuggestRef = useRef<HTMLDivElement>(null)
+
+  // Keyboard shortcuts help modal
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
 
   // Inline title-editing state
   const [editingTitle, setEditingTitle] = useState(false)
@@ -452,6 +456,19 @@ export default function App() {
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [_flushSave]) // stable — ref always provides fresh state without re-registering
+
+  // `?` key: open keyboard shortcuts help (skip when focus is in a text input/textarea)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== '?') return
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      e.preventDefault()
+      setShowKeyboardHelp(v => !v)
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [])
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { over, active } = event
@@ -1901,6 +1918,13 @@ export default function App() {
             >
               {projectPanelOpen ? '◀' : '▶'}
             </button>
+            <button
+              className="btn-keyboard-help"
+              onClick={() => setShowKeyboardHelp(true)}
+              title="鍵盤快捷鍵說明（?）"
+            >
+              ?
+            </button>
           </div>
           <div className="app-header-center">
             <h1>🎨 繪本有聲書創作工坊</h1>
@@ -2380,6 +2404,10 @@ export default function App() {
             title="關閉"
           >✕</button>
         </div>
+      )}
+      {/* Keyboard shortcuts help modal */}
+      {showKeyboardHelp && (
+        <KeyboardShortcutsModal onClose={() => setShowKeyboardHelp(false)} />
       )}
     </DndContext>
   )

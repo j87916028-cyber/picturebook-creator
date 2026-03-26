@@ -20,7 +20,7 @@ body {
   justify-content: space-between;
   gap: 12px;
 }
-.app-header-left { flex-shrink: 0; }
+.app-header-left { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
 .app-header-center { flex: 1; text-align: center; }
 .app-header-right {
   flex-shrink: 0;
@@ -4090,3 +4090,61 @@ kbd {
   background: #f0ebff; color: #7c5fcf;
   border: 1.5px solid #d4c8f8;
 }
+
+/* ── Keyboard shortcuts modal ────────────────────────────────── */
+.ks-overlay {
+  position: fixed; inset: 0; z-index: 9900;
+  background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center;
+}
+.ks-modal {
+  background: #fff; border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+  width: min(560px, 96vw); max-height: 80vh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.ks-header {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid #ede9ff;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.ks-title { font-size: 1.05rem; font-weight: 700; color: #4a3fa0; }
+.ks-close {
+  background: none; border: none; cursor: pointer;
+  color: #888; font-size: 1rem; padding: 4px 8px; border-radius: 6px;
+  transition: background 0.15s;
+}
+.ks-close:hover { background: #f5f0ff; color: #4a3fa0; }
+.ks-body { overflow-y: auto; padding: 14px 20px; flex: 1; }
+.ks-section { margin-bottom: 18px; }
+.ks-section:last-child { margin-bottom: 0; }
+.ks-section-title {
+  font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: #9b8fd8; margin-bottom: 8px;
+}
+.ks-table { width: 100%; border-collapse: collapse; }
+.ks-row + .ks-row td { border-top: 1px solid #f2f0f9; }
+.ks-keys { padding: 5px 0 5px 4px; white-space: nowrap; width: 180px; }
+.ks-desc { padding: 5px 0 5px 8px; font-size: 0.85rem; color: #444; }
+.ks-kbd {
+  display: inline-block; padding: 2px 7px;
+  background: #f4f1ff; border: 1px solid #c9c0f0;
+  border-bottom: 2px solid #9b8fd8;
+  border-radius: 5px; font-size: 0.78rem; font-family: monospace;
+  color: #5a4a9a; white-space: nowrap;
+}
+.ks-plus { color: #aaa; font-size: 0.78rem; }
+.ks-footer {
+  padding: 10px 20px 12px;
+  border-top: 1px solid #ede9ff;
+  font-size: 0.78rem; color: #a09ab8; text-align: center;
+}
+.btn-keyboard-help {
+  background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.35);
+  color: rgba(255,255,255,0.85); border-radius: 8px;
+  padding: 5px 10px; font-size: 0.8rem; cursor: pointer;
+  transition: background 0.15s; flex-shrink: 0;
+  font-family: monospace; font-weight: 600;
+}
+.btn-keyboard-help:hover { background: rgba(255,255,255,0.28); color: #fff; }
