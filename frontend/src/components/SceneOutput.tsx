@@ -8,6 +8,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { Scene, Character, ScriptLine } from '../types'
 import PlaybackModal from './PlaybackModal'
+import BookPreviewModal from './BookPreviewModal'
 
 // Resolve image src: use data URI if base64 blob, else bare URL
 function resolveImgSrc(image: string): string {
@@ -235,6 +236,7 @@ interface SceneCardProps {
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string) => Promise<void>
   onPlayFromScene: (sceneIndex: number) => void
+  onReadFromScene: (sceneIndex: number) => void
   onLinesReorder: (sceneId: string, newLines: ScriptLine[]) => void
 }
 
@@ -260,6 +262,7 @@ function SceneCard({
   onSceneDescriptionUpdate,
   onSceneRegen,
   onPlayFromScene,
+  onReadFromScene,
   onLinesReorder,
 }: SceneCardProps) {
   const [playingIndex, setPlayingIndex] = useState<number | null>(null)
@@ -658,6 +661,13 @@ function SceneCard({
               ▶ 從此幕
             </button>
           )}
+          <button
+            className="btn-play-from-scene btn-read-scene"
+            onClick={() => onReadFromScene(sceneIndex)}
+            title="從此幕開始閱讀（全螢幕閱讀模式）"
+          >
+            📖
+          </button>
           <button
             className="btn-scene-collapse"
             onClick={() => onToggleCollapse(scene.id)}
@@ -1442,6 +1452,8 @@ export default function SceneOutput({
 }: Props) {
   const [showPlayback, setShowPlayback] = useState(false)
   const [playbackStartScene, setPlaybackStartScene] = useState(0)
+  const [showBookPreview, setShowBookPreview] = useState(false)
+  const [bookPreviewStart, setBookPreviewStart] = useState(0)
   const [viewMode, setViewMode] = useState<'detail' | 'storyboard'>('detail')
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set())
 
@@ -1548,6 +1560,11 @@ export default function SceneOutput({
   const handlePlayFromScene = (sceneIndex: number) => {
     setPlaybackStartScene(sceneIndex)
     setShowPlayback(true)
+  }
+
+  const handleReadFromScene = (sceneIndex: number) => {
+    setBookPreviewStart(sceneIndex)
+    setShowBookPreview(true)
   }
 
   return (
@@ -1678,6 +1695,13 @@ export default function SceneOutput({
                 {viewMode === 'storyboard' ? '📝 編輯模式' : '🗺️ 故事板'}
               </button>
             )}
+            <button
+              className="btn-view-toggle btn-book-preview"
+              onClick={() => { setBookPreviewStart(0); setShowBookPreview(true) }}
+              title="全螢幕閱讀模式：逐幕翻頁瀏覽故事（← → 翻頁，適合念給孩子聽）"
+            >
+              📖 閱讀模式
+            </button>
           </div>
         )}
       </div>
@@ -1688,6 +1712,15 @@ export default function SceneOutput({
           characters={characters}
           onClose={() => setShowPlayback(false)}
           initialSceneIdx={playbackStartScene}
+        />
+      )}
+
+      {showBookPreview && (
+        <BookPreviewModal
+          scenes={scenes}
+          characters={characters}
+          initialScene={bookPreviewStart}
+          onClose={() => setShowBookPreview(false)}
         />
       )}
 
@@ -1731,6 +1764,7 @@ export default function SceneOutput({
               onSceneDescriptionUpdate={onSceneDescriptionUpdate}
               onSceneRegen={onSceneRegen}
               onPlayFromScene={handlePlayFromScene}
+              onReadFromScene={handleReadFromScene}
               onLinesReorder={onLinesReorder}
             />
           </div>
