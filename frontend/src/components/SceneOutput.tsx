@@ -662,6 +662,10 @@ function SceneCard({
     [scene.lines]
   )
 
+  // Audio completion stats for the badge
+  const textLineCount = scene.lines.filter(l => l.text).length
+  const voicedCount   = scene.lines.filter(l => l.audio_base64).length
+
   return (
     <div className={`scene-card${isCollapsed ? ' scene-card-collapsed' : ''}`}>
       <div className="scene-card-header">
@@ -705,6 +709,24 @@ function SceneCard({
           )}
           {scene.line_length === 'long' && (
             <span className="scene-length-badge scene-length-long" title="進階模式（≤35字/句）">🧒 進階</span>
+          )}
+          {/* Audio completion badge: only show after voice generation has been attempted */}
+          {scene.voices_attempted && textLineCount > 0 && (
+            <span
+              className={`scene-audio-badge${
+                voicedCount === textLineCount ? ' all' :
+                voicedCount === 0 ? ' none' : ' partial'
+              }`}
+              title={
+                voicedCount === textLineCount
+                  ? `全部 ${textLineCount} 句已配音`
+                  : voicedCount === 0
+                    ? `0/${textLineCount} 句已配音，可點「重新生成配音」`
+                    : `${voicedCount}/${textLineCount} 句已配音，部分台詞尚未配音`
+              }
+            >
+              🔊 {voicedCount}/{textLineCount}
+            </span>
           )}
         </span>
         {/* Thumbnail preview — only shown in collapsed state, lets users identify scenes without expanding */}

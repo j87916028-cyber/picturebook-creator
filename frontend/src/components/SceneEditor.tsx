@@ -106,11 +106,14 @@ export default function SceneEditor({
   const [copiedCharId, setCopiedCharId] = useState<string | null>(null)
 
   // When the active project changes, load that project's saved draft (or clear the field).
+  // Also reset the suggestion-fetch sentinel so switching to a project with the same
+  // scene count still triggers a fresh suggestion fetch for the new project's context.
   const prevProjectIdRef = useRef(projectId)
   useEffect(() => {
     if (projectId !== prevProjectIdRef.current) {
       prevProjectIdRef.current = projectId
       setDescription(localStorage.getItem(draftKey) || '')
+      lastFetchedForCount.current = -1   // force re-fetch on next sceneCount/storyContext change
     }
   }, [projectId, draftKey])
 

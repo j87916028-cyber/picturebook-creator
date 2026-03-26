@@ -1582,6 +1582,29 @@ body {
   background: #f0f9ff;
   border: 1px solid #7dd3fc;
 }
+.scene-audio-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 1px 7px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.scene-audio-badge.all {
+  color: #15803d;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+}
+.scene-audio-badge.partial {
+  color: #b45309;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+}
+.scene-audio-badge.none {
+  color: #be123c;
+  background: #fff1f2;
+  border: 1px solid #fda4af;
+}
 .scene-desc-wrap {
   display: flex;
   align-items: center;
