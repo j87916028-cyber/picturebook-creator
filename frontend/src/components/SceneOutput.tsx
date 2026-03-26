@@ -390,6 +390,34 @@ function SceneCard({
     setEditingTitle(false)
   }
 
+  // AI scene-title suggestion
+  const [titleSuggesting, setTitleSuggesting] = useState(false)
+  const [titleSuggestion, setTitleSuggestion] = useState<string | null>(null)
+  const suggestSceneTitle = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const sceneChars = characters.filter(c => scene.lines.some(l => l.character_id === c.id))
+    if (sceneChars.length === 0 || titleSuggesting) return
+    setTitleSuggesting(true)
+    setTitleSuggestion(null)
+    try {
+      const res = await fetch('/api/generate-title', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          characters: sceneChars,
+          scene_description: scene.description,
+          first_lines: scene.lines.slice(0, 5).map(l => l.text),
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.title) setTitleSuggestion(data.title)
+      }
+    } catch { /* silent */ } finally {
+      setTitleSuggesting(false)
+    }
+  }
+
   // Private director/author notes
   const [showNotes, setShowNotes] = useState(false)
   const [notesText, setNotesText] = useState(scene.notes ?? '')
@@ -697,13 +725,32 @@ function SceneCard({
               onClick={e => e.stopPropagation()}
             />
           ) : (
-            <span
-              className={`scene-title-label${scene.title ? ' has-title' : ''}`}
-              onDoubleClick={e => { e.stopPropagation(); setEditingTitle(true) }}
-              title={scene.title ? '雙擊編輯標題' : '雙擊新增幕次標題'}
-            >
-              {scene.title ? highlightText(scene.title, searchQuery) : <span className="scene-title-placeholder">雙擊加標題</span>}
-            </span>
+            <>
+              <span
+                className={`scene-title-label${scene.title ? ' has-title' : ''}`}
+                onDoubleClick={e => { e.stopPropagation(); setEditingTitle(true) }}
+                title={scene.title ? '雙擊編輯標題' : '雙擊新增幕次標題'}
+              >
+                {scene.title ? highlightText(scene.title, searchQuery) : <span className="scene-title-placeholder">雙擊加標題</span>}
+              </span>
+              <button
+                className={`btn-suggest-scene-title${titleSuggesting ? ' loading' : ''}`}
+                onClick={suggestSceneTitle}
+                disabled={titleSuggesting}
+                title="AI 自動建議幕次標題"
+              >
+                {titleSuggesting ? <span className="spinner-sm" /> : '✨'}
+              </button>
+              {titleSuggestion && (
+                <button
+                  className="btn-apply-title-suggestion"
+                  onClick={e => { e.stopPropagation(); onSceneTitleUpdate(scene.id, titleSuggestion); setTitleSuggestion(null) }}
+                  title={`點擊套用 AI 建議標題「${titleSuggestion}」`}
+                >
+                  《{titleSuggestion}》✓
+                </button>
+              )}
+            </>
           )}
           {sceneSecs >= 5 && (
             <span
