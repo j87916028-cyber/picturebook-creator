@@ -3338,8 +3338,43 @@ def _export_mp3_zip(project_name: str, scenes: list) -> bytes:
     return buf.getvalue()
 
 
+def _export_txt(project_name: str, scenes: list) -> bytes:
+    """Export the full script as a plain UTF-8 text file.
+
+    Format:
+        《書名》完整劇本
+        ========
+        【第1幕】場景描述（風格）
+        ────────
+        角色名：台詞
+        ...
+    """
+    lines_out: list[str] = [
+        f"《{project_name}》完整劇本",
+        "=" * 40,
+        "",
+    ]
+    for i, scene in enumerate(scenes, 1):
+        desc = scene.get("description", "").strip()
+        style = scene.get("style", "").strip()
+        header = f"【第{i}幕】{desc}"
+        if style:
+            header += f"（{style}）"
+        lines_out.append(header)
+        lines_out.append("─" * 30)
+        for line in scene.get("lines", []):
+            char_name = line.get("character_name", "").strip() or "旁白"
+            text = line.get("text", "").strip()
+            if text:
+                lines_out.append(f"{char_name}：{text}")
+        lines_out.append("")
+
+    lines_out += ["=" * 40, f"共 {len(scenes)} 幕", ""]
+    return "\n".join(lines_out).encode("utf-8")
+
+
 # ── GET /api/projects/{project_id}/export ────────────────────
-_EXPORT_FORMAT = Literal["pdf", "epub", "html", "mp3"]
+_EXPORT_FORMAT = Literal["pdf", "epub", "html", "mp3", "txt"]
 
 @app.get("/api/projects/{project_id}/export")
 async def export_project(
@@ -3405,10 +3440,14 @@ async def export_project(
         data = await loop.run_in_executor(None, _export_html_zip, project_name, scenes, char_color_map, raw_chars)
         media_type = "text/html; charset=utf-8"
         filename = f"{project_name}.html"
-    else:  # "mp3"
+    elif format == "mp3":
         data = await loop.run_in_executor(None, _export_mp3_zip, project_name, scenes)
         media_type = "application/zip"
         filename = f"{project_name}_audio.zip"
+    else:  # "txt"
+        data = _export_txt(project_name, scenes)
+        media_type = "text/plain; charset=utf-8"
+        filename = f"{project_name}_劇本.txt"
 
     # URL-encode filename for Content-Disposition
     encoded_filename = urllib.parse.quote(filename)
