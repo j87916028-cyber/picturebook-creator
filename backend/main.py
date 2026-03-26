@@ -2673,7 +2673,7 @@ async def duplicate_project(project_id: str, request: Request):
             raise HTTPException(status_code=404, detail="專案不存在")
 
         scene_rows = await conn.fetch(
-            "SELECT idx, title, description, style, line_length, script, lines, image "
+            "SELECT idx, title, description, style, line_length, notes, is_locked, script, lines, image "
             "FROM scenes WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
@@ -2697,8 +2697,8 @@ async def duplicate_project(project_id: str, request: Request):
                 await conn.executemany(
                     """
                     INSERT INTO scenes
-                      (project_id, idx, title, description, style, line_length, script, lines, image)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9)
+                      (project_id, idx, title, description, style, line_length, notes, is_locked, script, lines, image)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11)
                     """,
                     [
                         (
@@ -2708,6 +2708,8 @@ async def duplicate_project(project_id: str, request: Request):
                             row["description"],
                             row["style"],
                             row["line_length"] or "standard",
+                            row.get("notes") or "",
+                            row.get("is_locked") or False,
                             _to_json(row["script"]),
                             _to_json(row["lines"]),
                             row["image"],
