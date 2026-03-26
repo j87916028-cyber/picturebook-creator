@@ -234,6 +234,7 @@ interface Props {
   onImageUpload: (sceneId: string, dataUrl: string) => void
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
   onSceneTitleUpdate: (sceneId: string, newTitle: string) => void
+  onSceneNotesUpdate: (sceneId: string, newNotes: string) => void
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string) => Promise<void>
   onBatchRegenVoice: () => void
   onSceneRegenAllVoices: (sceneId: string) => Promise<void>
@@ -267,6 +268,7 @@ interface SceneCardProps {
   onImageUpload: (sceneId: string, dataUrl: string) => void
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
   onSceneTitleUpdate: (sceneId: string, newTitle: string) => void
+  onSceneNotesUpdate: (sceneId: string, newNotes: string) => void
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string) => Promise<void>
   onSceneRegenAllVoices: (sceneId: string) => Promise<void>
   onFocusScene: () => void
@@ -299,6 +301,7 @@ function SceneCard({
   onImageUpload,
   onSceneDescriptionUpdate,
   onSceneTitleUpdate,
+  onSceneNotesUpdate,
   onSceneRegen,
   onSceneRegenAllVoices,
   onFocusScene,
@@ -386,6 +389,12 @@ function SceneCard({
     onSceneTitleUpdate(scene.id, v)
     setEditingTitle(false)
   }
+
+  // Private director/author notes
+  const [showNotes, setShowNotes] = useState(false)
+  const [notesText, setNotesText] = useState(scene.notes ?? '')
+  useEffect(() => { setNotesText(scene.notes ?? '') }, [scene.notes])
+  const commitNotes = () => onSceneNotesUpdate(scene.id, notesText)
 
   // Inline description edit
   const [editingDesc, setEditingDesc] = useState(false)
@@ -771,6 +780,28 @@ function SceneCard({
               onClick={() => { setEditDescText(scene.description); setEditingDesc(true) }}
               title="編輯場景描述（不重新生成）"
             >✏️</button>
+          </div>
+        )}
+        {/* Private notes toggle */}
+        <button
+          className={`btn-scene-notes-toggle${showNotes ? ' active' : ''}${notesText ? ' has-notes' : ''}`}
+          onClick={() => setShowNotes(v => !v)}
+          title={notesText ? '導演備註（有內容）' : '新增導演備註（僅自用，不會匯出）'}
+        >
+          {notesText ? '📝' : '📋'} 備註{notesText ? ' ●' : ''}
+        </button>
+        {showNotes && (
+          <div className="scene-notes-area">
+            <textarea
+              className="scene-notes-textarea"
+              value={notesText}
+              placeholder="導演備註：記錄創作思路、修改方向、靈感……此欄位不會出現在任何匯出內容中"
+              maxLength={2000}
+              rows={3}
+              onChange={e => setNotesText(e.target.value)}
+              onBlur={commitNotes}
+            />
+            <span className="scene-notes-hint">{notesText.length}/2000 · 僅自用，不匯出</span>
           </div>
         )}
         <div className="scene-header-right">
@@ -1648,6 +1679,7 @@ export default function SceneOutput({
   onImageUpload,
   onSceneDescriptionUpdate,
   onSceneTitleUpdate,
+  onSceneNotesUpdate,
   onSceneRegen,
   onBatchRegenVoice,
   onSceneRegenAllVoices,
@@ -2057,6 +2089,7 @@ export default function SceneOutput({
               onImageUpload={onImageUpload}
               onSceneDescriptionUpdate={onSceneDescriptionUpdate}
               onSceneTitleUpdate={onSceneTitleUpdate}
+              onSceneNotesUpdate={onSceneNotesUpdate}
               onSceneRegen={onSceneRegen}
               onSceneRegenAllVoices={onSceneRegenAllVoices}
               onFocusScene={() => focusScene(scene.id)}

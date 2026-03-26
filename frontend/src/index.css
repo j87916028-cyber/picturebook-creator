@@ -1781,6 +1781,45 @@ body {
   background: #f8f9ff;
 }
 
+/* Scene notes */
+.btn-scene-notes-toggle {
+  align-self: flex-start;
+  background: none;
+  border: 1.5px dashed #d1d5e8;
+  border-radius: 8px;
+  padding: 2px 9px;
+  font-size: 0.75rem;
+  color: #9ca3c4;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: 2px;
+}
+.btn-scene-notes-toggle:hover,
+.btn-scene-notes-toggle.active { border-style: solid; border-color: #667eea; color: #667eea; background: #f3eeff; }
+.btn-scene-notes-toggle.has-notes { color: #5a3e99; border-color: #b9a5f0; background: #f3eeff; border-style: solid; }
+.scene-notes-area {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+.scene-notes-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 0.8rem;
+  color: #4b5563;
+  border: 1.5px solid #c4b5fd;
+  border-radius: 8px;
+  padding: 6px 10px;
+  outline: none;
+  background: #faf8ff;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+}
+.scene-notes-textarea:focus { border-color: #667eea; background: #f3eeff; }
+.scene-notes-hint { font-size: 0.68rem; color: #9ca3af; text-align: right; }
+
 .scene-card-image-wrap { width: 100%; }
 
 .scene-card-dialogue .output-header { margin-bottom: 12px; }

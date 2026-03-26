@@ -345,6 +345,7 @@ export default function App() {
             description: s.description,
             style: s.style,
             line_length: s.line_length ?? 'standard',
+            notes: s.notes ?? '',
             script: s.script,
             // Strip audio_base64 / audio_format from lines when blobs are unchanged;
             // JSON.stringify omits undefined values automatically.
@@ -650,6 +651,13 @@ export default function App() {
   // Edit scene title (short user-defined label, e.g. "開場", "大結局")
   const handleSceneTitleUpdate = (sceneId: string, newTitle: string) => {
     const next = scenes.map(s => s.id === sceneId ? { ...s, title: newTitle } : s)
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
+  }
+
+  // Edit private director/author notes for a scene (never exported)
+  const handleSceneNotesUpdate = (sceneId: string, newNotes: string) => {
+    const next = scenes.map(s => s.id === sceneId ? { ...s, notes: newNotes } : s)
     setScenes(next)
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
@@ -1964,6 +1972,7 @@ export default function App() {
               onImageUpload={handleImageUpload}
               onSceneDescriptionUpdate={handleSceneDescriptionUpdate}
               onSceneTitleUpdate={handleSceneTitleUpdate}
+              onSceneNotesUpdate={handleSceneNotesUpdate}
               onSceneRegen={handleSceneRegen}
               onBatchRegenVoice={handleBatchRegenVoice}
               onSceneRegenAllVoices={handleSceneRegenAllVoices}

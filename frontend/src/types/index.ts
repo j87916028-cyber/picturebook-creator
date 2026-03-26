@@ -38,6 +38,8 @@ export interface Scene {
   description: string
   style: string
   line_length?: 'short' | 'standard' | 'long'
+  /** Private director/author notes — saved to DB but never included in any export */
+  notes?: string
   script: ScriptResponse
   lines: ScriptLine[]
   image: string
