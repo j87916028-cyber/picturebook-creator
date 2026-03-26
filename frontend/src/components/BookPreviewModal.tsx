@@ -56,6 +56,13 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
   // Incrementing counter that triggers the cross-scene auto-start effect
   const [autoStartTrigger, setAutoStartTrigger] = useState(0)
 
+  // Auto-advance timer: null = off; 8/15/20/30 = seconds per page
+  const [autoAdvanceSecs, setAutoAdvanceSecs] = useState<number | null>(() => {
+    const saved = parseInt(localStorage.getItem('book_preview_auto_advance') ?? '')
+    return [8, 15, 20, 30].includes(saved) ? saved : null
+  })
+  const [timerProgress, setTimerProgress] = useState(0)
+
   const scene = scenes[page]
   const imgSrc = scene?.image ? resolveImgSrc(scene.image) : ''
 
@@ -279,10 +286,37 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
   const getCharacter = (name: string): Character | undefined =>
     characters.find(c => c.name === name)
 
-  if (!scene) return null
-
   const isFirst = page === 0
   const isLast  = page === scenes.length - 1
+
+  // Persist auto-advance preference
+  useEffect(() => {
+    localStorage.setItem('book_preview_auto_advance', autoAdvanceSecs === null ? '' : String(autoAdvanceSecs))
+  }, [autoAdvanceSecs])
+
+  // Auto-advance timer: restart on every page change or settings change
+  useEffect(() => {
+    if (!autoAdvanceSecs || isLast || autoPlaying) {
+      setTimerProgress(0)
+      return
+    }
+    setTimerProgress(0)
+    let progress = 0
+    const increment = 100 / (autoAdvanceSecs * 10)
+    const id = setInterval(() => {
+      progress += increment
+      if (progress >= 100) {
+        clearInterval(id)
+        setTimerProgress(0)
+        setPage(p => Math.min(p + 1, scenes.length - 1))
+      } else {
+        setTimerProgress(progress)
+      }
+    }, 100)
+    return () => clearInterval(id)
+  }, [autoAdvanceSecs, isLast, page, autoPlaying, scenes.length])
+
+  if (!scene) return null
 
   return (
     <div className="book-preview-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="閱讀模式">
@@ -324,6 +358,19 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
                 onClick={() => setFontSize(s)}
                 title={['小字（[）', '中字', '大字（]）'][i]}
               >{['小', '中', '大'][i]}</button>
+            ))}
+          </div>
+          {/* Auto-advance timer selector */}
+          <div className="book-timer-wrap" title="自動翻頁計時器：無需音訊，定時切換到下一幕">
+            {([null, 8, 15, 20, 30] as const).map(secs => (
+              <button
+                key={secs ?? 'off'}
+                className={`book-timer-btn${autoAdvanceSecs === secs ? ' active' : ''}`}
+                onClick={() => setAutoAdvanceSecs(secs)}
+                title={secs === null ? '關閉自動翻頁' : `每 ${secs} 秒自動翻至下一幕`}
+              >
+                {secs === null ? '⏱ 關' : `${secs}s`}
+              </button>
             ))}
           </div>
           {scene.notes && (
@@ -374,6 +421,12 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
               </>
             ) : (
               <div className="book-img-placeholder">🎨</div>
+            )}
+            {/* Auto-advance timer progress bar */}
+            {autoAdvanceSecs && !isLast && !autoPlaying && (
+              <div className="book-timer-bar-wrap" title={`${autoAdvanceSecs} 秒後自動翻至下一幕`}>
+                <div className="book-timer-bar" style={{ width: `${timerProgress}%` }} />
+              </div>
             )}
           </div>
 
