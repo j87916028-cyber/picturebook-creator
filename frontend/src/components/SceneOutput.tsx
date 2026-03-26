@@ -2024,8 +2024,15 @@ export default function SceneOutput({
   return (
     <div className="scene-output-panel">
       <div className="scene-sticky-bar">
-        {(hasAudio || missingAudioCount > 0 || missingImageCount > 0 || hasImages) && (
+        {(scenes.length > 0 || hasAudio || missingAudioCount > 0 || missingImageCount > 0 || hasImages) && (
           <div className="playbook-bar">
+            <button
+              className="btn-playbook btn-readbook"
+              onClick={() => { setBookPreviewStart(0); setShowBookPreview(true) }}
+              title="翻頁繪本閱讀模式（從第1幕開始）"
+            >
+              📖 閱讀全書
+            </button>
             {hasAudio && (
               <button className="btn-playbook" onClick={() => { setPlaybackStartScene(0); setShowPlayback(true) }}>
                 🎬 播放全書

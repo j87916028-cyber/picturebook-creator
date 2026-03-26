@@ -3088,6 +3088,9 @@ body {
   cursor: pointer; transition: opacity 0.15s; white-space: nowrap;
 }
 .btn-playbook:hover { opacity: 0.88; }
+.btn-readbook {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+}
 .btn-batch-regen {
   background: linear-gradient(135deg, #43e97b, #38f9d7);
   color: #1a2a1a; border: none; border-radius: 8px;
