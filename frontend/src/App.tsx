@@ -262,9 +262,23 @@ export default function App() {
       voices_attempted: true,  // scenes from DB are fully generated
     }))
     setScenes(loaded)
-    if (proj.characters && proj.characters.length > 0) {
-      setCharacters(proj.characters)
+    const loadedChars = proj.characters ?? []
+    if (loadedChars.length > 0) {
+      setCharacters(loadedChars)
     }
+
+    // Restore drop zone: use the characters that appeared in the last scene so the
+    // user can immediately continue generating without having to re-drag.
+    // Falls back to empty when the project has no scenes (cross-project contamination fix).
+    const lastScene = loaded.length > 0 ? loaded[loaded.length - 1] : null
+    if (lastScene && loadedChars.length > 0) {
+      const lastCharIds = new Set(lastScene.lines.map((l: ScriptLine) => l.character_id).filter(Boolean))
+      const restored = loadedChars.filter(c => lastCharIds.has(c.id))
+      setDroppedCharacters(restored)
+    } else {
+      setDroppedCharacters([])
+    }
+
     setError('')
     setPlanWarning(null)
   }
@@ -376,6 +390,7 @@ export default function App() {
   const handleReset = () => {
     if (abortControllerRef.current) abortControllerRef.current.abort()
     setScenes([])
+    setDroppedCharacters([])
     setError('')
     setPlanWarning(null)
   }
