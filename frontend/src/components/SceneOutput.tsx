@@ -1944,7 +1944,7 @@ export default function SceneOutput({
     [scenes]
   )
   const missingTitleCount = useMemo(
-    () => scenes.filter(s => s.lines.length > 0 && !s.title?.trim()).length,
+    () => scenes.filter(s => !s.is_locked && s.lines.length > 0 && !s.title?.trim()).length,
     [scenes]
   )
   const hasImages = useMemo(

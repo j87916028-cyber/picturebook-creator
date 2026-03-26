@@ -736,7 +736,7 @@ export default function App() {
 
   // Batch AI title generation — fills in titles for all untitled scenes (up to 3 concurrent)
   const handleBatchGenerateTitles = async () => {
-    const untitled = scenes.filter(s => !s.title?.trim())
+    const untitled = scenes.filter(s => !s.is_locked && !s.title?.trim())
     if (untitled.length === 0 || !currentProjectId) return
     setBatchTitleStatus({ done: 0, total: untitled.length })
 
@@ -1285,7 +1285,7 @@ export default function App() {
   const handleSceneLockToggle = useCallback((sceneId: string) => {
     setScenes(prev => {
       const next = prev.map(s => s.id === sceneId ? { ...s, is_locked: !s.is_locked } : s)
-      if (currentProjectId) autoSave(currentProjectId, next, characters)
+      setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
       return next
     })
   }, [currentProjectId, characters, autoSave])
