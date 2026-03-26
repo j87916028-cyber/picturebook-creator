@@ -1205,8 +1205,12 @@ export default function App() {
         if (err instanceof DOMException && err.name === 'AbortError') return
       }
     })
-    await throttled(voiceTasks, 5, (done, total) => setBatchRegenStatus({ done, total }))
-    if (!batchSignal.aborted) setTimeout(() => setBatchRegenStatus(null), 1500)
+    try {
+      await throttled(voiceTasks, 5, (done, total) => setBatchRegenStatus({ done, total }))
+    } finally {
+      if (batchSignal.aborted) setBatchRegenStatus(null)
+      else setTimeout(() => setBatchRegenStatus(null), 1500)
+    }
   }
 
   // Force-regenerate ALL voice lines in one specific scene.
@@ -1293,8 +1297,12 @@ export default function App() {
         if (!batchSignal.aborted) setBatchImageStatus(prev => prev ? { ...prev, done: prev.done + 1 } : null)
       }
     })
-    await throttled(imageTasks, 2)
-    if (!batchSignal.aborted) setTimeout(() => setBatchImageStatus(null), 1500)
+    try {
+      await throttled(imageTasks, 2)
+    } finally {
+      if (batchSignal.aborted) setBatchImageStatus(null)
+      else setTimeout(() => setBatchImageStatus(null), 1500)
+    }
   }
 
   // Batch-regenerate images for all scenes that are missing or errored
@@ -1343,8 +1351,12 @@ export default function App() {
     })
 
     // Image generation is slow; run at most 2 in parallel to respect rate limits
-    await throttled(imageTasks, 2)
-    if (!batchSignal.aborted) setTimeout(() => setBatchImageStatus(null), 1500)
+    try {
+      await throttled(imageTasks, 2)
+    } finally {
+      if (batchSignal.aborted) setBatchImageStatus(null)
+      else setTimeout(() => setBatchImageStatus(null), 1500)
+    }
   }
 
   // Re-generate entire scene
