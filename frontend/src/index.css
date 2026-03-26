@@ -1377,6 +1377,13 @@ body {
 }
 .btn-scene-move:hover:not(:disabled) { border-color: #667eea; color: #667eea; background: #f0f4ff; }
 .btn-scene-move:disabled { opacity: 0.3; cursor: default; }
+.btn-focus-scene {
+  background: none; border: 1.5px solid #dde; border-radius: 7px;
+  padding: 3px 7px; font-size: 0.78rem;
+  color: #99a; cursor: pointer; transition: all 0.12s;
+}
+.btn-focus-scene:hover { border-color: #e67e22; background: #fff8f0; }
+.btn-focus-scene.active { border-color: #e67e22; background: #fff0e0; color: #e67e22; }
 .btn-scene-collapse {
   background: none; border: 1.5px solid #dde; border-radius: 7px;
   padding: 3px 8px; font-size: 0.72rem; font-weight: 700;

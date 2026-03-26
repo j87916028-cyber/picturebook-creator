@@ -237,6 +237,8 @@ interface SceneCardProps {
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string) => Promise<void>
   onSceneRegenAllVoices: (sceneId: string) => Promise<void>
+  onFocusScene: () => void
+  isFocused: boolean
   onPlayFromScene: (sceneIndex: number) => void
   onReadFromScene: (sceneIndex: number) => void
   onLinesReorder: (sceneId: string, newLines: ScriptLine[]) => void
@@ -264,6 +266,8 @@ function SceneCard({
   onSceneDescriptionUpdate,
   onSceneRegen,
   onSceneRegenAllVoices,
+  onFocusScene,
+  isFocused,
   onPlayFromScene,
   onReadFromScene,
   onLinesReorder,
@@ -672,6 +676,13 @@ function SceneCard({
           >
             📖
           </button>
+          {totalScenes > 1 && (
+            <button
+              className={`btn-focus-scene${isFocused ? ' active' : ''}`}
+              onClick={onFocusScene}
+              title={isFocused ? '取消聚焦，展開所有場景' : '聚焦此幕（收合其他場景）'}
+            >🎯</button>
+          )}
           <button
             className="btn-scene-collapse"
             onClick={() => onToggleCollapse(scene.id)}
@@ -1484,6 +1495,15 @@ export default function SceneOutput({
   const allCollapsed = scenes.length > 0 && scenes.every(s => collapsedIds.has(s.id))
   const collapseAll = () => setCollapsedIds(new Set(scenes.map(s => s.id)))
   const expandAll  = () => setCollapsedIds(new Set())
+
+  // Collapse every scene except the given one. If already focused, expand all.
+  const focusScene = (sceneId: string) => {
+    const alreadyFocused = scenes.filter(s => s.id !== sceneId).every(s => collapsedIds.has(s.id))
+    setCollapsedIds(alreadyFocused
+      ? new Set()
+      : new Set(scenes.filter(s => s.id !== sceneId).map(s => s.id))
+    )
+  }
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([])
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
@@ -1791,6 +1811,8 @@ export default function SceneOutput({
               onSceneDescriptionUpdate={onSceneDescriptionUpdate}
               onSceneRegen={onSceneRegen}
               onSceneRegenAllVoices={onSceneRegenAllVoices}
+              onFocusScene={() => focusScene(scene.id)}
+              isFocused={scenes.filter(s => s.id !== scene.id).every(s => collapsedIds.has(s.id))}
               onPlayFromScene={handlePlayFromScene}
               onReadFromScene={handleReadFromScene}
               onLinesReorder={onLinesReorder}
