@@ -137,7 +137,9 @@ def _client_ip(request: Request) -> str:
 _rl_script  = _RateLimiter(max_calls=10,  window_secs=60)   # LLM script gen
 _rl_voice   = _RateLimiter(max_calls=60,  window_secs=60)   # TTS (many lines/scene)
 _rl_image   = _RateLimiter(max_calls=10,  window_secs=60)   # Image gen
-_rl_suggest = _RateLimiter(max_calls=15,  window_secs=60)   # Scene suggestions
+_rl_suggest_char  = _RateLimiter(max_calls=20, window_secs=60)   # Character suggestions (personality, visual)
+_rl_suggest_scene = _RateLimiter(max_calls=15, window_secs=60)   # Story/scene suggestions (next-scene, mood, title, summary)
+_rl_suggest_line  = _RateLimiter(max_calls=20, window_secs=60)   # Line editing (rephrase, suggest-line)
 _rl_title   = _RateLimiter(max_calls=30,  window_secs=60)   # Title gen
 _rl_recognize = _RateLimiter(max_calls=10, window_secs=60)  # Image recognition (AI, expensive)
 _rl_transcribe = _RateLimiter(max_calls=10, window_secs=60) # Audio transcription (AI, expensive)
@@ -945,8 +947,8 @@ class SuggestVisualRequest(BaseModel):
 async def suggest_visual_description(req: SuggestVisualRequest, request: Request):
     """Generate an English visual description for a character suitable for image generation."""
     ip = _client_ip(request)
-    if not _rl_suggest.is_allowed(ip):
-        raise _rl_429(_rl_suggest, ip)
+    if not _rl_suggest_char.is_allowed(ip):
+        raise _rl_429(_rl_suggest_char, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
@@ -982,8 +984,8 @@ class GenerateSummaryRequest(BaseModel):
 async def generate_summary(req: GenerateSummaryRequest, request: Request):
     """Generate a 2–3 sentence summary of the entire story."""
     ip = _client_ip(request)
-    if not _rl_suggest.is_allowed(ip):
-        raise _rl_429(_rl_suggest, ip)
+    if not _rl_suggest_scene.is_allowed(ip):
+        raise _rl_429(_rl_suggest_scene, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
@@ -1017,8 +1019,8 @@ class SuggestPersonalityRequest(BaseModel):
 async def suggest_personality(req: SuggestPersonalityRequest, request: Request):
     """Generate a Chinese personality description for a character."""
     ip = _client_ip(request)
-    if not _rl_suggest.is_allowed(ip):
-        raise _rl_429(_rl_suggest, ip)
+    if not _rl_suggest_char.is_allowed(ip):
+        raise _rl_429(_rl_suggest_char, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
@@ -1160,8 +1162,8 @@ async def _llm_suggestions(
 @app.post("/api/suggest-next-scene")
 async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
     ip = _client_ip(request)
-    if not _rl_suggest.is_allowed(ip):
-        raise _rl_429(_rl_suggest, ip)
+    if not _rl_suggest_scene.is_allowed(ip):
+        raise _rl_429(_rl_suggest_scene, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
     char_names = "、".join(c.name for c in req.characters)
@@ -1230,8 +1232,8 @@ _VALID_MOODS = {"輕鬆愉快", "溫馨感動", "緊張刺激", "搞笑幽默", 
 @app.post("/api/suggest-mood")
 async def suggest_mood(req: SuggestMoodRequest, request: Request):
     ip = _client_ip(request)
-    if not _rl_suggest.is_allowed(ip):
-        raise _rl_429(_rl_suggest, ip)
+    if not _rl_suggest_scene.is_allowed(ip):
+        raise _rl_429(_rl_suggest_scene, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
@@ -1275,8 +1277,8 @@ class SuggestTitleRequest(BaseModel):
 @app.post("/api/suggest-title")
 async def suggest_title(req: SuggestTitleRequest, request: Request):
     ip = _client_ip(request)
-    if not _rl_suggest.is_allowed(ip):
-        raise _rl_429(_rl_suggest, ip)
+    if not _rl_suggest_scene.is_allowed(ip):
+        raise _rl_429(_rl_suggest_scene, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
@@ -1317,8 +1319,8 @@ class RephraseLineRequest(BaseModel):
 async def rephrase_line(req: RephraseLineRequest, request: Request):
     """Return 3 rephrased alternatives for a single dialogue line."""
     ip = _client_ip(request)
-    if not _rl_suggest.is_allowed(ip):
-        raise _rl_429(_rl_suggest, ip)
+    if not _rl_suggest_line.is_allowed(ip):
+        raise _rl_429(_rl_suggest_line, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
@@ -1364,8 +1366,8 @@ class SuggestLineRequest(BaseModel):
 async def suggest_line(req: SuggestLineRequest, request: Request):
     """Return 3 suggested next lines for a given character in the scene context."""
     ip = _client_ip(request)
-    if not _rl_suggest.is_allowed(ip):
-        raise _rl_429(_rl_suggest, ip)
+    if not _rl_suggest_line.is_allowed(ip):
+        raise _rl_429(_rl_suggest_line, ip)
     if not MINIMAX_API_KEY and not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="服務未設定")
 
