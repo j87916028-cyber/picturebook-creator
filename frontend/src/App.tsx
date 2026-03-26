@@ -464,6 +464,7 @@ export default function App() {
     const copy: Scene = {
       ...original,
       id: `scene-${Date.now()}`,
+      is_locked: false,   // duplicates start unlocked regardless of original
     }
     const next = [...scenes.slice(0, idx + 1), copy, ...scenes.slice(idx + 1)]
     setScenes(next)

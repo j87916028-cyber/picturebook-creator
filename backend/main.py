@@ -2565,7 +2565,8 @@ async def import_project_json(req: ImportJsonRequest, request: Request):
             str(s.get("notes") or "")[:2000],
             json.dumps(script, ensure_ascii=False),
             json.dumps(clean_lines, ensure_ascii=False),
-            "",   # image: intentionally empty — user regenerates after import
+            "",     # image: intentionally empty — user regenerates after import
+            bool(s.get("is_locked", False)),
         ))
 
     # ── Persist in one transaction ────────────────────────────────
@@ -2587,8 +2588,8 @@ async def import_project_json(req: ImportJsonRequest, request: Request):
                 await conn.executemany(
                     """
                     INSERT INTO scenes
-                      (project_id, idx, title, description, style, line_length, notes, script, lines, image)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10)
+                      (project_id, idx, title, description, style, line_length, notes, script, lines, image, is_locked)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11)
                     """,
                     [(project_id, *r) for r in scene_rows],
                 )
@@ -4088,6 +4089,7 @@ def _export_json_backup(project_name: str, scenes: list, characters: list) -> by
                 "style":           s.get("style", ""),
                 "line_length":     s.get("line_length", "standard") or "standard",
                 "notes":           s.get("notes", "") or "",
+                "is_locked":       bool(s.get("is_locked", False)),
                 "scene_prompt":    s.get("scene_prompt", "") or "",
                 "sfx_description": s.get("sfx_description", "") or "",
                 "lines": [

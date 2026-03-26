@@ -114,6 +114,7 @@ function SortableNavChip({
         <span className="scene-nav-desc">{scene.description}</span>
         {/* Completion dots: left = image, right = audio */}
         <div className="scene-nav-status">
+          {scene.is_locked && <span className="nav-lock-dot" title="場景已鎖定">🔒</span>}
           <span className={`nav-status-dot img-dot dot-${imageStatus}`} title={imageTip} />
           <span className={`nav-status-dot aud-dot dot-${audioStatus}`} title={audioTip} />
         </div>
@@ -155,6 +156,7 @@ function StoryboardCard({
         )}
         <span className="storyboard-num">第 {index + 1} 幕</span>
         <div className="storyboard-status">
+          {scene.is_locked && <span className="nav-lock-dot" title="場景已鎖定">🔒</span>}
           <span className={`nav-status-dot img-dot dot-${imageStatus}`} title={imageStatus === 'ok' ? '插圖完成' : imageStatus === 'err' ? '插圖失敗' : '插圖生成中'} />
           <span className={`nav-status-dot aud-dot dot-${audioStatus}`} title={audioStatus === 'ok' ? '配音完整' : audioStatus === 'partial' ? `配音 ${linesWithAudio}/${totalLines}` : '配音生成中'} />
         </div>

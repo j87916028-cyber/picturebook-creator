@@ -2756,6 +2756,7 @@ body {
   align-items: center;
   margin-top: 3px;
 }
+.nav-lock-dot { font-size: 0.6rem; line-height: 1; }
 .nav-status-dot {
   width: 7px;
   height: 7px;
