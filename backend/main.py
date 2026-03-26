@@ -719,58 +719,16 @@ async def generate_title(req: GenerateTitleRequest, request: Request):
             # search inside think block as fallback
             m = re.search(r'[\u4e00-\u9fff]{4,12}', raw)
             t = m.group(0) if m else ""
-        return t.strip('「」『』""\'').strip()
+        t = t.strip('「」『』""\'').strip()
+        # Return empty string for invalid lengths so _llm_single_string retries the next model
+        return t if 1 <= len(t) <= 20 else ""
 
-    # Try Groq first (faster, no think-block issues, ample rate limits)
-    if GROQ_API_KEY:
-        try:
-            resp = await _http_client.post(
-                GROQ_CHAT_URL,
-                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-                json={
-                    "model": "llama-3.1-8b-instant",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.9,
-                    "max_tokens": 30,
-                },
-                timeout=20,
-            )
-            resp.raise_for_status()
-            raw = resp.json()["choices"][0]["message"].get("content", "").strip()
-            title = _clean_title(raw)
-            if title and len(title) <= 20:
-                logger.info("generate-title via Groq: %s", title)
-                return {"title": title}
-        except Exception as e:
-            logger.warning("generate-title Groq failed: %s", e)
-
-    # Fall back to MiniMax
-    if MINIMAX_API_KEY:
-        try:
-            resp = await _http_client.post(
-                f"{MINIMAX_BASE}/chat/completions",
-                headers=MINIMAX_HEADERS,
-                json={
-                    "model": "MiniMax-M2.7",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.9,
-                    "max_tokens": 30,
-                },
-                timeout=30,
-            )
-            resp.raise_for_status()
-            raw_content = resp.json()["choices"][0]["message"].get("content", "")
-            if isinstance(raw_content, list):
-                raw_content = " ".join(b.get("text", "") for b in raw_content if b.get("type") == "text")
-            title = _clean_title(str(raw_content))
-            if title and len(title) <= 20:
-                logger.info("generate-title via MiniMax: %s", title)
-                return {"title": title}
-            raise ValueError(f"invalid title: {title!r}")
-        except Exception as e:
-            logger.warning("generate-title MiniMax failed: %s", e)
-
-    raise HTTPException(status_code=502, detail="書名生成失敗")
+    title = await _llm_single_string(
+        prompt, _clean_title,
+        temperature=0.9, max_tokens=30,
+        log_tag="generate-title", error_detail="書名生成失敗",
+    )
+    return {"title": title}
 
 
 # ── Shared LLM helper: single-prompt → single-string (Groq → MiniMax) ────
