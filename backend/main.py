@@ -2609,22 +2609,27 @@ async def import_project_json(req: ImportJsonRequest, request: Request):
             bool(s.get("is_locked", False)),
         ))
 
-    # ── Persist in one transaction ────────────────────────────────
+    # ── Persist atomically: project + scenes in ONE transaction ──────
+    # The project INSERT must be inside the same transaction as the scene
+    # INSERTs.  Previously the project row was created outside the inner
+    # transaction, so a scene insertion failure (e.g. duplicate idx) would
+    # leave an orphaned project row in the database.
+    # mirrors the pattern used by duplicate_project.
     async with _db_pool.acquire() as conn:
         project_name = req.name.strip() or "未命名匯入作品"
-        row = await conn.fetchrow(
-            """
-            INSERT INTO projects (name, characters)
-            VALUES ($1, $2::jsonb)
-            RETURNING id, name, created_at, updated_at
-            """,
-            project_name,
-            json.dumps(clean_chars, ensure_ascii=False),
-        )
-        project_id = str(row["id"])
+        async with conn.transaction():
+            row = await conn.fetchrow(
+                """
+                INSERT INTO projects (name, characters)
+                VALUES ($1, $2::jsonb)
+                RETURNING id, name, created_at, updated_at
+                """,
+                project_name,
+                json.dumps(clean_chars, ensure_ascii=False),
+            )
+            project_id = str(row["id"])
 
-        if scene_rows:
-            async with conn.transaction():
+            if scene_rows:
                 await conn.executemany(
                     """
                     INSERT INTO scenes
