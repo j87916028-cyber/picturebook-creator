@@ -24,7 +24,7 @@ import edge_tts
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -752,23 +752,34 @@ _VOICE_SAMPLE: dict[str, str] = {
 }
 
 @app.get("/api/voices/{voice_id}/preview")
-async def voice_preview(voice_id: str, request: Request):
+async def voice_preview(
+    voice_id: str,
+    request: Request,
+    text: Optional[str] = Query(None, max_length=200),
+):
     ip = _client_ip(request)
     if not _rl_voice.is_allowed(ip):
         raise _rl_429(_rl_voice, ip)
     if voice_id not in VALID_VOICE_IDS:
         raise HTTPException(status_code=404, detail="找不到此聲音")
-    if voice_id in _voice_preview_cache:
+
+    # Custom text: synthesise on demand and skip the cache entirely
+    # (cache key is voice_id only; custom-text results must not pollute it)
+    custom_text = text.strip() if text and text.strip() else None
+
+    if not custom_text and voice_id in _voice_preview_cache:
         cached = _voice_preview_cache[voice_id]
         return {"audio_base64": base64.b64encode(cached).decode(), "format": "mp3"}
-    sample_text = _VOICE_SAMPLE.get(voice_id, "大家好！我是故事裡的角色，很高興認識你。")
+
+    sample_text = custom_text or _VOICE_SAMPLE.get(voice_id, "大家好！我是故事裡的角色，很高興認識你。")
 
     # ── 1. 科大訊飛（與主要 TTS 端點一致，若已設定優先使用）────────
     if XFYUN_APP_ID and XFYUN_API_KEY and XFYUN_API_SECRET:
         try:
             audio = await _generate_voice_xfyun(sample_text, voice_id, "happy")
             if audio:
-                _voice_preview_cache[voice_id] = audio
+                if not custom_text:
+                    _voice_preview_cache[voice_id] = audio
                 return {"audio_base64": base64.b64encode(audio).decode(), "format": "mp3"}
             logger.warning("iFlytek preview returned empty audio for %s", voice_id)
         except Exception as e:
@@ -792,7 +803,8 @@ async def voice_preview(voice_id: str, request: Request):
         audio = buf.getvalue()
         if not audio:
             raise ValueError("empty audio")
-        _voice_preview_cache[voice_id] = audio
+        if not custom_text:
+            _voice_preview_cache[voice_id] = audio
         return {"audio_base64": base64.b64encode(audio).decode(), "format": "mp3"}
     except Exception as e:
         logger.warning("Voice preview failed for %s: %s", voice_id, e)

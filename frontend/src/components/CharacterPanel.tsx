@@ -89,6 +89,7 @@ function VoicePicker({
   onChange: (id: string) => void
 }) {
   const [loadingId, setLoadingId] = useState<string | null>(null)
+  const [previewText, setPreviewText] = useState('')
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   const handlePreview = async (e: React.MouseEvent, voiceId: string) => {
@@ -96,7 +97,11 @@ function VoicePicker({
     if (loadingId) return
     setLoadingId(voiceId)
     try {
-      const res = await fetch(`/api/voices/${voiceId}/preview`)
+      const custom = previewText.trim()
+      const url = custom
+        ? `/api/voices/${voiceId}/preview?text=${encodeURIComponent(custom)}`
+        : `/api/voices/${voiceId}/preview`
+      const res = await fetch(url)
       if (!res.ok) return
       const data = await res.json()
       const src = `data:audio/${data.format};base64,${data.audio_base64}`
@@ -120,6 +125,16 @@ function VoicePicker({
   return (
     <div className="voice-picker">
       <audio ref={audioRef} />
+      <div className="voice-preview-text-row">
+        <input
+          className="voice-preview-text-input"
+          type="text"
+          value={previewText}
+          onChange={e => setPreviewText(e.target.value.slice(0, 100))}
+          placeholder="輸入試聽文字（空白則播預設範例）"
+          maxLength={100}
+        />
+      </div>
       {groups.map(group => {
         const groupVoices = voices.filter(v => (v.group ?? '其他') === group)
         return (

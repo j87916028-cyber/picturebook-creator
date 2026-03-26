@@ -368,10 +368,25 @@ body {
 /* ── Voice Picker ─────────────────────────────── */
 .voice-picker {
   display: flex; flex-direction: column; gap: 0;
-  max-height: 260px; overflow-y: auto;
+  max-height: 320px; overflow-y: auto;
   border: 1.5px solid #e0e0e0; border-radius: 10px;
   padding: 4px;
 }
+.voice-preview-text-row {
+  padding: 6px 8px 4px;
+  position: sticky; top: 0;
+  background: #fff; z-index: 1;
+  border-bottom: 1px solid #eee;
+}
+.voice-preview-text-input {
+  width: 100%; box-sizing: border-box;
+  font-size: 0.8rem; padding: 5px 8px;
+  border: 1.5px solid #dde; border-radius: 7px;
+  color: #444; background: #f8f9ff;
+  outline: none; transition: border-color 0.15s;
+}
+.voice-preview-text-input:focus { border-color: #667eea; background: #fff; }
+.voice-preview-text-input::placeholder { color: #bbb; }
 .voice-group { display: flex; flex-direction: column; }
 .voice-group-header {
   font-size: 0.72rem; font-weight: 700; color: #9e9e9e;
