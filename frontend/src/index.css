@@ -5,6 +5,7 @@ body {
   background: #f0f4ff;
   color: #333;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 /* ── Layout ─────────────────────────────────── */
@@ -107,7 +108,6 @@ body {
 .app-main {
   display: flex;
   flex: 1;
-  gap: 0;
   max-width: 1400px;
   width: 100%;
   margin: 0 auto;
@@ -447,7 +447,7 @@ body {
 }
 
 /* ── Right Panel ─────────────────────────────── */
-.right-panel { flex: 1; display: flex; flex-direction: column; gap: 16px; }
+.right-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
 
 /* ── Scene Editor ────────────────────────────── */
 .scene-editor {
