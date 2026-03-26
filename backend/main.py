@@ -2154,6 +2154,7 @@ async def list_projects(request: Request):
             LEFT JOIN scenes s ON s.project_id = p.id
             GROUP BY p.id
             ORDER BY p.updated_at DESC
+            LIMIT 200
             """
         )
     return [
