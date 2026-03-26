@@ -9,3 +9,4 @@ asyncpg==0.29.0
 fpdf2==2.7.9
 ebooklib==0.18
 websockets>=12.0
+Pillow>=10.0.0

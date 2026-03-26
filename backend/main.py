@@ -33,6 +33,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Detect optional heavy dependencies once at startup so the health endpoint
+# can report accurate availability without importing them on every request.
+try:
+    import PIL  # noqa: F401
+    _PILLOW_AVAILABLE = True
+except ImportError:
+    _PILLOW_AVAILABLE = False
+
 # ── In-memory sliding-window rate limiter ────────────────────────
 class _RateLimiter:
     """Per-IP sliding-window rate limiter (in-process, single-replica safe)."""
@@ -3478,10 +3486,10 @@ def health():
             "tts_xfyun": bool(XFYUN_APP_ID and XFYUN_API_KEY and XFYUN_API_SECRET),
             "tts_groq": bool(GROQ_API_KEY),     # Groq also serves Orpheus TTS
             "tts_edge": True,                    # edge-tts bundled, no key needed
-            # Image generation (Pillow fallback always available)
+            # Image generation (Pillow fallback requires Pillow package)
             "image_huggingface": bool(HUGGINGFACE_API_KEY),
             "image_pollinations": bool(POLLINATIONS_API_KEY),
-            "image_pillow": True,                # built-in, always available
+            "image_pillow": _PILLOW_AVAILABLE,
             # Persistence
             "database": _db_pool is not None,
         },
