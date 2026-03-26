@@ -585,6 +585,7 @@ class GenerateScriptRequest(BaseModel):
     line_length: Optional[str] = Field("standard", max_length=20)  # 'short' | 'standard' | 'long'
     is_ending: Optional[bool] = False  # True → inject ending guidance into prompt
     image_style: Optional[str] = Field("watercolor children's book illustration", max_length=80)
+    mood: Optional[str] = Field(None, max_length=20)  # e.g. 輕鬆愉快|溫馨感動|緊張刺激|搞笑幽默|神奇夢幻
 
 class GenerateLine(BaseModel):
     character_id: str
@@ -1279,11 +1280,14 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
         if _char_visual_parts else ""
     )
 
+    mood_line = f"情感基調：{req.mood}\n" if req.mood else ""
+    mood_rule = f"- 整幕對話必須呈現「{req.mood}」的情感基調，措辭、節奏與情緒表達皆須與此一致\n" if req.mood else ""
+
     prompt = f"""你是一位台灣繪本故事作家。請根據以下場景和角色，生成一段繪本對話劇本。
 
 場景描述：{req.scene_description}
 風格：{req.style}
-角色列表：
+{mood_line}角色列表：
 {character_desc}
 
 請回傳 JSON 格式，結構如下：
@@ -1307,7 +1311,7 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
 - 每個角色至少說一句話
 {line_length_rule}
 - 角色在台詞中稱呼其他角色時，只能使用角色列表中的名字，不得自行發明暱稱或別名
-- 直接輸出 JSON，不要思考過程，不要其他說明
+{mood_rule}- 直接輸出 JSON，不要思考過程，不要其他說明
 """
 
     if req.story_context:

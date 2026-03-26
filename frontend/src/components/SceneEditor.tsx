@@ -15,7 +15,7 @@ interface Props {
   allCharacters: Character[]   // full character list from the left panel
   onRemoveCharacter: (id: string) => void
   onReorderDropped: (fromIdx: number, toIdx: number) => void
-  onGenerate: (description: string, style: string, lineLength: LineLength, isEnding?: boolean, imageStyle?: string) => void
+  onGenerate: (description: string, style: string, lineLength: LineLength, isEnding?: boolean, imageStyle?: string, mood?: string) => void
   onCancel: () => void
   isLoading: boolean
   genStatus: GenStatus | null
@@ -96,6 +96,9 @@ export default function SceneEditor({
     const saved = localStorage.getItem('scene_image_style') || ''
     return IMAGE_STYLES.some(s => s.value === saved) ? saved : IMAGE_STYLES[0].value
   })
+
+  // Mood / emotional tone for this scene ('' = auto / no override)
+  const [mood, setMood] = useState<string>(() => localStorage.getItem('scene_mood') ?? '')
   const [imageLoading, setImageLoading] = useState(false)
   const [audioLoading, setAudioLoading] = useState(false)
   const [inputError, setInputError] = useState<string | null>(null)
@@ -121,6 +124,10 @@ export default function SceneEditor({
   useEffect(() => { localStorage.setItem('scene_style', style) }, [style])
   useEffect(() => { localStorage.setItem('scene_line_length', lineLength) }, [lineLength])
   useEffect(() => { localStorage.setItem('scene_image_style', imageStyle) }, [imageStyle])
+  useEffect(() => {
+    if (mood) localStorage.setItem('scene_mood', mood)
+    else localStorage.removeItem('scene_mood')
+  }, [mood])
 
   // When sceneCount increases a scene was successfully generated — clear the draft.
   useEffect(() => {
@@ -376,7 +383,7 @@ export default function SceneEditor({
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
               e.preventDefault()
               if (!isLoading && generateRateLimitSecs <= 0 && droppedCharacters.length > 0 && description.trim()) {
-                onGenerate(description, style, lineLength, false, imageStyle)
+                onGenerate(description, style, lineLength, false, imageStyle, mood || undefined)
               }
             }
           }}
@@ -545,6 +552,34 @@ export default function SceneEditor({
           </div>
         </div>
 
+        {/* 情感基調 */}
+        <div className="style-row">
+          <label>情感基調</label>
+          <div className="style-buttons">
+            <button
+              type="button"
+              className={`style-btn ${mood === '' ? 'active' : ''}`}
+              onClick={() => setMood('')}
+              title="由 AI 根據場景描述自動決定情感基調"
+            >🤖 自動</button>
+            {([
+              { value: '輕鬆愉快', emoji: '😄' },
+              { value: '溫馨感動', emoji: '🥰' },
+              { value: '緊張刺激', emoji: '😱' },
+              { value: '搞笑幽默', emoji: '😂' },
+              { value: '神奇夢幻', emoji: '✨' },
+            ]).map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`style-btn ${mood === opt.value ? 'active' : ''}`}
+                onClick={() => setMood(opt.value)}
+                title={opt.value}
+              >{opt.emoji} {opt.value}</button>
+            ))}
+          </div>
+        </div>
+
         {/* 插圖風格 */}
         <div className="style-row">
           <label>插圖風格</label>
@@ -656,7 +691,7 @@ export default function SceneEditor({
             <>
               <button
                 className="btn-generate"
-                onClick={() => onGenerate(description, style, lineLength, false, imageStyle)}
+                onClick={() => onGenerate(description, style, lineLength, false, imageStyle, mood || undefined)}
                 disabled={droppedCharacters.length === 0 || !description.trim() || generateRateLimitSecs > 0}
                 title={generateRateLimitSecs > 0 ? `請求過於頻繁，請等 ${generateRateLimitSecs} 秒後再試` : undefined}
               >
@@ -682,7 +717,7 @@ export default function SceneEditor({
                   className="btn-ending"
                   onClick={() => {
                     const desc = description.trim() || '故事結尾'
-                    onGenerate(desc, style, lineLength, true, imageStyle)
+                    onGenerate(desc, style, lineLength, true, imageStyle, mood || undefined)
                   }}
                   disabled={droppedCharacters.length === 0 || generateRateLimitSecs > 0}
                   title={generateRateLimitSecs > 0 ? `請稍候 ${generateRateLimitSecs} 秒` : '讓 AI 自動為故事寫一個圓滿結尾'}
