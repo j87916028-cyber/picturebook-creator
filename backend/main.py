@@ -3002,9 +3002,37 @@ def _export_pdf(project_name: str, scenes: list, char_color_map: dict | None = N
     # ── Cover page ───────────────────────────────────────────────────────
     pdf.add_page()
 
-    # Title — centred vertically in the top half of the page
+    # Cover illustration — use the first scene's image if available.
+    # Renders it at the top of the page (full-width, up to 110 mm tall) so the
+    # PDF looks like a real picture book rather than a plain text document.
+    cover_img_y_end = 0  # tracks how far down the image reaches
+    cover_image_data = next(
+        (s.get("image", "") for s in scenes if s.get("image") and s["image"] != "error"),
+        "",
+    )
+    if cover_image_data and cover_image_data.startswith("data:"):
+        try:
+            header, b64data = cover_image_data.split(",", 1)
+            img_ext = header.split("/")[1].split(";")[0]
+            if img_ext == "jpeg":
+                img_ext = "jpg"
+            img_bytes = base64.b64decode(b64data)
+            with tempfile.NamedTemporaryFile(suffix=f".{img_ext}", delete=False) as tmp:
+                tmp.write(img_bytes)
+                tmp_path = tmp.name
+            try:
+                img_h = 110  # mm — generous height so the illustration dominates
+                pdf.image(tmp_path, x=10, y=15, w=190, h=img_h)
+                cover_img_y_end = 15 + img_h + 6  # 6 mm gap below image
+            finally:
+                os.unlink(tmp_path)
+        except Exception as e:
+            logger.warning("PDF cover image embed failed: %s", e)
+
+    # Title — place below the cover image (or centred in the top half if no image)
+    title_y = cover_img_y_end if cover_img_y_end else 90
     set_font_safe(28, "B")
-    pdf.set_y(90)
+    pdf.set_y(title_y)
     pdf.cell(0, 14, project_name, align="C", new_x="LMARGIN", new_y="NEXT")
 
     set_font_safe(12)
