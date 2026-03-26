@@ -203,6 +203,32 @@ function StoryboardCard({
             </span>
           )}
         </div>
+        {/* Emotion sparkline: one coloured dot per line, capped at 10 */}
+        {scene.lines.length > 0 && scene.lines.some(l => l.emotion && l.emotion !== 'neutral') && (() => {
+          const dots = scene.lines.slice(0, 10)
+          const tipText = dots.map((l, i) => {
+            const em = l.emotion || 'neutral'
+            const label = EMOTION_LABELS[em]?.split(' ').slice(1).join(' ') || em
+            return `第${i + 1}句：${label}`
+          }).join(' · ')
+          return (
+            <div className="storyboard-emotion-sparkline" title={tipText}>
+              {dots.map((l, i) => {
+                const em = l.emotion || 'neutral'
+                return (
+                  <span
+                    key={i}
+                    className="sparkline-dot"
+                    style={{ background: EMOTION_COLORS[em] ?? '#bdbdbd' }}
+                  />
+                )
+              })}
+              {scene.lines.length > 10 && (
+                <span className="sparkline-more">+{scene.lines.length - 10}</span>
+              )}
+            </div>
+          )
+        })()}
         {previewLines.length > 0 && (
           <div className="storyboard-lines">
             {previewLines.map((line, i) => {
