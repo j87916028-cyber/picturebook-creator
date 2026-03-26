@@ -2008,6 +2008,11 @@ class CreateProjectRequest(BaseModel):
 class RenameProjectRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
 
+_VALID_EMOTIONS: frozenset[str] = frozenset(
+    {"happy", "sad", "angry", "surprised", "fearful", "disgusted", "neutral"}
+)
+
+
 class SceneLineIn(BaseModel):
     """Typed representation of a single dialogue line stored in a scene."""
     character_id: str = Field("", max_length=64)
@@ -2018,6 +2023,21 @@ class SceneLineIn(BaseModel):
     # audio_base64 may be a large data URI; cap at ~6 MB encoded (≈ 4.5 MB raw)
     audio_base64: Optional[str] = Field(None, max_length=6_000_000)
     audio_format: Optional[str] = Field(None, max_length=10)
+
+    @field_validator("emotion", mode="before")
+    @classmethod
+    def _normalise_emotion(cls, v: object) -> str:
+        """Accept only known emotion values; coerce unknown strings to "neutral".
+
+        Defense-in-depth: _EMOTION_PROSODY uses .get() with a "neutral" fallback
+        at render time, but validating here ensures arbitrary strings are never
+        persisted to the database and that stored values always match a known
+        prosody entry.
+        """
+        if v is None:
+            return "neutral"
+        s = str(v).lower().strip()
+        return s if s in _VALID_EMOTIONS else "neutral"
 
     @field_validator("audio_format", mode="before")
     @classmethod
