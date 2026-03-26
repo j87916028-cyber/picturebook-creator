@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { ProjectMeta, ProjectDetail, Scene } from '../types'
 
 interface Props {
@@ -30,19 +30,37 @@ export default function ProjectPanel({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  const [panelError, setPanelError] = useState<string | null>(null)
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const fetchProjects = async () => {
+  const showError = useCallback((msg: string) => {
+    setPanelError(msg)
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
+    errorTimerRef.current = setTimeout(() => setPanelError(null), 5000)
+  }, [])
+
+  // Clean up error timer on unmount
+  useEffect(() => () => {
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
+  }, [])
+
+  const fetchProjects = useCallback(async () => {
     try {
       const res = await fetch('/api/projects')
-      if (!res.ok) return
+      if (!res.ok) {
+        showError('作品列表載入失敗，請重新整理')
+        return
+      }
       const data: ProjectMeta[] = await res.json()
       setProjects(data)
-    } catch {}
-  }
+    } catch {
+      showError('無法連線至伺服器')
+    }
+  }, [showError])
 
   useEffect(() => {
     fetchProjects()
-  }, [])
+  }, [fetchProjects])
 
   // Focus edit input when editing starts
   useEffect(() => {
@@ -60,11 +78,17 @@ export default function ProjectPanel({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: '未命名作品' }),
       })
-      if (!res.ok) return
+      if (!res.ok) {
+        showError('建立作品失敗，請稍後再試')
+        return
+      }
       const proj = await res.json()
+      setPanelError(null)
       onProjectCreated(proj.id, proj.name)
       await fetchProjects()
-    } catch {} finally {
+    } catch {
+      showError('建立作品失敗：無法連線至伺服器')
+    } finally {
       setLoading(false)
     }
   }
@@ -73,11 +97,17 @@ export default function ProjectPanel({
     if (id === currentProjectId) return
     try {
       const res = await fetch(`/api/projects/${id}`)
-      if (!res.ok) return
+      if (!res.ok) {
+        showError(res.status === 404 ? '找不到該作品' : '讀取作品失敗，請稍後再試')
+        return
+      }
       const proj: ProjectDetail = await res.json()
+      setPanelError(null)
       onProjectLoad(proj)
       await fetchProjects()
-    } catch {}
+    } catch {
+      showError('讀取作品失敗：無法連線至伺服器')
+    }
   }
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
@@ -93,12 +123,19 @@ export default function ProjectPanel({
     if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
     setConfirmDeleteId(null)
     try {
-      await fetch(`/api/projects/${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/projects/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        showError('刪除作品失敗，請稍後再試')
+        return
+      }
+      setPanelError(null)
       if (id === currentProjectId) {
         onProjectCreated('', '')
       }
       await fetchProjects()
-    } catch {}
+    } catch {
+      showError('刪除作品失敗：無法連線至伺服器')
+    }
   }
 
   const startEdit = (e: React.MouseEvent, id: string, name: string) => {
@@ -113,9 +150,15 @@ export default function ProjectPanel({
     setDuplicatingId(id)
     try {
       const res = await fetch(`/api/projects/${id}/duplicate`, { method: 'POST' })
-      if (!res.ok) return
+      if (!res.ok) {
+        showError('複製作品失敗，請稍後再試')
+        return
+      }
+      setPanelError(null)
       await fetchProjects()
-    } catch {} finally {
+    } catch {
+      showError('複製作品失敗：無法連線至伺服器')
+    } finally {
       setDuplicatingId(null)
     }
   }
@@ -124,14 +167,22 @@ export default function ProjectPanel({
     const trimmed = editName.trim()
     if (!trimmed) { setEditingId(null); return }
     try {
-      await fetch(`/api/projects/${id}`, {
+      const res = await fetch(`/api/projects/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: trimmed }),
       })
+      if (!res.ok) {
+        showError('重新命名失敗，請稍後再試')
+        setEditingId(null)
+        return
+      }
+      setPanelError(null)
       if (id === currentProjectId) onProjectNameChange(trimmed)
       await fetchProjects()
-    } catch {} finally {
+    } catch {
+      showError('重新命名失敗：無法連線至伺服器')
+    } finally {
       setEditingId(null)
     }
   }
@@ -151,6 +202,13 @@ export default function ProjectPanel({
           title="建立新作品"
         >＋ 新作品</button>
       </div>
+
+      {panelError && (
+        <div className="project-panel-error" role="alert">
+          <span>⚠ {panelError}</span>
+          <button className="project-panel-error-dismiss" onClick={() => setPanelError(null)} title="關閉">✕</button>
+        </div>
+      )}
 
       {projects.length >= 4 && (
         <div className="project-search-wrap">

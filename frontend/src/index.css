@@ -1612,6 +1612,37 @@ body {
 .btn-new-project:hover:not(:disabled) { opacity: 0.88; }
 .btn-new-project:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.project-panel-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  background: #fff5f5;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 0.75rem;
+  color: #b91c1c;
+  line-height: 1.4;
+  animation: slideDown 0.15s ease;
+}
+.project-panel-error span { flex: 1; }
+.project-panel-error-dismiss {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #f87171;
+  font-size: 0.7rem;
+  padding: 0 2px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.project-panel-error-dismiss:hover { color: #b91c1c; }
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .project-list {
   display: flex;
   flex-direction: column;
