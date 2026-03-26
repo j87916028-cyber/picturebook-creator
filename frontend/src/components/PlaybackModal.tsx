@@ -264,6 +264,8 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
       else if (e.key === 'PageUp')   { e.preventDefault(); if (current) goToScene(current.sceneIdx - 1) }
       else if (e.key === 'f' || e.key === 'F') toggleFullscreen()
       else if (e.key === 'L') setLoopMode(m => m === 'none' ? 'all' : m === 'all' ? 'scene' : 'none')
+      else if (e.key === '[') setSpeed(s => { const i = SPEED_OPTIONS.indexOf(s); return i > 0 ? SPEED_OPTIONS[i - 1] : s })
+      else if (e.key === ']') setSpeed(s => { const i = SPEED_OPTIONS.indexOf(s); return i < SPEED_OPTIONS.length - 1 ? SPEED_OPTIONS[i + 1] : s })
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
