@@ -2025,7 +2025,7 @@ class SceneLineIn(BaseModel):
 
         The value is stripped to alphanumeric characters and lower-cased before
         the whitelist check.  This mirrors the sanitisation applied at render
-        time in all export functions (_export_html_zip, _export_epub,
+        time in all export functions (_export_html, _export_epub,
         _export_mp3_zip) and prevents arbitrary strings from being persisted
         and later embedded in HTML/EPUB/ZIP output.
         """
@@ -2849,7 +2849,7 @@ def _hex_to_rgb(hex_color: str) -> tuple[int, int, int] | None:
         return None
 
 
-def _export_html_zip(
+def _export_html(
     project_name: str,
     scenes: list,
     char_color_map: dict | None = None,
@@ -3445,7 +3445,7 @@ async def export_project(
         media_type = "application/epub+zip"
         filename = f"{project_name}.epub"
     elif format == "html":
-        data = await loop.run_in_executor(None, _export_html_zip, project_name, scenes, char_color_map, raw_chars)
+        data = await loop.run_in_executor(None, _export_html, project_name, scenes, char_color_map, raw_chars)
         media_type = "text/html; charset=utf-8"
         filename = f"{project_name}.html"
     elif format == "mp3":
@@ -3453,7 +3453,7 @@ async def export_project(
         media_type = "application/zip"
         filename = f"{project_name}_audio.zip"
     else:  # "txt"
-        data = _export_txt(project_name, scenes)
+        data = await loop.run_in_executor(None, _export_txt, project_name, scenes)
         media_type = "text/plain; charset=utf-8"
         filename = f"{project_name}_劇本.txt"
 
