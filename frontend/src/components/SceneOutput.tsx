@@ -246,6 +246,8 @@ interface Props {
   onBatchRegenImages: () => void
   onBatchRegenAllImages: () => void
   batchImageStatus: { done: number; total: number } | null
+  onBatchGenerateTitles: () => void
+  batchTitleStatus: { done: number; total: number } | null
   onLinesReorder: (sceneId: string, newLines: ScriptLine[]) => void
   onScrollToEditor?: () => void
   /** Atomic batch replace: applies all line / title / description changes in a
@@ -1793,6 +1795,8 @@ export default function SceneOutput({
   onBatchRegenImages,
   onBatchRegenAllImages,
   batchImageStatus,
+  onBatchGenerateTitles,
+  batchTitleStatus,
   onLinesReorder,
   onScrollToEditor,
   onBatchReplaceAll,
@@ -1879,6 +1883,10 @@ export default function SceneOutput({
   )
   const missingImageCount = useMemo(
     () => scenes.filter(s => !s.image || s.image === 'error').length,
+    [scenes]
+  )
+  const missingTitleCount = useMemo(
+    () => scenes.filter(s => s.lines.length > 0 && !s.title?.trim()).length,
     [scenes]
   )
   const hasImages = useMemo(
@@ -2074,11 +2082,25 @@ export default function SceneOutput({
                   : '🖼️ 全部重新生圖'}
               </button>
             )}
+            {missingTitleCount > 0 && (
+              <button
+                className="btn-batch-regen btn-batch-title"
+                onClick={onBatchGenerateTitles}
+                disabled={batchTitleStatus !== null || batchRegenStatus !== null || batchImageStatus !== null}
+                title={`AI 自動為 ${missingTitleCount} 幕尚無標題的場景命名`}
+              >
+                {batchTitleStatus
+                  ? `✨ 命名中 ${batchTitleStatus.done}/${batchTitleStatus.total}…`
+                  : `✨ 補齊幕名（${missingTitleCount}）`}
+              </button>
+            )}
             <span className="playbook-hint">
               {batchRegenStatus
                 ? `正在生成配音 ${batchRegenStatus.done}/${batchRegenStatus.total}`
                 : batchImageStatus
                 ? `正在生成插圖 ${batchImageStatus.done}/${batchImageStatus.total}`
+                : batchTitleStatus
+                ? `正在命名場景 ${batchTitleStatus.done}/${batchTitleStatus.total}`
                 : '全螢幕朗讀模式・各幕可單獨播放 ▶'}
             </span>
           </div>

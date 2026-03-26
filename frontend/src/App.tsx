@@ -106,6 +106,7 @@ export default function App() {
   const generateRateLimitTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [batchRegenStatus, setBatchRegenStatus] = useState<{ done: number; total: number } | null>(null)
   const [batchImageStatus, setBatchImageStatus] = useState<{ done: number; total: number } | null>(null)
+  const [batchTitleStatus, setBatchTitleStatus] = useState<{ done: number; total: number } | null>(null)
 
   // Project state
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
@@ -696,6 +697,40 @@ export default function App() {
     const next = scenes.map(s => s.id === sceneId ? { ...s, title: newTitle } : s)
     setScenes(next)
     if (currentProjectId) autoSave(currentProjectId, next, characters)
+  }
+
+  // Batch AI title generation — fills in titles for all untitled scenes sequentially
+  const handleBatchGenerateTitles = async () => {
+    const untitled = scenes.filter(s => !s.title?.trim())
+    if (untitled.length === 0 || !currentProjectId) return
+    setBatchTitleStatus({ done: 0, total: untitled.length })
+    let latestScenes = scenes
+    for (const scene of untitled) {
+      const sceneChars = characters.filter(c => scene.lines.some(l => l.character_id === c.id))
+      if (sceneChars.length > 0) {
+        try {
+          const res = await fetch('/api/generate-title', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              characters: sceneChars,
+              scene_description: scene.description,
+              first_lines: scene.lines.slice(0, 5).map(l => l.text),
+            }),
+          })
+          if (res.ok) {
+            const data = await res.json()
+            if (data.title) {
+              latestScenes = latestScenes.map(s => s.id === scene.id ? { ...s, title: data.title } : s)
+              setScenes(latestScenes)
+            }
+          }
+        } catch { /* silent */ }
+      }
+      setBatchTitleStatus(prev => prev ? { ...prev, done: prev.done + 1 } : null)
+    }
+    setBatchTitleStatus(null)
+    autoSave(currentProjectId, latestScenes, characters)
   }
 
   // Edit private director/author notes for a scene (never exported)
@@ -2233,6 +2268,8 @@ export default function App() {
               onBatchRegenImages={handleBatchRegenImages}
               onBatchRegenAllImages={handleBatchRegenAllImages}
               batchImageStatus={batchImageStatus}
+              onBatchGenerateTitles={handleBatchGenerateTitles}
+              batchTitleStatus={batchTitleStatus}
               onLinesReorder={handleLinesReorder}
               onBatchReplaceAll={handleBatchReplaceAll}
               onScrollToEditor={() => {

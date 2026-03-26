@@ -3103,6 +3103,10 @@ body {
   background: linear-gradient(135deg, #f7971e, #ffd200);
   color: #3a2800;
 }
+.btn-batch-title {
+  background: linear-gradient(135deg, #a18cd1, #fbc2eb);
+  color: #3a1f5a;
+}
 .playbook-hint { font-size: 0.8rem; color: #aab; }
 
 /* ── Book Preview Modal ───────────────────────── */
