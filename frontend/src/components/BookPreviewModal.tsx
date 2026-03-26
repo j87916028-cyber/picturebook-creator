@@ -21,6 +21,10 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
   const [showDirectorNotes, setShowDirectorNotes] = useState(() =>
     localStorage.getItem('book_preview_show_notes') === 'true'
   )
+  const [fontSize, setFontSize] = useState<'sm' | 'md' | 'lg'>(() => {
+    const saved = localStorage.getItem('book_preview_font_size')
+    return (saved === 'sm' || saved === 'lg') ? saved : 'md'
+  })
   const textRef = useRef<HTMLDivElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -113,6 +117,11 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
         .catch(() => {})
     }
   }
+
+  // Persist font size when it changes
+  useEffect(() => {
+    localStorage.setItem('book_preview_font_size', fontSize)
+  }, [fontSize])
 
   // Persist speed and apply to active audio when it changes
   useEffect(() => {
@@ -236,6 +245,12 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
       } else if (e.key === 'f' || e.key === 'F') {
         e.preventDefault()
         toggleFullscreen()
+      } else if (e.key === ']') {
+        e.preventDefault()
+        setFontSize(s => s === 'sm' ? 'md' : 'lg')
+      } else if (e.key === '[') {
+        e.preventDefault()
+        setFontSize(s => s === 'lg' ? 'md' : 'sm')
       }
     }
     window.addEventListener('keydown', handler)
@@ -282,6 +297,16 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
               </div>
             </>
           )}
+          <div className="book-fontsize-btns" title="字級大小（[ 縮小 / ] 放大）">
+            {(['sm', 'md', 'lg'] as const).map((s, i) => (
+              <button
+                key={s}
+                className={`book-fontsize-btn${fontSize === s ? ' active' : ''}`}
+                onClick={() => setFontSize(s)}
+                title={['小字（[）', '中字', '大字（]）'][i]}
+              >{['小', '中', '大'][i]}</button>
+            ))}
+          </div>
           {scene.notes && (
             <button
               className={`book-notes-toggle${showDirectorNotes ? ' active' : ''}`}
@@ -334,7 +359,11 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
           </div>
 
           {/* Text panel */}
-          <div className="book-preview-text-panel" ref={textRef}>
+          <div
+            className="book-preview-text-panel"
+            ref={textRef}
+            style={{ fontSize: fontSize === 'sm' ? '0.9rem' : fontSize === 'lg' ? '1.3rem' : undefined }}
+          >
             {scene.description && (
               <p className="book-preview-description">{scene.description}</p>
             )}
@@ -418,7 +447,7 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
         </div>
 
         {/* ── Keyboard hint ── */}
-        <p className="book-keyboard-hint">← → 翻頁 · Space 朗讀 · F 全螢幕 · Esc 關閉</p>
+        <p className="book-keyboard-hint">← → 翻頁 · Space 朗讀 · [ ] 字級 · F 全螢幕 · Esc 關閉</p>
       </div>
 
       {/* ── Image lightbox ── */}
