@@ -604,6 +604,15 @@ class Character(BaseModel):
     color: str = Field(..., max_length=20)
     emoji: str = Field(..., max_length=10)
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def name_not_blank(cls, v: str) -> str:
+        if isinstance(v, str):
+            v = v.strip()
+        if not v:
+            raise ValueError("角色名稱不能為空白")
+        return v
+
     @field_validator("voice_id")
     @classmethod
     def voice_must_be_valid(cls, v: str) -> str:
@@ -621,6 +630,15 @@ class GenerateScriptRequest(BaseModel):
     image_style: Optional[str] = Field("watercolor children's book illustration", max_length=80)
     mood: Optional[str] = Field(None, max_length=20)  # e.g. 輕鬆愉快|溫馨感動|緊張刺激|搞笑幽默|神奇夢幻
 
+    @field_validator("scene_description", mode="before")
+    @classmethod
+    def description_not_blank(cls, v: str) -> str:
+        if isinstance(v, str):
+            v = v.strip()
+        if not v:
+            raise ValueError("場景描述不能為空白")
+        return v
+
 class GenerateLine(BaseModel):
     character_id: str
     voice_id: str
@@ -630,6 +648,15 @@ class GenerateVoiceRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=200)
     voice_id: str = Field(..., max_length=64)
     emotion: Optional[str] = Field(None, max_length=20)
+
+    @field_validator("text", mode="before")
+    @classmethod
+    def text_not_blank(cls, v: str) -> str:
+        if isinstance(v, str):
+            v = v.strip()
+        if not v:
+            raise ValueError("語音文字不能為空白")
+        return v
 
     @field_validator("voice_id")
     @classmethod
@@ -644,6 +671,15 @@ class GenerateImageRequest(BaseModel):
     # Reusing the same seed across scenes makes FLUX generate visually
     # consistent character appearances and lighting throughout the book.
     seed: Optional[int] = Field(None, ge=1, le=2147483647)
+
+    @field_validator("prompt", mode="before")
+    @classmethod
+    def prompt_not_blank(cls, v: str) -> str:
+        if isinstance(v, str):
+            v = v.strip()
+        if not v:
+            raise ValueError("圖片提示詞不能為空白")
+        return v
 
 class ScriptLine(BaseModel):
     character_name: str
