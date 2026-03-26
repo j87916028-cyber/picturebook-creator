@@ -1480,11 +1480,28 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ characters, story_context: storyContext }),
       })
-      if (!res.ok) return
+      if (res.status === 429) {
+        const wait = parseInt(res.headers.get('Retry-After') ?? '10', 10)
+        const msg = `摘要生成請求過於頻繁，請 ${wait} 秒後再試`
+        setError(msg)
+        setTimeout(() => setError(e => e === msg ? '' : e), wait * 1000)
+        return
+      }
+      if (!res.ok) {
+        const msg = '故事摘要生成失敗，請稍後再試'
+        setError(msg)
+        setTimeout(() => setError(e => e === msg ? '' : e), 6000)
+        return
+      }
       const data = await res.json()
       setStorySummary(data.summary || null)
-    } catch {}
-    finally { setSummaryLoading(false) }
+    } catch {
+      const msg = '故事摘要生成失敗，請確認網路連線'
+      setError(msg)
+      setTimeout(() => setError(e => e === msg ? '' : e), 6000)
+    } finally {
+      setSummaryLoading(false)
+    }
   }
 
   const handleExport = async (format: string) => {
