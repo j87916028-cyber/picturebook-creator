@@ -1211,6 +1211,18 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
     _raw_style = (req.image_style or "").strip()
     _img_style = _IMAGE_STYLE_EN.get(_raw_style, _raw_style) or "watercolor children's book illustration"
 
+    # Pre-extract character visual descriptions so the LLM can embed them
+    # directly in the scene_prompt for better FLUX image generation quality.
+    _char_visual_parts = [
+        f"{c.name}: {c.visual_description}"
+        for c in req.characters
+        if c.visual_description
+    ]
+    _char_visual_note = (
+        f" Character appearances to include — {'; '.join(_char_visual_parts)}."
+        if _char_visual_parts else ""
+    )
+
     prompt = f"""你是一位台灣繪本故事作家。請根據以下場景和角色，生成一段繪本對話劇本。
 
 場景描述：{req.scene_description}
@@ -1229,7 +1241,7 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
       "emotion": "happy|sad|surprised|angry|neutral 其中一個"
     }}
   ],
-  "scene_prompt": "用英文描述這個場景的畫面（含角色外形描述），適合用來生成繪本插圖，風格為{_img_style}",
+  "scene_prompt": "English image generation prompt for FLUX AI, {_img_style} style.{_char_visual_note} Describe each character's exact visual details first (body shape, colors, clothing, accessories, expression), then the scene background and mood. Use specific visual adjectives. 40-70 words total.",
   "sfx_description": "建議的背景音效描述（例如：森林鳥鳴聲、輕柔鋼琴音樂）"
 }}
 
