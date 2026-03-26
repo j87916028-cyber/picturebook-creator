@@ -494,6 +494,18 @@ _EMOJI_VISUAL_HINTS: dict[str, str] = {
     "👻": "a cute translucent white ghost with a cheerful goofy expression",
     "🎃": "a glowing jack-o-lantern with a carved smile and orange glow",
     "🏰": "a fairy-tale stone castle with tall towers and fluttering pennants",
+    # ── Human roles (selectable in CharacterPanel but previously missing) ──
+    "👨‍🍳": "a cheerful male chef in a white double-breasted jacket and tall toque blanche, warm smile",
+    "👩‍🍳": "a cheerful female chef in a white apron and tall toque blanche, bright kind eyes",
+    "🕵️": "a sharp-eyed detective in a long trench coat and brimmed fedora, holding a magnifying glass",
+    # ── Magical / fantasy objects used as characters ──
+    "🪄":  "a sentient magic wand with a glowing star tip and sparkles trailing from its polished handle",
+    "⭐":  "a small golden five-pointed star character with a cheerful glowing face and twinkling rays",
+    "🌟":  "a radiant golden star spirit with sparkling light rays and a serene smiling face",
+    "🌈":  "a rainbow-colored wisp spirit with arching stripes of light and a joyful floating form",
+    "☁️":  "a fluffy white cloud character with a soft rounded shape, gentle smiling face, and wispy edges",
+    "🔮":  "a mysterious crystal ball with swirling violet mist inside, glowing with inner magical light",
+    "💎":  "a sparkling blue diamond gem character with gleaming faceted edges and a radiant inner glow",
 }
 
 
