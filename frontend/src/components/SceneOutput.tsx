@@ -330,6 +330,8 @@ function SceneCard({
   const [charChangeIndex, setCharChangeIndex] = useState<number | null>(null)
   const [rephraseLoading, setRephraseLoading] = useState(false)
   const [rephraseSuggestions, setRephraseSuggestions] = useState<string[]>([])
+  const [rephraseRateLimit, setRephraseRateLimit] = useState(0)
+  const rephraseRateLimitRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [regenImage, setRegenImage] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [imageUploadError, setImageUploadError] = useState<string | null>(null)
@@ -343,6 +345,8 @@ function SceneCard({
   const [addLineLoading, setAddLineLoading] = useState(false)
   const [lineSuggestLoading, setLineSuggestLoading] = useState(false)
   const [lineSuggestions, setLineSuggestions] = useState<string[]>([])
+  const [lineSuggestRateLimit, setLineSuggestRateLimit] = useState(0)
+  const lineSuggestRateLimitRef = useRef<ReturnType<typeof setInterval> | null>(null)
   // null = append to end; number = insert after that line index
   const [insertAfterIndex, setInsertAfterIndex] = useState<number | null>(null)
 
@@ -350,6 +354,8 @@ function SceneCard({
   const [confirmDeleteScene, setConfirmDeleteScene] = useState(false)
   const deleteConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (deleteConfirmTimerRef.current) clearTimeout(deleteConfirmTimerRef.current) }, [])
+  useEffect(() => () => { if (rephraseRateLimitRef.current) clearInterval(rephraseRateLimitRef.current) }, [])
+  useEffect(() => () => { if (lineSuggestRateLimitRef.current) clearInterval(lineSuggestRateLimitRef.current) }, [])
 
   // Keep editedPrompt in sync when scene_prompt changes (e.g. after full scene regen)
   useEffect(() => {
@@ -1138,8 +1144,8 @@ function SceneCard({
                           </button>
                           <button
                             className="btn-rephrase"
-                            disabled={rephraseLoading || !editLineText.trim()}
-                            title="AI 改寫建議"
+                            disabled={rephraseLoading || !editLineText.trim() || rephraseRateLimit > 0}
+                            title={rephraseRateLimit > 0 ? `${rephraseRateLimit} 秒後可重試` : 'AI 改寫建議'}
                             onClick={async () => {
                               setRephraseLoading(true)
                               setRephraseSuggestions([])
@@ -1154,7 +1160,17 @@ function SceneCard({
                                     style: scene.style || '溫馨童趣',
                                   }),
                                 })
-                                if (res.ok) {
+                                if (res.status === 429) {
+                                  const wait = parseInt(res.headers.get('Retry-After') ?? '10', 10)
+                                  setRephraseRateLimit(wait)
+                                  if (rephraseRateLimitRef.current) clearInterval(rephraseRateLimitRef.current)
+                                  rephraseRateLimitRef.current = setInterval(() => {
+                                    setRephraseRateLimit(prev => {
+                                      if (prev <= 1) { clearInterval(rephraseRateLimitRef.current!); rephraseRateLimitRef.current = null; return 0 }
+                                      return prev - 1
+                                    })
+                                  }, 1000)
+                                } else if (res.ok) {
                                   const data = await res.json()
                                   setRephraseSuggestions(data.suggestions ?? [])
                                 }
@@ -1165,6 +1181,11 @@ function SceneCard({
                             {rephraseLoading ? <><span className="spinner-sm" /> 生成中...</> : '✨ AI 潤色'}
                           </button>
                         </div>
+                        {rephraseRateLimit > 0 && (
+                          <div className="suggest-ratelimit-msg">
+                            請求過於頻繁，請等 <strong>{rephraseRateLimit}</strong> 秒後再試
+                          </div>
+                        )}
                         {rephraseSuggestions.length > 0 && (
                           <div className="rephrase-suggestions">
                             <span className="rephrase-suggestions-label">選一個版本填入：</span>
@@ -1399,8 +1420,8 @@ function SceneCard({
                 </button>
                 <button
                   className="btn-rephrase"
-                  disabled={!addCharId || lineSuggestLoading || addLineLoading}
-                  title="根據場景與角色個性，AI 建議下一句台詞"
+                  disabled={!addCharId || lineSuggestLoading || addLineLoading || lineSuggestRateLimit > 0}
+                  title={lineSuggestRateLimit > 0 ? `${lineSuggestRateLimit} 秒後可重試` : '根據場景與角色個性，AI 建議下一句台詞'}
                   onClick={async () => {
                     const char = getCharacter(addCharId)
                     if (!char) return
@@ -1425,7 +1446,17 @@ function SceneCard({
                           line_length: scene.line_length || 'standard',
                         }),
                       })
-                      if (res.ok) {
+                      if (res.status === 429) {
+                        const wait = parseInt(res.headers.get('Retry-After') ?? '10', 10)
+                        setLineSuggestRateLimit(wait)
+                        if (lineSuggestRateLimitRef.current) clearInterval(lineSuggestRateLimitRef.current)
+                        lineSuggestRateLimitRef.current = setInterval(() => {
+                          setLineSuggestRateLimit(prev => {
+                            if (prev <= 1) { clearInterval(lineSuggestRateLimitRef.current!); lineSuggestRateLimitRef.current = null; return 0 }
+                            return prev - 1
+                          })
+                        }, 1000)
+                      } else if (res.ok) {
                         const data = await res.json()
                         setLineSuggestions(data.suggestions ?? [])
                       }
@@ -1444,6 +1475,11 @@ function SceneCard({
                   取消
                 </button>
               </div>
+              {lineSuggestRateLimit > 0 && (
+                <div className="suggest-ratelimit-msg">
+                  請求過於頻繁，請等 <strong>{lineSuggestRateLimit}</strong> 秒後再試
+                </div>
+              )}
               {lineSuggestions.length > 0 && (
                 <div className="rephrase-suggestions">
                   <span className="rephrase-suggestions-label">選一條台詞填入：</span>

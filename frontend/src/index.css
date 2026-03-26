@@ -757,6 +757,10 @@ body {
   font-size: 0.78rem;
   color: #e57373;
 }
+.suggest-ratelimit-msg {
+  font-size: 0.78rem; color: #d97706;
+  margin-top: 4px;
+}
 .link-btn {
   background: none;
   border: none;
