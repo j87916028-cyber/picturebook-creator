@@ -2813,13 +2813,15 @@ body {
 }
 
 /* ── Cross-scene search bar ─────────────────────────────────────── */
+.scene-search-wrap {
+  background: #f5f5f7;
+  border-top: 1px solid #e8e8ec;
+}
 .scene-search-bar {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 5px 12px 6px;
-  background: #f5f5f7;
-  border-top: 1px solid #e8e8ec;
 }
 .scene-search-icon { font-size: 0.85rem; flex-shrink: 0; }
 .scene-search-input {
@@ -2850,6 +2852,31 @@ body {
   font-size: 0.75rem;
   color: #bbb;
 }
+.scene-replace-toggle {
+  background: none; border: 1.5px solid #dde; border-radius: 14px;
+  padding: 2px 8px; font-size: 0.8rem; color: #999; cursor: pointer;
+  transition: all 0.15s; flex-shrink: 0; margin-left: auto;
+}
+.scene-replace-toggle:hover { color: #667eea; border-color: #667eea; }
+.scene-replace-toggle.active { color: #667eea; border-color: #667eea; background: #eef0ff; }
+.scene-replace-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 6px;
+  border-top: 1px dashed #e0e0ee;
+}
+.scene-replace-btn {
+  background: #667eea; color: #fff; border: none; border-radius: 14px;
+  padding: 4px 12px; font-size: 0.78rem; font-weight: 600; cursor: pointer;
+  white-space: nowrap; flex-shrink: 0; transition: background 0.15s;
+}
+.scene-replace-btn:hover:not(:disabled) { background: #5a6fd6; }
+.scene-replace-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.scene-replace-msg {
+  font-size: 0.76rem; color: #38a169; font-weight: 600; white-space: nowrap;
+}
+.scene-replace-msg.no-result { color: #e53e3e; }
 
 /* Search highlight mark inside dialogue lines */
 .search-hit {

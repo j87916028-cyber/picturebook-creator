@@ -1870,8 +1870,46 @@ export default function SceneOutput({
     [scenes]
   )
 
-  // ── Cross-scene search ────────────────────────────────────────
+  // ── Cross-scene search & replace ─────────────────────────────
   const [searchQuery, setSearchQuery] = useState('')
+  const [showReplace, setShowReplace] = useState(false)
+  const [replaceText, setReplaceText] = useState('')
+  const [replaceMsg, setReplaceMsg] = useState<string | null>(null)
+  const replaceMsgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (replaceMsgTimerRef.current) clearTimeout(replaceMsgTimerRef.current) }, [])
+
+  const handleReplaceAll = () => {
+    const q = searchQuery.trim()
+    if (!q) return
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    let lineCount = 0, metaCount = 0
+    scenes.forEach(scene => {
+      const re = () => new RegExp(escaped, 'gi')
+      if (scene.title) {
+        const newTitle = scene.title.replace(re(), replaceText)
+        if (newTitle !== scene.title) { onSceneTitleUpdate(scene.id, newTitle); metaCount++ }
+      }
+      const newDesc = scene.description.replace(re(), replaceText)
+      if (newDesc !== scene.description) { onSceneDescriptionUpdate(scene.id, newDesc); metaCount++ }
+      scene.lines.forEach((line, i) => {
+        const newText = line.text.replace(re(), replaceText)
+        if (newText !== line.text) { onLineEditTextOnly(scene.id, i, newText); lineCount++ }
+      })
+    })
+    const total = lineCount + metaCount
+    let msg: string
+    if (total > 0) {
+      msg = lineCount > 0
+        ? `已取代 ${total} 處（含 ${lineCount} 句台詞），台詞配音已清除`
+        : `已取代 ${total} 處`
+      if (replaceText) setSearchQuery(replaceText)
+    } else {
+      msg = '找不到可取代的文字'
+    }
+    setReplaceMsg(msg)
+    if (replaceMsgTimerRef.current) clearTimeout(replaceMsgTimerRef.current)
+    replaceMsgTimerRef.current = setTimeout(() => setReplaceMsg(null), 5000)
+  }
   // Separate counts: how many scenes match by title, description, or lines
   const { titleMatchCount, descMatchCount, lineMatchCount } = useMemo(() => {
     if (!searchQuery.trim()) return { titleMatchCount: 0, descMatchCount: 0, lineMatchCount: 0 }
@@ -2071,31 +2109,68 @@ export default function SceneOutput({
           </div>
         )}
 
-        {/* Cross-scene search bar */}
+        {/* Cross-scene search & replace bar */}
         {viewMode === 'detail' && (
-          <div className="scene-search-bar">
-            <span className="scene-search-icon">🔍</span>
-            <input
-              type="text"
-              className="scene-search-input"
-              placeholder="搜尋幕次標題、場景描述、台詞或角色..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Escape') setSearchQuery('') }}
-            />
-            {searchQuery ? (
-              <>
-                <span className={`scene-search-count${matchCount === 0 ? ' no-results' : ''}`}>
-                  {matchCount === 0 ? '無結果' : [
-                    titleMatchCount > 0 ? `${titleMatchCount} 標題` : '',
-                    descMatchCount > 0 ? `${descMatchCount} 幕` : '',
-                    lineMatchCount > 0 ? `${lineMatchCount} 句` : '',
-                  ].filter(Boolean).join('・')}
-                </span>
-                <button className="scene-search-clear" onClick={() => setSearchQuery('')} title="清除搜尋 (Esc)">×</button>
-              </>
-            ) : (
-              <span className="scene-search-hint">可搜尋幕次標題、場景描述、台詞或角色姓名</span>
+          <div className="scene-search-wrap">
+            <div className="scene-search-bar">
+              <span className="scene-search-icon">🔍</span>
+              <input
+                type="text"
+                className="scene-search-input"
+                placeholder="搜尋幕次標題、場景描述、台詞或角色..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Escape') { setSearchQuery(''); setShowReplace(false) }
+                  else if (e.key === 'Enter' && showReplace) handleReplaceAll()
+                }}
+              />
+              {searchQuery ? (
+                <>
+                  <span className={`scene-search-count${matchCount === 0 ? ' no-results' : ''}`}>
+                    {matchCount === 0 ? '無結果' : [
+                      titleMatchCount > 0 ? `${titleMatchCount} 標題` : '',
+                      descMatchCount > 0 ? `${descMatchCount} 幕` : '',
+                      lineMatchCount > 0 ? `${lineMatchCount} 句` : '',
+                    ].filter(Boolean).join('・')}
+                  </span>
+                  <button className="scene-search-clear" onClick={() => { setSearchQuery(''); setShowReplace(false) }} title="清除搜尋 (Esc)">×</button>
+                </>
+              ) : (
+                <span className="scene-search-hint">可搜尋幕次標題、場景描述、台詞或角色姓名</span>
+              )}
+              <button
+                className={`scene-replace-toggle${showReplace ? ' active' : ''}`}
+                onClick={() => setShowReplace(v => !v)}
+                title={showReplace ? '隱藏取代功能' : '開啟全文取代（台詞・描述・標題）'}
+              >⇄</button>
+            </div>
+            {showReplace && (
+              <div className="scene-replace-bar">
+                <span className="scene-search-icon" style={{ marginLeft: 2 }}>→</span>
+                <input
+                  type="text"
+                  className="scene-search-input"
+                  placeholder="取代為..."
+                  value={replaceText}
+                  onChange={e => setReplaceText(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleReplaceAll() }}
+                  autoFocus
+                />
+                <button
+                  className="scene-replace-btn"
+                  onClick={handleReplaceAll}
+                  disabled={!searchQuery.trim()}
+                  title="取代全書所有符合的文字（台詞・場景描述・幕次標題）"
+                >
+                  全部取代
+                </button>
+                {replaceMsg && (
+                  <span className={`scene-replace-msg${replaceMsg.startsWith('找') ? ' no-result' : ''}`}>
+                    {replaceMsg}
+                  </span>
+                )}
+              </div>
             )}
           </div>
         )}
