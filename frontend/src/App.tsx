@@ -197,6 +197,7 @@ export default function App() {
   }, [exportOpen, titleSuggestOpen])
 
   const abortControllerRef = useRef<AbortController | null>(null)
+  const batchAbortRef = useRef<AbortController | null>(null)
 
   // ── Sync browser tab title to current project name ─────────────
   useEffect(() => {
@@ -416,6 +417,7 @@ export default function App() {
 
   const handleReset = () => {
     if (abortControllerRef.current) abortControllerRef.current.abort()
+    batchAbortRef.current?.abort()
     setScenes([])
     setDroppedCharacters([])
     setError('')
@@ -476,6 +478,7 @@ export default function App() {
     }
 
     if (abortControllerRef.current) abortControllerRef.current.abort()
+    batchAbortRef.current?.abort()
     const controller = new AbortController()
     abortControllerRef.current = controller
     const { signal } = controller
@@ -1168,14 +1171,21 @@ export default function App() {
     }
     if (tasks.length === 0) return
 
+    batchAbortRef.current?.abort()
+    const batchController = new AbortController()
+    batchAbortRef.current = batchController
+    const { signal: batchSignal } = batchController
+
     setBatchRegenStatus({ done: 0, total: tasks.length })
 
     const voiceTasks = tasks.map(task => async () => {
+      if (batchSignal.aborted) return
       try {
         const res = await fetch('/api/generate-voice', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: task.text, voice_id: task.voice_id, emotion: task.emotion }),
+          signal: batchSignal,
         })
         if (!res.ok) return
         const data = await res.json()
@@ -1191,10 +1201,12 @@ export default function App() {
           setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
           return next
         })
-      } catch {}
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return
+      }
     })
     await throttled(voiceTasks, 5, (done, total) => setBatchRegenStatus({ done, total }))
-    setTimeout(() => setBatchRegenStatus(null), 1500)
+    if (!batchSignal.aborted) setTimeout(() => setBatchRegenStatus(null), 1500)
   }
 
   // Force-regenerate ALL voice lines in one specific scene.
@@ -1210,12 +1222,19 @@ export default function App() {
     }))
 
     const linesToRegen = scene.lines.map((line, i) => ({ line, i })).filter(({ line }) => !!line.text)
+    batchAbortRef.current?.abort()
+    const batchController = new AbortController()
+    batchAbortRef.current = batchController
+    const { signal: batchSignal } = batchController
+
     const tasks = linesToRegen.map(({ line, i }) => async () => {
+      if (batchSignal.aborted) return
       try {
         const res = await fetch('/api/generate-voice', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: line.text, voice_id: line.voice_id, emotion: line.emotion || 'neutral' }),
+          signal: batchSignal,
         })
         if (!res.ok) return
         const data = await res.json()
@@ -1229,7 +1248,9 @@ export default function App() {
           setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
           return next
         })
-      } catch {}
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return
+      }
     })
 
     await throttled(tasks, 4)
@@ -1239,8 +1260,13 @@ export default function App() {
   const handleBatchRegenAllImages = async () => {
     const targets = scenes.filter(s => s.script?.scene_prompt)
     if (targets.length === 0) return
+    batchAbortRef.current?.abort()
+    const batchController = new AbortController()
+    batchAbortRef.current = batchController
+    const { signal: batchSignal } = batchController
     setBatchImageStatus({ done: 0, total: targets.length })
     const imageTasks = targets.map(scene => async () => {
+      if (batchSignal.aborted) return
       const prompt = scene.script.scene_prompt
       setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, image: '' } : s))
       try {
@@ -1251,6 +1277,7 @@ export default function App() {
             prompt,
             seed: stableImageSeed(characters, localStorage.getItem('scene_image_style') ?? ''),
           }),
+          signal: batchSignal,
         })
         if (!res.ok) { setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, image: 'error' } : s)); return }
         const data = await res.json()
@@ -1259,14 +1286,15 @@ export default function App() {
           setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
           return next
         })
-      } catch {
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return
         setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, image: 'error' } : s))
       } finally {
-        setBatchImageStatus(prev => prev ? { ...prev, done: prev.done + 1 } : null)
+        if (!batchSignal.aborted) setBatchImageStatus(prev => prev ? { ...prev, done: prev.done + 1 } : null)
       }
     })
     await throttled(imageTasks, 2)
-    setTimeout(() => setBatchImageStatus(null), 1500)
+    if (!batchSignal.aborted) setTimeout(() => setBatchImageStatus(null), 1500)
   }
 
   // Batch-regenerate images for all scenes that are missing or errored
@@ -1274,9 +1302,15 @@ export default function App() {
     const targets = scenes.filter(s => !s.image || s.image === 'error')
     if (targets.length === 0) return
 
+    batchAbortRef.current?.abort()
+    const batchController = new AbortController()
+    batchAbortRef.current = batchController
+    const { signal: batchSignal } = batchController
+
     setBatchImageStatus({ done: 0, total: targets.length })
 
     const imageTasks = targets.map(scene => async () => {
+      if (batchSignal.aborted) return
       const prompt = scene.script.scene_prompt
       if (!prompt) { setBatchImageStatus(prev => prev ? { ...prev, done: prev.done + 1 } : null); return }
       setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, image: '' } : s))
@@ -1288,6 +1322,7 @@ export default function App() {
             prompt,
             seed: stableImageSeed(characters, localStorage.getItem('scene_image_style') ?? ''),
           }),
+          signal: batchSignal,
         })
         if (!res.ok) { setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, image: 'error' } : s)); return }
         const data = await res.json()
@@ -1299,16 +1334,17 @@ export default function App() {
           setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
           return next
         })
-      } catch {
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return
         setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, image: 'error' } : s))
       } finally {
-        setBatchImageStatus(prev => prev ? { ...prev, done: prev.done + 1 } : null)
+        if (!batchSignal.aborted) setBatchImageStatus(prev => prev ? { ...prev, done: prev.done + 1 } : null)
       }
     })
 
     // Image generation is slow; run at most 2 in parallel to respect rate limits
     await throttled(imageTasks, 2)
-    setTimeout(() => setBatchImageStatus(null), 1500)
+    if (!batchSignal.aborted) setTimeout(() => setBatchImageStatus(null), 1500)
   }
 
   // Re-generate entire scene
@@ -1317,6 +1353,8 @@ export default function App() {
     // `scenes` here refers to the closure-captured state at call time (correct).
     const oldScene = scenes.find(s => s.id === sceneId)
     if (!oldScene) return
+
+    batchAbortRef.current?.abort()
 
     // Determine the line_length to use: prefer the new value from the regen form,
     // fall back to the scene's stored value, then 'standard' as the global default.
