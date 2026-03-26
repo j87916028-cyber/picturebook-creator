@@ -568,6 +568,7 @@ export default function App() {
         updateScene(s => ({ ...s, image: d.url }))
       }).catch(() => { updateScene(s => ({ ...s, image: 'error' })) })
 
+      let voiceFailCount = 0
       const voiceTasks = script.lines.map((line, index) => async () => {
         try {
           const res = await fetch('/api/generate-voice', {
@@ -577,7 +578,7 @@ export default function App() {
             signal,
           })
           if (res.status === 402) { setPlanWarning('voice'); return }
-          if (!res.ok) return
+          if (!res.ok) { voiceFailCount++; return }
           const data = await res.json()
           updateScene(s => {
             const updated = [...s.lines] as ScriptLine[]
@@ -586,7 +587,12 @@ export default function App() {
           })
           voiceDoneRef.current += 1
           setGenStatus({ step: 'media', done: voiceDoneRef.current, total: totalLines })
-        } catch {}
+        } catch (err) {
+          // AbortError = user cancelled — stay silent
+          if (err instanceof DOMException && err.name === 'AbortError') return
+          voiceFailCount++
+          console.warn(`[voice] line ${index} failed:`, err)
+        }
       })
 
       await Promise.all([
@@ -596,6 +602,11 @@ export default function App() {
       // Mark voices as attempted so SceneOutput can distinguish "still loading"
       // from "generation finished but audio failed" (e.g. TTS provider was down).
       updateScene(s => ({ ...s, voices_attempted: true }))
+      // Notify user if any voices failed — each failed line already shows a retry button
+      if (voiceFailCount > 0 && !signal.aborted) {
+        setError(`${voiceFailCount} 句配音生成失敗，可點擊各句的「⚠️ 配音失敗」按鈕重試`)
+        setTimeout(() => setError(e => e.startsWith(String(voiceFailCount)) ? '' : e), 8000)
+      }
       setGenStatus({ step: 'done', done: totalLines, total: totalLines })
 
       // Auto-save after all generation completes (read latest state via setter, then save outside)
