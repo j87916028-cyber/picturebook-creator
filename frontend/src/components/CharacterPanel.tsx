@@ -205,6 +205,7 @@ function CharacterForm({
           name: form.name.trim(),
           personality: form.personality.trim(),
           emoji: form.emoji,
+          style: localStorage.getItem('scene_style') || '溫馨童趣',
         }),
       })
       if (!res.ok) return
