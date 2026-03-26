@@ -1142,6 +1142,55 @@ async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
     raise HTTPException(status_code=502, detail="靈感生成失敗")
 
 
+# ── 端點：AI 情感基調建議 ────────────────────────────────────
+class SuggestMoodRequest(BaseModel):
+    description: Annotated[str, Field(max_length=500)]
+    style: Annotated[str, Field(max_length=20)] = "溫馨童趣"
+    characters: list[Character] = []
+
+
+_VALID_MOODS = {"輕鬆愉快", "溫馨感動", "緊張刺激", "搞笑幽默", "神奇夢幻"}
+
+
+@app.post("/api/suggest-mood")
+async def suggest_mood(req: SuggestMoodRequest, request: Request):
+    ip = _client_ip(request)
+    if not _rl_suggest.is_allowed(ip):
+        raise _rl_429(_rl_suggest, ip)
+    if not MINIMAX_API_KEY and not GROQ_API_KEY:
+        raise HTTPException(status_code=503, detail="服務未設定")
+
+    char_desc = (
+        "、".join(f"{c.name}（{c.personality}）" for c in req.characters)
+        if req.characters else "（未指定角色）"
+    )
+    prompt = f"""你是台灣繪本故事作家。根據以下場景描述，從指定情感基調選項中選出最合適的 1 個。
+
+角色：{char_desc}
+故事風格：{req.style}
+場景描述：{req.description}
+
+可選的情感基調（只能從這些中選一個）：輕鬆愉快、溫馨感動、緊張刺激、搞笑幽默、神奇夢幻
+
+直接輸出 JSON，格式如下，不要任何多餘說明：
+{{"suggestions": ["最適合的情感基調"]}}
+
+注意：只輸出一個最適合的選項，且必須與上述選項完全相符。"""
+
+    suggestions = await _llm_suggestions(
+        prompt,
+        temperature=0.3,
+        max_tokens=60,
+        groq_timeout=15,
+        minimax_timeout=20,
+        endpoint_name="suggest-mood",
+    )
+    suggestions = [s for s in suggestions if s in _VALID_MOODS]
+    if suggestions:
+        return {"suggestions": suggestions}
+    raise HTTPException(status_code=502, detail="情感基調建議生成失敗")
+
+
 # ── 端點：AI 書名建議 ─────────────────────────────────────────
 class SuggestTitleRequest(BaseModel):
     story_context: Annotated[str, Field(max_length=5000)]

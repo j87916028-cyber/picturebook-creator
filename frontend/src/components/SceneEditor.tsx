@@ -99,6 +99,8 @@ export default function SceneEditor({
 
   // Mood / emotional tone for this scene ('' = auto / no override)
   const [mood, setMood] = useState<string>(() => localStorage.getItem('scene_mood') ?? '')
+  const [suggestingMood, setSuggestingMood] = useState(false)
+  const [moodSuggestError, setMoodSuggestError] = useState<string | null>(null)
   const [imageLoading, setImageLoading] = useState(false)
   const [audioLoading, setAudioLoading] = useState(false)
   const [inputError, setInputError] = useState<string | null>(null)
@@ -225,6 +227,40 @@ export default function SceneEditor({
       setSuggestLoading(false)
     }
   }, [storyContext, droppedCharacters, style, suggestLoading, rateLimitSecs])
+
+  const handleSuggestMood = async () => {
+    if (!description.trim() || suggestingMood) return
+    setSuggestingMood(true)
+    setMoodSuggestError(null)
+    try {
+      const res = await fetch('/api/suggest-mood', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: description.trim(),
+          style,
+          characters: suggestChars,
+        }),
+      })
+      if (res.status === 429) {
+        const wait = parseInt(res.headers.get('Retry-After') ?? '10', 10)
+        const msg = `請求過於頻繁，請 ${wait} 秒後再試`
+        setMoodSuggestError(msg)
+        setTimeout(() => setMoodSuggestError(e => e === msg ? null : e), wait * 1000)
+      } else if (res.ok) {
+        const data = await res.json()
+        if (data.suggestions?.[0]) setMood(data.suggestions[0])
+      } else {
+        setMoodSuggestError('建議失敗，請稍後再試')
+        setTimeout(() => setMoodSuggestError(null), 5000)
+      }
+    } catch {
+      setMoodSuggestError('建議失敗，請確認網路連線')
+      setTimeout(() => setMoodSuggestError(null), 5000)
+    } finally {
+      setSuggestingMood(false)
+    }
+  }
 
   // Collapsible editor state: collapsed = slim sticky bar, expanded = full form
   const [collapsed, setCollapsed] = useState(false)
@@ -614,7 +650,18 @@ export default function SceneEditor({
 
         {/* 情感基調 */}
         <div className="style-row">
-          <label>情感基調</label>
+          <label>
+            情感基調
+            <button
+              type="button"
+              className="btn-ai-inline"
+              onClick={handleSuggestMood}
+              disabled={!description.trim() || suggestingMood}
+              title={description.trim() ? 'AI 根據場景描述建議情感基調' : '請先填寫場景描述'}
+            >
+              {suggestingMood ? <span className="spinner-sm" /> : '✨'}
+            </button>
+          </label>
           <div className="style-buttons">
             <button
               type="button"
@@ -638,6 +685,7 @@ export default function SceneEditor({
               >{opt.emoji} {opt.value}</button>
             ))}
           </div>
+          {moodSuggestError && <div className="suggest-error">{moodSuggestError}</div>}
         </div>
 
         {/* 插圖風格 */}

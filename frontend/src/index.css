@@ -288,6 +288,25 @@ body {
 }
 .btn-ai-visual:hover:not(:disabled) { opacity: 0.85; }
 .btn-ai-visual:disabled { opacity: 0.4; cursor: default; }
+.btn-ai-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  margin-left: 6px;
+  vertical-align: middle;
+  transition: opacity 0.15s;
+  height: 20px;
+  min-width: 24px;
+}
+.btn-ai-inline:hover:not(:disabled) { opacity: 0.85; }
+.btn-ai-inline:disabled { opacity: 0.4; cursor: default; }
 .form-row input, .form-row select {
   border: 1.5px solid #e0e0e0;
   border-radius: 8px;
