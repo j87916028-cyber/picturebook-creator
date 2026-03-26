@@ -18,6 +18,9 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
   const [page, setPage] = useState(Math.min(initialScene, scenes.length - 1))
   const [imgLoaded, setImgLoaded] = useState(false)
   const [zoomedImg, setZoomedImg] = useState(false)
+  const [showDirectorNotes, setShowDirectorNotes] = useState(() =>
+    localStorage.getItem('book_preview_show_notes') === 'true'
+  )
   const textRef = useRef<HTMLDivElement>(null)
 
   // Audio playback state
@@ -257,6 +260,19 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
               </div>
             </>
           )}
+          {scene.notes && (
+            <button
+              className={`book-notes-toggle${showDirectorNotes ? ' active' : ''}`}
+              onClick={() => {
+                const next = !showDirectorNotes
+                setShowDirectorNotes(next)
+                localStorage.setItem('book_preview_show_notes', String(next))
+              }}
+              title={showDirectorNotes ? '隱藏導演備註' : '顯示導演備註'}
+            >
+              📋 備註
+            </button>
+          )}
           <button className="book-preview-close" onClick={onClose} title="關閉閱讀模式（Esc）">✕</button>
         </div>
 
@@ -295,6 +311,12 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
             )}
             {scene.script?.sfx_description && (
               <p className="book-preview-sfx">🎵 {scene.script.sfx_description}</p>
+            )}
+            {showDirectorNotes && scene.notes && (
+              <div className="book-preview-notes">
+                <span className="book-preview-notes-label">📋 導演備註</span>
+                <p className="book-preview-notes-text">{scene.notes}</p>
+              </div>
             )}
             <div className="book-preview-lines">
               {scene.lines.length === 0 && (
