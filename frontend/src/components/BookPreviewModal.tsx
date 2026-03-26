@@ -39,6 +39,10 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
   const activeLineRef = useRef<HTMLDivElement | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
+  // Touch/swipe state — tracked in refs to avoid re-renders on every touchmove
+  const touchStartXRef = useRef<number | null>(null)
+  const touchStartYRef = useRef<number | null>(null)
+
   // Audio playback state
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [playingLine, setPlayingLine] = useState<number | null>(null)
@@ -318,9 +322,41 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
 
   if (!scene) return null
 
+  // Swipe navigation handlers — record start position and decide direction on lift.
+  // We only trigger a page change when the horizontal component dominates (|ΔX| > |ΔY|)
+  // so vertical scrolling in the text panel isn't hijacked.
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0]
+    touchStartXRef.current = t.clientX
+    touchStartYRef.current = t.clientY
+  }
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return
+    const t = e.changedTouches[0]
+    const dx = t.clientX - touchStartXRef.current
+    const dy = t.clientY - touchStartYRef.current
+    touchStartXRef.current = null
+    touchStartYRef.current = null
+    // Require 50 px minimum swipe AND horizontal dominance to avoid false-fires
+    if (Math.abs(dx) < 50 || Math.abs(dx) <= Math.abs(dy)) return
+    if (dx < 0) {
+      // Swipe left → next page
+      setPage(p => Math.min(p + 1, scenes.length - 1))
+    } else {
+      // Swipe right → previous page
+      setPage(p => Math.max(p - 1, 0))
+    }
+  }
+
   return (
     <div className="book-preview-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="閱讀模式">
-      <div className="book-preview-modal" ref={modalRef} onClick={e => e.stopPropagation()}>
+      <div
+        className="book-preview-modal"
+        ref={modalRef}
+        onClick={e => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
 
         {/* ── Header ── */}
         <div className="book-preview-header">
@@ -537,7 +573,7 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
         </div>
 
         {/* ── Keyboard hint ── */}
-        <p className="book-keyboard-hint">← → 翻頁 · Space 朗讀 · [ ] 字級 · F 全螢幕 · Esc 關閉</p>
+        <p className="book-keyboard-hint">← → 翻頁 · 左右滑動 · Space 朗讀 · [ ] 字級 · F 全螢幕 · Esc 關閉</p>
       </div>
 
       {/* ── Image lightbox ── */}
