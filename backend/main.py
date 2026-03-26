@@ -2370,6 +2370,135 @@ async def create_project(req: CreateProjectRequest, request: Request):
     }
 
 
+# ── POST /api/projects/import-json ───────────────────────────
+class ImportJsonRequest(BaseModel):
+    """Payload for restoring a project from a JSON backup file."""
+    name:       str            = Field("未命名匯入作品", max_length=100)
+    characters: List[Any]     = Field(default_factory=list, max_length=20)
+    scenes:     List[Any]     = Field(default_factory=list, max_length=50)
+
+
+_DEFAULT_VOICE = "cn-natural-female"
+_SAFE_EMOTIONS = {"happy", "sad", "angry", "surprised", "fearful", "disgusted", "neutral"}
+
+
+@app.post("/api/projects/import-json", status_code=201)
+async def import_project_json(req: ImportJsonRequest, request: Request):
+    """Restore a project from a JSON backup (exported by /api/projects/{id}/export?format=json).
+
+    No media blobs (audio / image) are expected or stored — only the text structure.
+    Voice IDs not in the known set are silently replaced with the default voice.
+    """
+    ip = _client_ip(request)
+    if not _rl_project.is_allowed(ip):
+        raise _rl_429(_rl_project, ip)
+    _db_required()
+
+    # ── Sanitize characters ───────────────────────────────────────
+    clean_chars: list[dict] = []
+    for c in req.characters[:20]:
+        if not isinstance(c, dict):
+            continue
+        voice_id = str(c.get("voice_id") or _DEFAULT_VOICE)
+        if voice_id not in VALID_VOICE_IDS:
+            voice_id = _DEFAULT_VOICE
+        color_raw = str(c.get("color") or "#667eea")
+        # Only accept CSS hex colors
+        color = color_raw if re.fullmatch(r"#[0-9a-fA-F]{3,8}", color_raw) else "#667eea"
+        clean_chars.append({
+            "id":               str(c.get("id") or "")[:64] or f"char_{uuid.uuid4().hex[:8]}",
+            "name":             str(c.get("name") or "角色")[:30] or "角色",
+            "personality":      str(c.get("personality") or "")[:100],
+            "visual_description": str(c.get("visual_description") or "")[:200],
+            "voice_id":         voice_id,
+            "color":            color,
+            "emoji":            str(c.get("emoji") or "🎭")[:10],
+        })
+
+    # ── Sanitize scenes ───────────────────────────────────────────
+    scene_rows: list[tuple] = []
+    for i, s in enumerate(req.scenes[:50]):
+        if not isinstance(s, dict):
+            continue
+        raw_lines = s.get("lines") or []
+        clean_lines: list[dict] = []
+        for ln in raw_lines[:50]:
+            if not isinstance(ln, dict):
+                continue
+            text = str(ln.get("text") or "").strip()[:200]
+            if not text:
+                continue
+            emotion = str(ln.get("emotion") or "neutral")
+            if emotion not in _SAFE_EMOTIONS:
+                emotion = "neutral"
+            v_id = str(ln.get("voice_id") or _DEFAULT_VOICE)
+            if v_id not in VALID_VOICE_IDS:
+                v_id = _DEFAULT_VOICE
+            clean_lines.append({
+                "character_name": str(ln.get("character_name") or "")[:30],
+                "character_id":   str(ln.get("character_id") or "")[:64],
+                "voice_id":       v_id,
+                "text":           text,
+                "emotion":        emotion,
+            })
+        script = {
+            "lines":           clean_lines,
+            "scene_prompt":    str(s.get("scene_prompt") or "")[:1000],
+            "sfx_description": str(s.get("sfx_description") or "")[:200],
+            "scene_title":     str(s.get("title") or "")[:20],
+        }
+        ll = str(s.get("line_length") or "standard")
+        if ll not in ("short", "standard", "long"):
+            ll = "standard"
+        scene_rows.append((
+            int(s.get("idx") or i + 1),
+            str(s.get("title") or "")[:100],
+            str(s.get("description") or "")[:500],
+            str(s.get("style") or "溫馨童趣")[:20],
+            ll,
+            str(s.get("notes") or "")[:2000],
+            json.dumps(script, ensure_ascii=False),
+            json.dumps(clean_lines, ensure_ascii=False),
+            "",   # image: intentionally empty — user regenerates after import
+        ))
+
+    # ── Persist in one transaction ────────────────────────────────
+    async with _db_pool.acquire() as conn:
+        project_name = req.name.strip() or "未命名匯入作品"
+        row = await conn.fetchrow(
+            """
+            INSERT INTO projects (name, characters)
+            VALUES ($1, $2::jsonb)
+            RETURNING id, name, created_at, updated_at
+            """,
+            project_name,
+            json.dumps(clean_chars, ensure_ascii=False),
+        )
+        project_id = str(row["id"])
+
+        if scene_rows:
+            async with conn.transaction():
+                await conn.executemany(
+                    """
+                    INSERT INTO scenes
+                      (project_id, idx, title, description, style, line_length, notes, script, lines, image)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10)
+                    """,
+                    [(project_id, *r) for r in scene_rows],
+                )
+
+    logger.info(
+        "import-json project_id=%s name=%r chars=%d scenes=%d",
+        project_id, project_name, len(clean_chars), len(scene_rows),
+    )
+    return {
+        "id":         project_id,
+        "name":       project_name,
+        "created_at": row["created_at"].isoformat(),
+        "updated_at": row["updated_at"].isoformat(),
+    }
+
+
 # ── POST /api/projects/{project_id}/duplicate ─────────────────
 @app.post("/api/projects/{project_id}/duplicate", status_code=201)
 async def duplicate_project(project_id: str, request: Request):

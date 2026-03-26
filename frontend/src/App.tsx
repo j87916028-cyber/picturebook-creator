@@ -153,6 +153,11 @@ export default function App() {
   const exportMenuRef = useRef<HTMLDivElement>(null)
   const [copiedFeedback, setCopiedFeedback] = useState(false)
 
+  // JSON import state
+  const importInputRef = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
+  const [importMsg, setImportMsg] = useState<string | null>(null)
+
   // AI title-suggest state
   const [titleSuggestOpen, setTitleSuggestOpen] = useState(false)
   const [titleSuggestions, setTitleSuggestions] = useState<string[]>([])
@@ -1470,6 +1475,46 @@ export default function App() {
     }
   }
 
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (importInputRef.current) importInputRef.current.value = ''
+    if (!file) return
+    setImporting(true)
+    setImportMsg(null)
+    try {
+      const text = await file.text()
+      const parsed = JSON.parse(text)
+      if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.scenes)) {
+        setImportMsg('檔案格式錯誤，請選擇由本工坊匯出的 JSON 備份檔')
+        return
+      }
+      const res = await fetch('/api/projects/import-json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: parsed.name || '匯入作品',
+          characters: parsed.characters || [],
+          scenes: parsed.scenes || [],
+        }),
+      })
+      if (!res.ok) {
+        const detail = await res.json().then(d => d.detail).catch(() => '匯入失敗')
+        setImportMsg(typeof detail === 'string' ? detail : '匯入失敗')
+        return
+      }
+      const created = await res.json()
+      // Load the full project detail
+      const proj = await fetch(`/api/projects/${created.id}`).then(r => r.json())
+      loadProjectData(proj)
+      setImportMsg(`✓ 已匯入「${created.name}」（共 ${parsed.scenes.length} 幕）`)
+      setTimeout(() => setImportMsg(null), 5000)
+    } catch {
+      setImportMsg('檔案讀取失敗，請確認選擇正確的 JSON 備份檔')
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const handleSuggestTitle = async () => {
     if (!currentProjectId || scenes.length === 0) return
     setTitleSuggestOpen(true)
@@ -1661,6 +1706,25 @@ export default function App() {
                 )}
               </div>
             )}
+            {/* JSON import */}
+            <div className="import-wrap">
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".json,application/json"
+                style={{ display: 'none' }}
+                onChange={handleImport}
+              />
+              <button
+                className="btn-import-json"
+                onClick={() => importInputRef.current?.click()}
+                disabled={importing}
+                title="從 JSON 備份檔匯入專案（文字結構，不含音檔和插圖）"
+              >
+                {importing ? '匯入中...' : '📥 匯入'}
+              </button>
+              {importMsg && <span className="import-msg">{importMsg}</span>}
+            </div>
             <div className="export-dropdown-wrap" ref={exportMenuRef}>
               <button
                 className="btn-export"

@@ -2499,6 +2499,23 @@ body {
 }
 
 /* ── Export Dropdown ─────────────────────────── */
+/* JSON import button (in header, mirrors export style) */
+.import-wrap { display: flex; align-items: center; gap: 8px; }
+.btn-import-json {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.4);
+  color: white; border-radius: 8px;
+  padding: 6px 14px; font-size: 0.85rem;
+  cursor: pointer; white-space: nowrap;
+  transition: background 0.15s;
+}
+.btn-import-json:hover:not(:disabled) { background: rgba(255,255,255,0.25); }
+.btn-import-json:disabled { opacity: 0.5; cursor: not-allowed; }
+.import-msg {
+  font-size: 0.78rem; color: #d1fae5;
+  white-space: nowrap; font-weight: 600;
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis;
+}
 .export-dropdown-wrap { position: relative; }
 .btn-export {
   background: rgba(255,255,255,0.2);
