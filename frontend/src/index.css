@@ -2603,7 +2603,7 @@ body {
   overflow: hidden;
 }
 .book-preview-header {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 12px 18px 10px;
   border-bottom: 1px solid #eee;
   background: linear-gradient(135deg, #f8f5ff, #fff5f0);
@@ -2652,15 +2652,41 @@ body {
 }
 .book-preview-lines { display: flex; flex-direction: column; gap: 14px; }
 .book-no-lines { color: #bbb; font-style: italic; font-size: 0.9rem; }
-.book-line { display: flex; flex-direction: column; gap: 2px; }
+.book-line { display: flex; flex-direction: column; gap: 2px; border-radius: 10px; padding: 2px; transition: background 0.15s; }
+.book-line.has-audio { cursor: pointer; }
+.book-line.has-audio:hover { background: #f3f0ff; }
+.book-line.playing { background: #eef0ff; animation: book-line-pulse 1.2s ease-in-out infinite; }
+@keyframes book-line-pulse {
+  0%, 100% { background: #eef0ff; }
+  50%       { background: #dde2ff; }
+}
 .book-line-speaker {
   font-size: 0.8rem; font-weight: 700; letter-spacing: 0.02em;
+  display: flex; align-items: center; gap: 5px;
 }
+.book-line-audio-icon {
+  font-size: 0.75rem; opacity: 0.4; transition: opacity 0.15s; margin-left: 2px;
+}
+.book-line.has-audio:hover .book-line-audio-icon { opacity: 0.8; }
+.book-line.playing .book-line-audio-icon { opacity: 1; }
 .book-line-text {
   font-size: 1.1rem; line-height: 1.75; color: #1a1a2e;
   margin: 0; background: #fafafa; border-radius: 8px;
   padding: 8px 12px;
   border: 1px solid #eee;
+  transition: border-color 0.15s;
+}
+.book-line.playing .book-line-text { border-color: #b3bcf5; background: #f5f6ff; }
+/* Auto-play button in header */
+.book-auto-play-btn {
+  background: linear-gradient(135deg, #43e97b, #38f9d7);
+  color: white; border: none; border-radius: 20px;
+  padding: 5px 14px; font-size: 0.82rem; font-weight: 700;
+  cursor: pointer; transition: opacity 0.15s; white-space: nowrap;
+}
+.book-auto-play-btn:hover { opacity: 0.85; }
+.book-auto-play-btn.playing {
+  background: linear-gradient(135deg, #f093fb, #f5576c);
 }
 .book-preview-nav {
   display: flex; align-items: center; justify-content: space-between;
