@@ -214,12 +214,7 @@ export default function SceneEditor({
     setDescription(val.slice(0, 500))
   }
 
-  async function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!imageInputRef.current) return
-    imageInputRef.current.value = ''
-    if (!file) return
-
+  async function recognizeImageFile(file: File) {
     setInputError(null)
     setImageLoading(true)
     try {
@@ -234,6 +229,25 @@ export default function SceneEditor({
     } finally {
       setImageLoading(false)
     }
+  }
+
+  async function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!imageInputRef.current) return
+    imageInputRef.current.value = ''
+    if (!file) return
+    await recognizeImageFile(file)
+  }
+
+  async function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const items = Array.from(e.clipboardData.items)
+    const imageItem = items.find(item => item.type.startsWith('image/'))
+    if (!imageItem) return
+    // Clipboard has an image — intercept the paste and send to recognize-image instead
+    e.preventDefault()
+    const file = imageItem.getAsFile()
+    if (!file) return
+    await recognizeImageFile(file)
   }
 
   async function handleAudioFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -267,7 +281,7 @@ export default function SceneEditor({
         <textarea
           ref={descriptionRef}
           className="scene-input"
-          placeholder="描述場景...&#10;例：在一片大森林裡，小兔子迷路了，遇見了一隻友善的狐狸&#10;（Ctrl+Enter 快速生成）"
+          placeholder="描述場景...&#10;例：在一片大森林裡，小兔子迷路了，遇見了一隻友善的狐狸&#10;（Ctrl+Enter 快速生成，可貼上圖片自動辨識）"
           value={description}
           onChange={e => handleDescChange(e.target.value)}
           onKeyDown={e => {
@@ -278,6 +292,7 @@ export default function SceneEditor({
               }
             }
           }}
+          onPaste={handlePaste}
           rows={3}
           maxLength={500}
         />
