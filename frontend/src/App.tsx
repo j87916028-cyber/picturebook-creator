@@ -7,6 +7,24 @@ import SceneOutput from './components/SceneOutput'
 import ProjectPanel from './components/ProjectPanel'
 
 /**
+ * Derive a stable seed from the project's character set and image style.
+ * Using the same seed for every scene in the same project makes FLUX generate
+ * visually consistent character appearances and lighting across all illustrations.
+ * djb2 variant — result in [1, 2_147_483_647].
+ */
+function stableImageSeed(characters: Character[], imageStyle: string): number {
+  const key = [...characters]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map(c => c.id)
+    .join('|') + '|' + imageStyle
+  let h = 5381
+  for (let i = 0; i < key.length; i++) {
+    h = (Math.imul(h, 31) + key.charCodeAt(i)) | 0
+  }
+  return (Math.abs(h) % 2147483647) + 1
+}
+
+/**
  * Build a compact story context from all scenes up to (but not including) endIndex.
  * Each scene contributes: scene number, description, and first + last dialogue line.
  * This keeps every scene in context for long stories while staying under the
@@ -422,7 +440,10 @@ export default function App() {
       const imagePromise = fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: script.scene_prompt }),
+        body: JSON.stringify({
+          prompt: script.scene_prompt,
+          seed: stableImageSeed(droppedCharacters, imageStyle ?? localStorage.getItem('scene_image_style') ?? ''),
+        }),
         signal,
       }).then(async r => {
         if (r.status === 402) { setPlanWarning('image'); return }
@@ -903,7 +924,10 @@ export default function App() {
       const res = await fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({
+          prompt,
+          seed: stableImageSeed(characters, localStorage.getItem('scene_image_style') ?? ''),
+        }),
       })
       if (!res.ok) { setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: 'error' } : s)); return }
       const data = await res.json()
@@ -977,7 +1001,10 @@ export default function App() {
         const res = await fetch('/api/generate-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt }),
+          body: JSON.stringify({
+            prompt,
+            seed: stableImageSeed(characters, localStorage.getItem('scene_image_style') ?? ''),
+          }),
         })
         if (!res.ok) { setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, image: 'error' } : s)); return }
         const data = await res.json()
@@ -1060,7 +1087,10 @@ export default function App() {
       const imageP = fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: script.scene_prompt }),
+        body: JSON.stringify({
+          prompt: script.scene_prompt,
+          seed: stableImageSeed(characters, localStorage.getItem('scene_image_style') ?? ''),
+        }),
       }).then(async r => {
         if (!r.ok) { setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: 'error' } : s)); return }
         const d = await r.json()

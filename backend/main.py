@@ -574,6 +574,10 @@ class GenerateVoiceRequest(BaseModel):
 
 class GenerateImageRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=1000)
+    # Stable seed derived from the project's character set + image style.
+    # Reusing the same seed across scenes makes FLUX generate visually
+    # consistent character appearances and lighting throughout the book.
+    seed: Optional[int] = Field(None, ge=1, le=2147483647)
 
 class ScriptLine(BaseModel):
     character_name: str
@@ -1903,7 +1907,11 @@ def _generate_scene_image_pillow(prompt: str, width: int = 800, height: int = 60
 async def generate_image(req: GenerateImageRequest, request: Request):
     if not _rl_image.is_allowed(_client_ip(request)):
         raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
-    full_prompt = f"{req.prompt}, soft colors, child-friendly, high quality"
+
+    # Use the caller-supplied seed for cross-scene consistency; fall back to
+    # a random seed when none is provided (e.g. standalone regen without context).
+    _seed = req.seed if req.seed is not None else random.randint(1, 2147483647)
+    full_prompt = f"{req.prompt}, soft colors, child-friendly, high quality, consistent character design"
 
     # ── 優先：HuggingFace Inference API（HUGGINGFACE_API_KEY）────
     if HUGGINGFACE_API_KEY:
@@ -1911,12 +1919,20 @@ async def generate_image(req: GenerateImageRequest, request: Request):
             resp = await _http_client.post(
                 HF_INFERENCE_URL,
                 headers={"Authorization": f"Bearer {HUGGINGFACE_API_KEY}", "Content-Type": "application/json"},
-                json={"inputs": full_prompt},
+                json={
+                    "inputs": full_prompt,
+                    "parameters": {
+                        "seed": _seed,
+                        "num_inference_steps": 4,
+                        "guidance_scale": 0.0,
+                    },
+                },
                 timeout=60,
             )
             if resp.status_code == 200 and resp.content:
                 b64 = base64.b64encode(resp.content).decode("utf-8")
                 mime = resp.headers.get("content-type", "image/jpeg").split(";")[0]
+                logger.info("HF image OK seed=%d size=%d bytes", _seed, len(resp.content))
                 return {"url": f"data:{mime};base64,{b64}"}
             logger.warning("HF image error %s: %s", resp.status_code, resp.text[:200])
         except Exception as e:
@@ -1927,7 +1943,7 @@ async def generate_image(req: GenerateImageRequest, request: Request):
     # 設定 POLLINATIONS_API_KEY 環境變數即可啟用；未設定則跳過（避免 401 延遲）
     if POLLINATIONS_API_KEY:
         encoded   = urllib.parse.quote(full_prompt)
-        seed      = random.randint(1, 99999)
+        seed      = _seed % 99999 + 1  # Pollinations accepts 1-99999
         image_url = (
             f"https://gen.pollinations.ai/image/{encoded}"
             f"?width=1024&height=768&nologo=true&seed={seed}&model=flux"
