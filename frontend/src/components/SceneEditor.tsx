@@ -105,6 +105,11 @@ export default function SceneEditor({
   const [showCharRef, setShowCharRef] = useState(false)
   const [copiedCharId, setCopiedCharId] = useState<string | null>(null)
 
+  // Voice preview state for the drop-zone chips
+  const [previewingChipId, setPreviewingChipId] = useState<string | null>(null)
+  const chipAudioRef = useRef<HTMLAudioElement | null>(null)
+  const chipPreviewLoadingRef = useRef<string | null>(null) // tracks which id is loading
+
   // When the active project changes, load that project's saved draft (or clear the field).
   // Also reset the suggestion-fetch sentinel so switching to a project with the same
   // scene count still triggers a fresh suggestion fetch for the new project's context.
@@ -117,9 +122,10 @@ export default function SceneEditor({
     }
   }, [projectId, draftKey])
 
-  // Clean up rate-limit countdown timer on unmount
+  // Clean up rate-limit countdown timer and chip preview audio on unmount
   useEffect(() => () => {
     if (rateLimitTimerRef.current) clearInterval(rateLimitTimerRef.current)
+    chipAudioRef.current?.pause()
   }, [])
 
   // Persist description draft and all other settings to localStorage.
@@ -339,6 +345,41 @@ export default function SceneEditor({
       setAudioLoading(false)
     }
   }
+
+  // Toggle voice preview for a dropped character chip.
+  // Mirrors the CharacterCard preview pattern: GET /api/voices/{id}/preview → base64 audio.
+  const handleChipPreview = useCallback(async (e: React.MouseEvent, char: Character) => {
+    e.stopPropagation()
+    // If this char is already playing, stop it
+    if (previewingChipId === char.id) {
+      chipAudioRef.current?.pause()
+      chipAudioRef.current = null
+      setPreviewingChipId(null)
+      return
+    }
+    // Stop any previous preview
+    chipAudioRef.current?.pause()
+    chipAudioRef.current = null
+    if (chipPreviewLoadingRef.current) return  // another fetch in flight
+    if (!char.voice_id) return
+    chipPreviewLoadingRef.current = char.id
+    setPreviewingChipId(char.id)
+    try {
+      const res = await fetch(`/api/voices/${char.voice_id}/preview`)
+      if (!res.ok) { setPreviewingChipId(null); return }
+      const data = await res.json()
+      const fmt = data.format || 'mp3'
+      const audio = new Audio(`data:audio/${fmt};base64,${data.audio_base64}`)
+      chipAudioRef.current = audio
+      audio.onended = () => { setPreviewingChipId(null); chipAudioRef.current = null }
+      audio.onerror = () => { setPreviewingChipId(null); chipAudioRef.current = null }
+      audio.play().catch(() => { setPreviewingChipId(null); chipAudioRef.current = null })
+    } catch {
+      setPreviewingChipId(null)
+    } finally {
+      chipPreviewLoadingRef.current = null
+    }
+  }, [previewingChipId])
 
   return (
     <div className={`scene-editor${collapsed ? ' scene-editor-collapsed' : ''}`}>
@@ -635,6 +676,15 @@ export default function SceneEditor({
                   )}
                   <span>{c.emoji}</span>
                   <span style={{ color: c.color }}>{c.name}</span>
+                  {c.voice_id && (
+                    <button
+                      className={`btn-chip-preview${previewingChipId === c.id ? ' playing' : ''}`}
+                      onClick={e => handleChipPreview(e, c)}
+                      title={previewingChipId === c.id ? '停止試聽' : '試聽角色聲音'}
+                    >
+                      {previewingChipId === c.id ? '⏹' : '🔊'}
+                    </button>
+                  )}
                   <button onClick={() => onRemoveCharacter(c.id)} title="移除角色">×</button>
                 </div>
               ))}

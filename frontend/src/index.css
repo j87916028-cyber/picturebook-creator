@@ -695,6 +695,13 @@ body {
 .btn-char-reorder:hover:not(:disabled) { color: #667eea !important; }
 .btn-char-reorder:disabled { opacity: 0.25; cursor: default; }
 .drop-more-hint { font-size: 0.75rem; color: #bbb; width: 100%; }
+.btn-chip-preview {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.85rem; line-height: 1; padding: 0 1px;
+  color: #999; transition: color 0.12s;
+}
+.btn-chip-preview:hover { color: #667eea !important; }
+.btn-chip-preview.playing { color: #43e97b !important; animation: pulse-preview 1s ease-in-out infinite; }
 
 /* ── Character Visual Reference Panel ────────── */
 .char-ref-panel {
