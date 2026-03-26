@@ -224,6 +224,7 @@ interface Props {
   onSceneDuplicate: (sceneId: string) => void
   onLineMove: (sceneId: string, lineIndex: number, direction: 'up' | 'down') => void
   onLineEditConfirm: (sceneId: string, lineIndex: number, newText: string) => Promise<void>
+  onLineEditTextOnly: (sceneId: string, lineIndex: number, newText: string) => void
   onLineDelete: (sceneId: string, lineIndex: number) => void
   onLineDuplicate: (sceneId: string, lineIndex: number) => Promise<void>
   onLineAdd: (sceneId: string, characterId: string, text: string, insertAfterIndex?: number) => Promise<void>
@@ -258,6 +259,7 @@ interface SceneCardProps {
   onSceneDuplicate: (sceneId: string) => void
   onLineMove: (sceneId: string, lineIndex: number, direction: 'up' | 'down') => void
   onLineEditConfirm: (sceneId: string, lineIndex: number, newText: string) => Promise<void>
+  onLineEditTextOnly: (sceneId: string, lineIndex: number, newText: string) => void
   onLineDelete: (sceneId: string, lineIndex: number) => void
   onLineDuplicate: (sceneId: string, lineIndex: number) => Promise<void>
   onLineAdd: (sceneId: string, characterId: string, text: string, insertAfterIndex?: number) => Promise<void>
@@ -291,6 +293,7 @@ function SceneCard({
   onSceneDuplicate,
   onLineMove,
   onLineEditConfirm,
+  onLineEditTextOnly,
   onLineDelete,
   onLineDuplicate,
   onLineAdd,
@@ -606,6 +609,16 @@ function SceneCard({
     } finally {
       setRegenVoiceIndex(null)
     }
+  }
+
+  // Update text only — clears audio but does NOT auto-regenerate voice.
+  // Useful for bulk typo fixes where the user wants to defer regen to a batch pass.
+  const handleTextOnlyEdit = (index: number) => {
+    const newText = editLineText.trim().slice(0, 200)
+    if (!newText) return
+    setEditingLineIndex(null)
+    setRephraseSuggestions([])
+    onLineEditTextOnly(scene.id, index, newText)
   }
 
   const handleCancelEditLine = () => {
@@ -1321,8 +1334,17 @@ function SceneCard({
                             className="btn-scene-action"
                             onClick={() => handleConfirmEditLine(i)}
                             disabled={!editLineText.trim()}
+                            title="更新文字並重新生成配音"
                           >
-                            ✓ 確認
+                            ✓ 確認＋配音
+                          </button>
+                          <button
+                            className="btn-text-only-edit"
+                            onClick={() => handleTextOnlyEdit(i)}
+                            disabled={!editLineText.trim()}
+                            title="只更新文字，保留現有配音（適合修改錯字）"
+                          >
+                            ✎ 僅改文字
                           </button>
                           <button
                             className="btn-ghost"
@@ -1716,6 +1738,7 @@ export default function SceneOutput({
   onSceneDuplicate,
   onLineMove,
   onLineEditConfirm,
+  onLineEditTextOnly,
   onLineDelete,
   onLineDuplicate,
   onLineAdd,
@@ -2126,6 +2149,7 @@ export default function SceneOutput({
               onSceneDuplicate={onSceneDuplicate}
               onLineMove={onLineMove}
               onLineEditConfirm={onLineEditConfirm}
+              onLineEditTextOnly={onLineEditTextOnly}
               onLineDelete={onLineDelete}
               onLineDuplicate={onLineDuplicate}
               onLineAdd={onLineAdd}

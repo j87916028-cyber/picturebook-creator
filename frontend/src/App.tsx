@@ -736,6 +736,19 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
+  // Update line text only (no voice regen). Useful for typo fixes or bulk edits
+  // where the user wants to defer voice regeneration to a later batch pass.
+  const handleLineEditTextOnly = useCallback((sceneId: string, lineIndex: number, newText: string) => {
+    const next = scenes.map(s => {
+      if (s.id !== sceneId) return s
+      const lines = [...s.lines]
+      lines[lineIndex] = { ...lines[lineIndex], text: newText, audio_base64: undefined, audio_format: undefined }
+      return { ...s, lines }
+    })
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
+  }, [scenes, currentProjectId, characters, autoSave])
+
   // Confirm a line text edit: update text then auto-regenerate voice (mirrors
   // the emotion-change flow so the user never needs a separate "重新配音" click).
   const handleLineEditConfirm = useCallback(async (sceneId: string, lineIndex: number, newText: string) => {
@@ -2028,6 +2041,7 @@ export default function App() {
               onScenesReorder={handleScenesReorder}
               onSceneDuplicate={handleSceneDuplicate}
               onLineEditConfirm={handleLineEditConfirm}
+              onLineEditTextOnly={handleLineEditTextOnly}
               onLineMove={handleLineMove}
               onLineDelete={handleLineDelete}
               onLineDuplicate={handleLineDuplicate}

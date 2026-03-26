@@ -2334,6 +2334,16 @@ body {
   flex-wrap: wrap;
 }
 
+/* ── 僅更新文字按鈕（不重新配音）─────────────── */
+.btn-text-only-edit {
+  font-size: 0.78rem; padding: 4px 10px;
+  background: #f0fff4; border: 1.5px solid #68d391;
+  border-radius: 8px; color: #276749; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.btn-text-only-edit:hover:not(:disabled) { background: #c6f6d5; border-color: #38a169; }
+.btn-text-only-edit:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* ── AI 潤色按鈕 ─────────────────────────────── */
 .btn-rephrase {
   display: inline-flex; align-items: center; gap: 4px;
