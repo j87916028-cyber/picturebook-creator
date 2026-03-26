@@ -102,6 +102,9 @@ export default function App() {
   const [storySummary, setStorySummary] = useState<string | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
 
+  // Service warning: shown when critical API keys are missing (from /api/health)
+  const [serviceWarning, setServiceWarning] = useState<string | null>(null)
+
   // Export state
   const [exportOpen, setExportOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -155,6 +158,24 @@ export default function App() {
       ? `${projectName} ✦ ${base}`
       : base
   }, [projectName])
+
+  // ── Service-availability check: warn if critical API keys are missing ──
+  useEffect(() => {
+    fetch('/api/health')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data?.services) return
+        const s = data.services
+        if (!s.llm) {
+          setServiceWarning(
+            '未設定 AI 語言模型金鑰（MINIMAX_API_KEY 或 GROQ_API_KEY），劇本生成功能無法使用。請在 backend/.env 中設定後重啟服務。'
+          )
+        } else if (!s.database) {
+          setServiceWarning('資料庫未連線，專案儲存功能暫時無法使用。')
+        }
+      })
+      .catch(() => {/* ignore network errors */})
+  }, [])
 
   // ── Auto-init: fetch projects on mount, auto-load most recent ──
   useEffect(() => {
@@ -1438,6 +1459,13 @@ export default function App() {
                 focusTrigger={editorFocusTrigger}
               />
             </div>
+
+            {serviceWarning && (
+              <div className="service-warning">
+                <span>⚠️ {serviceWarning}</span>
+                <button className="service-warning-close" onClick={() => setServiceWarning(null)} title="關閉">✕</button>
+              </div>
+            )}
 
             {error && <div className="error-box">⚠️ {error}</div>}
 

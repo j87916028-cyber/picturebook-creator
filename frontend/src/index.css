@@ -725,6 +725,19 @@ body {
   border-radius: 10px; padding: 12px 16px; color: #92400e; font-size: 0.875rem;
 }
 
+.service-warning {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: #fff7ed; border: 1px solid #fb923c;
+  border-radius: 10px; padding: 12px 16px; color: #9a3412; font-size: 0.875rem;
+}
+.service-warning span { flex: 1; }
+.service-warning-close {
+  background: none; border: none; cursor: pointer; font-size: 0.9rem;
+  color: #9a3412; opacity: 0.6; padding: 0; line-height: 1; flex-shrink: 0;
+  margin-top: 1px;
+}
+.service-warning-close:hover { opacity: 1; }
+
 /* ── Undo-delete toast ───────────────────────── */
 .undo-toast {
   position: fixed;
