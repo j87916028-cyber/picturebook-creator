@@ -623,7 +623,7 @@ export default function App() {
       }
 
       // Auto-generate book title on the very first scene if still unnamed
-      if (projId && scenes.length === 0 && projectName === '未命名作品') {
+      if (projId && scenes.length === 0 && projectName === '未命名作品' && !signal.aborted) {
         try {
           const tr = await fetch('/api/generate-title', {
             method: 'POST',
@@ -633,6 +633,7 @@ export default function App() {
               scene_description: description,
               first_lines: script.lines.map(l => l.text),
             }),
+            signal,
           })
           if (tr.ok) {
             const { title } = await tr.json()
@@ -643,9 +644,13 @@ export default function App() {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ name: title }),
+              signal,
             })
           }
-        } catch {}
+        } catch (err) {
+          // Re-throw AbortError so the outer handler can clean up the partial scene
+          if (err instanceof DOMException && err.name === 'AbortError') throw err
+        }
       }
     } catch (e: unknown) {
       if (e instanceof DOMException && e.name === 'AbortError') {
