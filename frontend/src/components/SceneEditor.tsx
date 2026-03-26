@@ -164,9 +164,19 @@ export default function SceneEditor({
     }
   }, [storyContext, droppedCharacters, style, suggestLoading])
 
+  // Collapsible editor state: collapsed = slim sticky bar, expanded = full form
+  const [collapsed, setCollapsed] = useState(false)
+
+  // Auto-expand when generation starts (don't hide progress indicator)
+  useEffect(() => { if (isLoading) setCollapsed(false) }, [isLoading])
+
   // Focus description textarea when focusTrigger increments (e.g. "繼續創作下一幕")
+  // Also auto-expand so the textarea is actually visible.
   useEffect(() => {
-    if (focusTrigger) descriptionRef.current?.focus()
+    if (focusTrigger) {
+      setCollapsed(false)
+      descriptionRef.current?.focus()
+    }
   }, [focusTrigger])
 
   // Auto-fetch for first scene: trigger when characters become available for the
@@ -275,9 +285,39 @@ export default function SceneEditor({
   }
 
   return (
-    <div className="scene-editor">
-      <div className="scene-top">
+    <div className={`scene-editor${collapsed ? ' scene-editor-collapsed' : ''}`}>
+      {/* ── Always-visible titlebar with collapse toggle ── */}
+      <div className="scene-editor-titlebar">
         <h2>場景編輯</h2>
+        {collapsed && (
+          <div className="scene-editor-collapsed-info">
+            {droppedCharacters.length > 0 && (
+              <span className="scene-editor-char-preview">
+                {droppedCharacters.map(c => c.emoji).join('')}
+              </span>
+            )}
+            {sceneCount > 0 && (
+              <span className="scene-editor-scene-count">已有 {sceneCount} 幕</span>
+            )}
+            {description.trim() && (
+              <span className="scene-editor-desc-preview">
+                「{description.slice(0, 24)}{description.length > 24 ? '…' : ''}」
+              </span>
+            )}
+          </div>
+        )}
+        <button
+          className="btn-collapse-editor"
+          onClick={() => setCollapsed(c => !c)}
+          title={collapsed ? '展開場景編輯' : '收合場景編輯（收合後固定在頂端）'}
+        >
+          {collapsed ? '▼ 展開編輯' : '▲ 收合'}
+        </button>
+      </div>
+
+      {/* ── Collapsible form body ── */}
+      {!collapsed && (
+      <div className="scene-top">
 
         {/* 場景描述 */}
         <textarea
@@ -623,6 +663,7 @@ export default function SceneEditor({
           <p className="form-hint">已有 {sceneCount} 幕，下一幕將自動銜接前情</p>
         )}
       </div>
+      )}
     </div>
   )
 }
