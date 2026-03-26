@@ -131,6 +131,11 @@ export default function App() {
   // When the checksum hasn't changed the frontend skips re-uploading image/audio data,
   // telling the backend to preserve the existing DB blobs instead.
   const lastSavedBlobsRef = useRef<Map<number, string>>(new Map())
+  // Always-current snapshot used by the Ctrl+S handler so it reads fresh state
+  // without re-registering the event listener on every render.
+  const ctrlSSaveRef = useRef<{ projectId: string | null; scenes: Scene[]; characters: Character[] }>({
+    projectId: null, scenes: [], characters: [],
+  })
 
   // Undo-delete state: remembers the last deleted line for 5 seconds
   type UndoState = { sceneId: string; lineIndex: number; line: ScriptLine }
@@ -427,6 +432,26 @@ export default function App() {
     setSavedStatus('idle')
     autoSaveTimerRef.current = setTimeout(_flushSave, 0)
   }, [currentProjectId, scenes, characters, _flushSave])
+
+  // Ctrl+S / ⌘S: immediately flush any pending debounced save.
+  // Uses a ref so the handler is registered once and always reads fresh state.
+  ctrlSSaveRef.current = { projectId: currentProjectId, scenes, characters }
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key !== 's') return
+      e.preventDefault()
+      const { projectId, scenes: s, characters: c } = ctrlSSaveRef.current
+      if (!projectId) return
+      if (!pendingSaveRef.current) {
+        pendingSaveRef.current = { projectId, scenes: s, characters: c }
+      }
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+      setSavedStatus(prev => prev === 'failed' ? 'idle' : prev)
+      autoSaveTimerRef.current = setTimeout(_flushSave, 0)
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [_flushSave]) // stable — ref always provides fresh state without re-registering
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { over, active } = event
