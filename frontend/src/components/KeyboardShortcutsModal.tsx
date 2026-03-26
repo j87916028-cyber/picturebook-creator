@@ -20,9 +20,14 @@ const SECTIONS = [
       { keys: ['Space'], desc: '播放 / 暫停' },
       { keys: ['←'], desc: '上一句' },
       { keys: ['→'], desc: '下一句' },
+      { keys: ['↑'], desc: '音量增加' },
+      { keys: ['↓'], desc: '音量降低' },
       { keys: ['['], desc: '減慢播放速度' },
       { keys: [']'], desc: '加快播放速度' },
-      { keys: ['L'], desc: '切換循環播放' },
+      { keys: ['PageDown'], desc: '跳至下一幕' },
+      { keys: ['PageUp'], desc: '跳至上一幕' },
+      { keys: ['F'], desc: '切換全螢幕' },
+      { keys: ['Shift', 'L'], desc: '切換循環播放（關閉→全書→單幕）' },
       { keys: ['M'], desc: '靜音 / 取消靜音' },
     ],
   },
@@ -31,6 +36,8 @@ const SECTIONS = [
     shortcuts: [
       { keys: ['←'], desc: '上一幕' },
       { keys: ['→'], desc: '下一幕' },
+      { keys: ['Home'], desc: '跳至第一幕' },
+      { keys: ['End'], desc: '跳至最後一幕' },
       { keys: ['Space'], desc: '朗讀目前幕' },
       { keys: ['['], desc: '縮小字級' },
       { keys: [']'], desc: '放大字級' },
@@ -43,6 +50,7 @@ const SECTIONS = [
   {
     title: '場景編輯',
     shortcuts: [
+      { keys: ['Ctrl', 'Enter'], desc: '快速生成故事（場景描述欄）' },
       { keys: ['Enter'], desc: '確認台詞文字編輯' },
       { keys: ['Esc'], desc: '取消台詞文字編輯' },
     ],
