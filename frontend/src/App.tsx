@@ -514,7 +514,14 @@ export default function App() {
       }
       const script: ScriptResponse = await scriptRes.json()
       scriptOk = true
-      updateScene(s => ({ ...s, script, lines: script.lines.map(l => ({ ...l })) }))
+      const llmTitle = (script.scene_title || '').trim().slice(0, 30)
+      updateScene(s => ({
+        ...s,
+        script,
+        lines: script.lines.map(l => ({ ...l })),
+        // Apply LLM-suggested title only if user hasn't set one (preserves manual edits)
+        title: s.title || llmTitle,
+      }))
 
       // Step 2: 並行生成圖片 + 各台詞語音
       const totalLines = script.lines.length
@@ -1310,9 +1317,17 @@ export default function App() {
       }
       const script = await scriptRes.json()
 
-      setScenes(prev => prev.map(s =>
-        s.id === sceneId ? { ...s, script, lines: script.lines.map((l: ScriptLine) => ({ ...l })) } : s
-      ))
+      const regenLlmTitle = (script.scene_title || '').trim().slice(0, 30)
+      setScenes(prev => prev.map(s => {
+        if (s.id !== sceneId) return s
+        return {
+          ...s,
+          script,
+          lines: script.lines.map((l: ScriptLine) => ({ ...l })),
+          // Preserve user-set title; apply LLM title only when scene had none (oldScene snapshot)
+          title: oldScene.title || regenLlmTitle,
+        }
+      }))
 
       // Parallel: image + voices
       const imageP = fetch('/api/generate-image', {

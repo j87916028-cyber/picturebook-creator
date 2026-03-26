@@ -29,6 +29,7 @@ export interface ScriptResponse {
   lines: ScriptLine[]
   scene_prompt: string
   sfx_description: string
+  scene_title?: string   // Auto-suggested short title (4-8 Chinese chars)
 }
 
 export interface Scene {

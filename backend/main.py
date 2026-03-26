@@ -622,6 +622,7 @@ class ScriptResponse(BaseModel):
     lines: List[ScriptLine]
     scene_prompt: str = ""
     sfx_description: str = ""
+    scene_title: str = ""   # Auto-generated short scene title (4-8 Chinese chars)
 
 # ── 端點：取得聲音清單 ────────────────────────────────────────
 @app.get("/api/voices")
@@ -1305,7 +1306,8 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
     }}
   ],
   "scene_prompt": "English image generation prompt for FLUX AI, {_img_style} style.{_char_visual_note} Describe each character's exact visual details first (body shape, colors, clothing, accessories, expression), then the scene background and mood. Use specific visual adjectives. 40-70 words total.",
-  "sfx_description": "建議的背景音效描述（例如：森林鳥鳴聲、輕柔鋼琴音樂）"
+  "sfx_description": "建議的背景音效描述（例如：森林鳥鳴聲、輕柔鋼琴音樂）",
+  "scene_title": "4～8個繁體中文字的幕次標題（例如：「森林初遇」「神奇地圖」「勇氣的抉擇」）"
 }}
 
 注意：
@@ -1314,7 +1316,8 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
 - 每個角色至少說一句話
 {line_length_rule}
 - 角色在台詞中稱呼其他角色時，只能使用角色列表中的名字，不得自行發明暱稱或別名
-{mood_rule}- 直接輸出 JSON，不要思考過程，不要其他說明
+{mood_rule}- scene_title 必須是 4～8 個繁體中文字，簡潔有力，概括本幕主題，不含標點符號
+- 直接輸出 JSON，不要思考過程，不要其他說明
 """
 
     if req.story_context:
