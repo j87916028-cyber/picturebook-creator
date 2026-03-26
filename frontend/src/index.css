@@ -794,7 +794,12 @@ body {
 .image-error-icon { font-size: 2rem; opacity: 0.5; }
 .image-error-text { font-size: 0.85rem; color: #e53e3e; font-weight: 600; }
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-.sfx-note { font-size: 0.82rem; color: #888; margin-top: 8px; font-style: italic; }
+.sfx-note {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 0.78rem; color: #7c6f9f; font-style: italic;
+  background: #f8f5ff; border: 1px solid #e8e0ff; border-radius: 20px;
+  padding: 3px 12px; margin-top: 10px;
+}
 
 /* ── Error ───────────────────────────────────── */
 .error-box {
@@ -2696,6 +2701,12 @@ body {
   font-size: 0.85rem; color: #888; font-style: italic;
   border-left: 3px solid #e8e0ff; padding-left: 10px; margin: 0;
   line-height: 1.6;
+}
+.book-preview-sfx {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 0.75rem; color: rgba(255,255,255,0.55); font-style: italic;
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px; padding: 3px 12px; margin: 0; align-self: flex-start;
 }
 .book-preview-lines { display: flex; flex-direction: column; gap: 14px; }
 .book-no-lines { color: #bbb; font-style: italic; font-size: 0.9rem; }

@@ -198,6 +198,9 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
             {scene.description && (
               <p className="book-preview-description">{scene.description}</p>
             )}
+            {scene.script?.sfx_description && (
+              <p className="book-preview-sfx">🎵 {scene.script.sfx_description}</p>
+            )}
             <div className="book-preview-lines">
               {scene.lines.length === 0 && (
                 <p className="book-no-lines">（此幕尚無台詞）</p>
