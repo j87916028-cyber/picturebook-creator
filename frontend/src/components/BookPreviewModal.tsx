@@ -23,6 +23,12 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
   // Audio playback state
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [playingLine, setPlayingLine] = useState<number | null>(null)
+  // Playback speed — persisted to localStorage so it's remembered across sessions
+  const [playSpeed, setPlaySpeed] = useState<number>(() => {
+    const saved = parseFloat(localStorage.getItem('book_preview_speed') ?? '')
+    return [0.75, 1, 1.5].includes(saved) ? saved : 1
+  })
+  const playSpeedRef = useRef(playSpeed)
   // When autoPlay is active, advance through lines automatically
   const autoPlayRef = useRef(false)
   const [autoPlaying, setAutoPlaying] = useState(false)
@@ -86,6 +92,13 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
     }
   }
 
+  // Persist speed and apply to active audio when it changes
+  useEffect(() => {
+    playSpeedRef.current = playSpeed
+    localStorage.setItem('book_preview_speed', String(playSpeed))
+    if (audioRef.current) audioRef.current.playbackRate = playSpeed
+  }, [playSpeed])
+
   // Stop audio on unmount
   useEffect(() => () => stopAudio(), [stopAudio])
 
@@ -109,6 +122,7 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
 
     const fmt = line.audio_format || 'mp3'
     const audio = new Audio(`data:audio/${fmt};base64,${line.audio_base64}`)
+    audio.playbackRate = playSpeedRef.current
     audioRef.current = audio
     setPlayingLine(lineIdx)
 
@@ -223,13 +237,25 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
             <span className="book-page-total">/ 共 {scenes.length} 幕</span>
           </span>
           {hasAnyAudio && (
-            <button
-              className={`book-auto-play-btn${autoPlaying ? ' playing' : ''}`}
-              onClick={handleAutoPlay}
-              title={autoPlaying ? '停止播放（Space）' : page < scenes.length - 1 ? '自動朗讀（可跨幕連續播放，Space）' : '自動朗讀此幕（Space）'}
-            >
-              {autoPlaying ? '⏹ 停止' : '▶ 朗讀'}
-            </button>
+            <>
+              <button
+                className={`book-auto-play-btn${autoPlaying ? ' playing' : ''}`}
+                onClick={handleAutoPlay}
+                title={autoPlaying ? '停止播放（Space）' : page < scenes.length - 1 ? '自動朗讀（可跨幕連續播放，Space）' : '自動朗讀此幕（Space）'}
+              >
+                {autoPlaying ? '⏹ 停止' : '▶ 朗讀'}
+              </button>
+              <div className="book-speed-btns" title="朗讀速度">
+                {([0.75, 1, 1.5] as const).map(s => (
+                  <button
+                    key={s}
+                    className={`book-speed-btn${playSpeed === s ? ' active' : ''}`}
+                    onClick={() => setPlaySpeed(s)}
+                    title={`朗讀速度 ${s}×`}
+                  >{s === 1 ? '1×' : `${s}×`}</button>
+                ))}
+              </div>
+            </>
           )}
           <button className="book-preview-close" onClick={onClose} title="關閉閱讀模式（Esc）">✕</button>
         </div>
