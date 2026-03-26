@@ -149,15 +149,15 @@ body {
   padding: 10px 12px;
   background: white;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 6px;
   cursor: grab;
   transition: transform 0.15s, box-shadow 0.15s;
 }
 .character-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
 .character-card:active { cursor: grabbing; }
 
-.card-drag-handle { display: flex; align-items: center; gap: 10px; flex: 1; }
+.card-drag-handle { display: flex; align-items: center; gap: 10px; }
 .card-emoji { font-size: 1.8rem; }
 .card-info { flex: 1; }
 .card-name-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -178,7 +178,7 @@ body {
   font-size: 0.7rem; color: #8fa8c8; margin-top: 2px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;
 }
-.card-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.card-actions { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; justify-content: flex-end; }
 .card-move {
   background: none; border: none; cursor: pointer;
   color: #aaa; font-size: 0.65rem; padding: 2px 3px; line-height: 1;
