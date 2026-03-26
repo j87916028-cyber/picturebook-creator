@@ -509,16 +509,32 @@ export default function SceneEditor({
             )}
             {!suggestLoading && suggestions.length > 0 && (
               <div className="suggest-chips">
-                {suggestions.map((s, i) => (
-                  <button
-                    key={i}
-                    className={`suggest-chip ${description === s ? 'active' : ''}`}
-                    onClick={() => setDescription(s)}
-                    title="點擊填入此描述"
-                  >
-                    {s}
-                  </button>
-                ))}
+                {suggestions.map((s, i) => {
+                  const canQuickGen = droppedCharacters.length > 0 && !isLoading && (generateRateLimitSecs ?? 0) <= 0
+                  return (
+                    <div key={i} className={`suggest-chip-row${canQuickGen ? ' has-gen' : ''}`}>
+                      <button
+                        className={`suggest-chip${description === s ? ' active' : ''}`}
+                        onClick={() => setDescription(s)}
+                        title="點擊填入此描述"
+                        type="button"
+                      >
+                        {s}
+                      </button>
+                      {canQuickGen && (
+                        <button
+                          className="suggest-chip-gen"
+                          type="button"
+                          onClick={() => {
+                            setDescription(s)
+                            onGenerate(s, style, lineLength, false, imageStyle, mood || undefined)
+                          }}
+                          title="一鍵填入並立即生成此場景"
+                        >⚡</button>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>

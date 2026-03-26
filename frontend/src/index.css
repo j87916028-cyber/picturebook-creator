@@ -877,6 +877,32 @@ body {
   color: #3949ab;
   font-weight: 500;
 }
+/* Wrapper for suggestion chip + optional quick-generate button */
+.suggest-chip-row {
+  display: flex;
+  align-items: stretch;
+}
+.suggest-chip-row .suggest-chip {
+  border-radius: 8px;
+}
+.suggest-chip-row.has-gen .suggest-chip {
+  border-radius: 8px 0 0 8px;
+  border-right: none;
+}
+.suggest-chip-gen {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border: 1.5px solid #667eea;
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  padding: 0 12px;
+  color: white;
+  cursor: pointer;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+.suggest-chip-gen:hover { opacity: 0.82; }
 
 /* ── Scene Image Output ──────────────────────── */
 .scene-output { margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
