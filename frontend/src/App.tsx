@@ -1400,6 +1400,7 @@ export default function App() {
         setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: d.url } : s))
       }).catch(() => { setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: 'error' } : s)) })
 
+      let regenVoiceFailCount = 0
       const voiceTs = script.lines.map((line: ScriptLine, index: number) => async () => {
         try {
           const res = await fetch('/api/generate-voice', {
@@ -1407,7 +1408,8 @@ export default function App() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: line.text, voice_id: line.voice_id, emotion: line.emotion }),
           })
-          if (!res.ok) return
+          if (res.status === 402) { setPlanWarning('voice'); return }
+          if (!res.ok) { regenVoiceFailCount++; return }
           const data = await res.json()
           setScenes(prev => {
             const next = prev.map(s => {
@@ -1418,11 +1420,18 @@ export default function App() {
             })
             return next
           })
-        } catch {}
+        } catch (err) {
+          regenVoiceFailCount++
+          console.warn(`[voice-regen] line ${index} failed:`, err)
+        }
       })
 
       await Promise.all([imageP, throttled(voiceTs, 4)])
       setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, voices_attempted: true } : s))
+      if (regenVoiceFailCount > 0) {
+        setError(`${regenVoiceFailCount} 句配音生成失敗，可點擊各句的「⚠️ 配音失敗」按鈕重試`)
+        setTimeout(() => setError(e => e.startsWith(String(regenVoiceFailCount)) ? '' : e), 8000)
+      }
       setScenes(prev => {
         setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, prev, characters) }, 0)
         return prev
