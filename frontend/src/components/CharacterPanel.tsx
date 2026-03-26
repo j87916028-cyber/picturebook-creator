@@ -178,7 +178,11 @@ function CharacterForm({
       const res = await fetch('/api/suggest-personality', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: form.name.trim(), emoji: form.emoji }),
+        body: JSON.stringify({
+          name: form.name.trim(),
+          emoji: form.emoji,
+          style: localStorage.getItem('scene_style') || '溫馨童趣',
+        }),
       })
       if (!res.ok) return
       const data = await res.json()
