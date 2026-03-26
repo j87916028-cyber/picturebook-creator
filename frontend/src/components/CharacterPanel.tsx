@@ -6,6 +6,7 @@ interface Props {
   characters: Character[]
   onChange: (characters: Character[]) => void
   lineCountsByCharId?: Record<string, number>
+  sceneIndicesByCharId?: Record<string, number[]>
   droppedCharacterIds?: string[]
   onAddToScene?: (char: Character) => void
 }
@@ -343,7 +344,7 @@ function CharacterForm({
   )
 }
 
-export default function CharacterPanel({ characters, onChange, lineCountsByCharId = {}, droppedCharacterIds = [], onAddToScene }: Props) {
+export default function CharacterPanel({ characters, onChange, lineCountsByCharId = {}, sceneIndicesByCharId = {}, droppedCharacterIds = [], onAddToScene }: Props) {
   const [voices, setVoices] = useState<Voice[]>(DEFAULT_VOICES)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -452,6 +453,7 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
               onMoveUp={characters.indexOf(c) > 0 ? () => handleMoveUp(c.id) : undefined}
               onMoveDown={characters.indexOf(c) < characters.length - 1 ? () => handleMoveDown(c.id) : undefined}
               lineCount={lineCountsByCharId[c.id]}
+              sceneIndices={sceneIndicesByCharId[c.id]}
               voiceLabel={voices.find(v => v.id === c.voice_id)?.label}
               isInScene={droppedCharacterIds.includes(c.id)}
               onAddToScene={onAddToScene ? () => onAddToScene(c) : undefined}

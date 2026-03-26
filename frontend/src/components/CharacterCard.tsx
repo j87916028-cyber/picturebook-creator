@@ -11,13 +11,14 @@ interface Props {
   onMoveUp?: () => void
   onMoveDown?: () => void
   isDragging?: boolean
-  lineCount?: number   // total dialogue lines this character has across all scenes
-  voiceLabel?: string  // display name of the assigned voice
-  isInScene?: boolean  // whether this character is already in the scene drop zone
+  lineCount?: number      // total dialogue lines this character has across all scenes
+  sceneIndices?: number[] // scene numbers (1-based) where this character appears
+  voiceLabel?: string     // display name of the assigned voice
+  isInScene?: boolean     // whether this character is already in the scene drop zone
   onAddToScene?: () => void  // click-to-add fallback (mobile / accessibility)
 }
 
-export default function CharacterCard({ character, onDelete, onEdit, onDuplicate, onMoveUp, onMoveDown, isDragging = false, lineCount, voiceLabel, isInScene, onAddToScene }: Props) {
+export default function CharacterCard({ character, onDelete, onEdit, onDuplicate, onMoveUp, onMoveDown, isDragging = false, lineCount, sceneIndices, voiceLabel, isInScene, onAddToScene }: Props) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: character.id,
     data: { character },
@@ -97,6 +98,15 @@ export default function CharacterCard({ character, onDelete, onEdit, onDuplicate
             {lineCount !== undefined && lineCount > 0 && (
               <span className="card-line-badge" style={{ borderColor: character.color, color: character.color }}>
                 💬 {lineCount}
+              </span>
+            )}
+            {sceneIndices && sceneIndices.length > 0 && (
+              <span
+                className="card-scene-badge"
+                style={{ borderColor: character.color, color: character.color }}
+                title={`出現在第 ${sceneIndices.join('、') } 幕`}
+              >
+                🎬 {sceneIndices.join('·')}
               </span>
             )}
           </div>

@@ -1365,6 +1365,19 @@ export default function App() {
     }, {}),
   [scenes])
 
+  const sceneIndicesByCharId = useMemo(() =>
+    scenes.reduce<Record<string, number[]>>((acc, s, idx) => {
+      const seen = new Set<string>()
+      s.lines.forEach(l => {
+        if (l.character_id && !seen.has(l.character_id)) {
+          seen.add(l.character_id)
+          acc[l.character_id] = [...(acc[l.character_id] ?? []), idx + 1]
+        }
+      })
+      return acc
+    }, {}),
+  [scenes])
+
   const storyStats = useMemo(() => {
     if (scenes.length === 0) return null
     const totalLines  = scenes.reduce((n, s) => n + s.lines.length, 0)
@@ -1488,6 +1501,7 @@ export default function App() {
           <CharacterPanel
             characters={characters}
             lineCountsByCharId={lineCountsByCharId}
+            sceneIndicesByCharId={sceneIndicesByCharId}
             droppedCharacterIds={droppedCharacters.map(c => c.id)}
             onAddToScene={char => {
               if (!droppedCharacters.find(c => c.id === char.id)) {
