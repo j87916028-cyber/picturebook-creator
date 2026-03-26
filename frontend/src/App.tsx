@@ -794,6 +794,50 @@ export default function App() {
     } catch {}
   }
 
+  // Duplicate a dialogue line (clone text/character/emotion, insert after, auto-regen voice)
+  const handleLineDuplicate = async (sceneId: string, lineIndex: number) => {
+    const scene = scenes.find(s => s.id === sceneId)
+    if (!scene) return
+    const src = scene.lines[lineIndex]
+    const clone = {
+      character_name: src.character_name,
+      character_id: src.character_id,
+      voice_id: src.voice_id,
+      text: src.text,
+      emotion: src.emotion,
+    }
+    const insertAt = lineIndex + 1
+    setScenes(prev => prev.map(s => {
+      if (s.id !== sceneId) return s
+      const lines = [...s.lines]
+      lines.splice(insertAt, 0, clone)
+      return { ...s, lines }
+    }))
+    try {
+      const res = await fetch('/api/generate-voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: clone.text, voice_id: clone.voice_id, emotion: clone.emotion || 'neutral' }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      let saved: Scene[] | null = null
+      setScenes(prev => {
+        const next = prev.map(s => {
+          if (s.id !== sceneId) return s
+          const lines = [...s.lines]
+          if (lines[insertAt]) {
+            lines[insertAt] = { ...lines[insertAt], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+          }
+          return { ...s, lines }
+        })
+        saved = next
+        return next
+      })
+      if (saved && currentProjectId) autoSave(currentProjectId, saved, characters)
+    } catch {}
+  }
+
   // Re-generate voice for a single line
   const handleLineVoiceRegen = async (sceneId: string, lineIndex: number) => {
     const scene = scenes.find(s => s.id === sceneId)
@@ -1735,6 +1779,7 @@ export default function App() {
               onLineEditConfirm={handleLineEditConfirm}
               onLineMove={handleLineMove}
               onLineDelete={handleLineDelete}
+              onLineDuplicate={handleLineDuplicate}
               onLineAdd={handleLineAdd}
               onLineVoiceRegen={handleLineVoiceRegen}
               onLineEmotionChange={handleLineEmotionChange}

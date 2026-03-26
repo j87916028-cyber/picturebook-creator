@@ -197,6 +197,7 @@ interface Props {
   onLineMove: (sceneId: string, lineIndex: number, direction: 'up' | 'down') => void
   onLineEditConfirm: (sceneId: string, lineIndex: number, newText: string) => Promise<void>
   onLineDelete: (sceneId: string, lineIndex: number) => void
+  onLineDuplicate: (sceneId: string, lineIndex: number) => Promise<void>
   onLineAdd: (sceneId: string, characterId: string, text: string, insertAfterIndex?: number) => Promise<void>
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
@@ -228,6 +229,7 @@ interface SceneCardProps {
   onLineMove: (sceneId: string, lineIndex: number, direction: 'up' | 'down') => void
   onLineEditConfirm: (sceneId: string, lineIndex: number, newText: string) => Promise<void>
   onLineDelete: (sceneId: string, lineIndex: number) => void
+  onLineDuplicate: (sceneId: string, lineIndex: number) => Promise<void>
   onLineAdd: (sceneId: string, characterId: string, text: string, insertAfterIndex?: number) => Promise<void>
   onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
   onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
@@ -257,6 +259,7 @@ function SceneCard({
   onLineMove,
   onLineEditConfirm,
   onLineDelete,
+  onLineDuplicate,
   onLineAdd,
   onLineVoiceRegen,
   onLineEmotionChange,
@@ -1181,6 +1184,13 @@ function SceneCard({
                           ✏️
                         </button>
                         <button
+                          className="btn-duplicate-line"
+                          onClick={() => onLineDuplicate(scene.id, i)}
+                          title="複製此行台詞（插入下方）"
+                        >
+                          📋
+                        </button>
+                        <button
                           className="btn-delete-line"
                           onClick={() => {
                             if (scene.lines.length <= 1) return   // keep at least one line
@@ -1461,6 +1471,7 @@ export default function SceneOutput({
   onLineMove,
   onLineEditConfirm,
   onLineDelete,
+  onLineDuplicate,
   onLineAdd,
   onLineVoiceRegen,
   onLineEmotionChange,
@@ -1802,6 +1813,7 @@ export default function SceneOutput({
               onLineMove={onLineMove}
               onLineEditConfirm={onLineEditConfirm}
               onLineDelete={onLineDelete}
+              onLineDuplicate={onLineDuplicate}
               onLineAdd={onLineAdd}
               onLineVoiceRegen={onLineVoiceRegen}
               onLineEmotionChange={onLineEmotionChange}

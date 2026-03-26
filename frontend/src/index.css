@@ -1770,6 +1770,20 @@ body {
 }
 .btn-edit-line:hover { opacity: 1; }
 
+.btn-duplicate-line {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+  line-height: 1.6;
+}
+.dialogue-text-row:hover .btn-duplicate-line { opacity: 0.45; }
+.btn-duplicate-line:hover { opacity: 1; }
+
 .btn-delete-line {
   background: none;
   border: none;
