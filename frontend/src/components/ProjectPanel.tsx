@@ -14,6 +14,21 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+/** Format estimated audio duration from total dialogue character count.
+ *  Uses the same ~4 chars/second heuristic as the storyboard and stats strip.
+ *  Returns null when the estimate is < 5 s (too short to be useful).
+ */
+function formatDuration(totalChars: number | undefined): string | null {
+  if (!totalChars || totalChars < 20) return null  // ~5 s minimum
+  const secs = Math.round(totalChars / 4)
+  if (secs < 5) return null
+  const m = Math.floor(secs / 60)
+  const s = secs % 60
+  return m > 0
+    ? `~${m}分${s > 0 ? String(s).padStart(2, '0') + '秒' : ''}`
+    : `~${s}秒`
+}
+
 export default function ProjectPanel({
   currentProjectId,
   projectName,
@@ -267,7 +282,10 @@ export default function ProjectPanel({
                 >{p.name}</span>
               )}
               <span className="project-meta">
-                {p.scene_count} 幕{p.line_count != null && p.line_count > 0 ? `・${p.line_count} 句` : ''}・{formatDate(p.updated_at)}
+                {(() => {
+                  const dur = formatDuration(p.total_chars)
+                  return `${p.scene_count} 幕${p.line_count ? `・${p.line_count} 句` : ''}${dur ? `・🎙 ${dur}` : ''}・${formatDate(p.updated_at)}`
+                })()}
               </span>
             </div>
             <button

@@ -62,6 +62,7 @@ export interface ProjectMeta {
   updated_at: string
   scene_count: number
   line_count?: number
+  total_chars?: number   // sum of all dialogue text lengths; used for estimated duration
   cover_image?: string
 }
 
