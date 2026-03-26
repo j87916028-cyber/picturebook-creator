@@ -3461,4 +3461,28 @@ async def export_project(
 # ── 健康檢查 ──────────────────────────────────────────────────
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    """Return service availability without exposing key values.
+
+    ``services`` reports which external APIs are configured so operators can
+    quickly diagnose missing-key issues without grepping container logs.
+    The values are booleans only — no secrets are returned.
+    """
+    return {
+        "status": "ok",
+        "services": {
+            # Script / LLM generation (at least one key required)
+            "llm": bool(MINIMAX_API_KEY or GROQ_API_KEY),
+            "llm_minimax": bool(MINIMAX_API_KEY),
+            "llm_groq": bool(GROQ_API_KEY),
+            # Text-to-speech (Edge TTS is always available as final fallback)
+            "tts_xfyun": bool(XFYUN_APP_ID and XFYUN_API_KEY and XFYUN_API_SECRET),
+            "tts_groq": bool(GROQ_API_KEY),     # Groq also serves Orpheus TTS
+            "tts_edge": True,                    # edge-tts bundled, no key needed
+            # Image generation (Pillow fallback always available)
+            "image_huggingface": bool(HUGGINGFACE_API_KEY),
+            "image_pollinations": bool(POLLINATIONS_API_KEY),
+            "image_pillow": True,                # built-in, always available
+            # Persistence
+            "database": _db_pool is not None,
+        },
+    }
