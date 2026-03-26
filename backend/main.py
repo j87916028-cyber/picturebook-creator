@@ -326,6 +326,10 @@ MINIMAX_HEADERS = {
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_TTS_URL = "https://api.groq.com/openai/v1/audio/speech"
 GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
+# Fast model for short-output tasks (title, personality, visual desc) — ~5× lower latency
+GROQ_FAST_MODEL = "llama-3.1-8b-instant"
+# Quality model for creative/suggestion tasks that need richer reasoning
+GROQ_QUALITY_MODEL = "llama-3.3-70b-versatile"
 
 # ── 科大訊飛 TTS ────────────────────────────────────────────
 XFYUN_APP_ID     = os.getenv("XFYUN_APP_ID", "")
@@ -864,15 +868,21 @@ async def _llm_single_string(
     max_tokens: int = 100,
     log_tag: str = "llm",
     error_detail: str = "生成失敗",
+    groq_model: str = GROQ_FAST_MODEL,
 ) -> str:
-    """Call Groq first, fall back to MiniMax; return the cleaned result or raise HTTP 502."""
+    """Call Groq first, fall back to MiniMax; return the cleaned result or raise HTTP 502.
+
+    ``groq_model`` defaults to GROQ_FAST_MODEL (8B) which is sufficient for the short
+    outputs this helper produces (titles, personality blurbs, visual descriptions).
+    Pass GROQ_QUALITY_MODEL explicitly for tasks that benefit from richer reasoning.
+    """
     if GROQ_API_KEY:
         try:
             resp = await _http_client.post(
                 GROQ_CHAT_URL,
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
                 json={
-                    "model": "llama-3.3-70b-versatile",
+                    "model": groq_model,
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": temperature,
                     "max_tokens": max_tokens,
@@ -982,6 +992,7 @@ async def generate_summary(req: GenerateSummaryRequest, request: Request):
     summary = await _llm_single_string(
         prompt, _clean, temperature=0.5, max_tokens=200,
         log_tag="generate-summary", error_detail="摘要生成失敗",
+        groq_model=GROQ_QUALITY_MODEL,  # summary needs richer reasoning for coherent Chinese prose
     )
     return {"summary": summary[:300]}
 
@@ -1091,7 +1102,7 @@ async def _llm_suggestions(
                 GROQ_CHAT_URL,
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
                 json={
-                    "model": "llama-3.3-70b-versatile",
+                    "model": GROQ_QUALITY_MODEL,  # suggestions need richer creative reasoning
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": temperature,
                     "max_tokens": max_tokens,
@@ -1497,7 +1508,7 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
             GROQ_CHAT_URL,
             headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
             json={
-                "model": "llama-3.3-70b-versatile",
+                "model": GROQ_QUALITY_MODEL,  # script gen needs full 70B reasoning
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.8,
                 "max_tokens": 1500,
@@ -1509,7 +1520,7 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
         return str(raw)
 
     # Try MiniMax first (higher quality, handles Chinese natively).
-    # On any failure, fall back to Groq llama-3.3-70b-versatile.
+    # On any failure, fall back to Groq GROQ_QUALITY_MODEL.
     content: str | None = None
     last_error: Exception | None = None
 
