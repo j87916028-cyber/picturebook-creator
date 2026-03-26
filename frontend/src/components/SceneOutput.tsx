@@ -36,7 +36,13 @@ function highlightText(text: string, query: string): React.ReactNode {
 }
 
 const STYLES = ['溫馨童趣', '奇幻冒險', '搞笑幽默', '感動溫情', '懸疑神秘']
-const IMAGE_STYLES = ['水彩繪本', '粉彩卡通', '鉛筆素描', '宮崎駿風', '3D 卡通']
+const IMAGE_STYLES = [
+  { label: '水彩繪本', value: "watercolor children's book illustration" },
+  { label: '粉彩卡通', value: 'soft pastel cartoon, cute kawaii style' },
+  { label: '鉛筆素描', value: 'pencil sketch children illustration, warm tones' },
+  { label: '宮崎駿風', value: 'Studio Ghibli anime style illustration' },
+  { label: '3D 卡通',  value: '3D render cartoon, Pixar style, vibrant colors' },
+]
 
 const EMOTION_LABELS: Record<string, string> = {
   happy:     '😄 開心',
@@ -399,11 +405,18 @@ function SceneCard({
     (scene.line_length as 'short' | 'standard' | 'long') || 'standard'
   )
   const [regenImageStyle, setRegenImageStyle] = useState<string>(
-    () => localStorage.getItem('scene_image_style') || '水彩繪本'
+    () => localStorage.getItem('scene_image_style') || IMAGE_STYLES[0].value
   )
   const [regenMood, setRegenMood] = useState<string>(
     () => localStorage.getItem('scene_mood') ?? ''
   )
+  // Persist regen-form selections so they survive page refresh and stay in sync
+  // with SceneEditor (which reads these same keys on init).
+  useEffect(() => { localStorage.setItem('scene_image_style', regenImageStyle) }, [regenImageStyle])
+  useEffect(() => {
+    if (regenMood) localStorage.setItem('scene_mood', regenMood)
+    else localStorage.removeItem('scene_mood')
+  }, [regenMood])
   const [regenLoading, setRegenLoading] = useState(false)
   const [regenError, setRegenError] = useState<string | null>(null)
   const [regenAllVoicesLoading, setRegenAllVoicesLoading] = useState(false)
@@ -1002,11 +1015,11 @@ function SceneCard({
             <div className="style-buttons">
               {IMAGE_STYLES.map(s => (
                 <button
-                  key={s}
-                  className={`style-btn ${regenImageStyle === s ? 'active' : ''}`}
-                  onClick={() => setRegenImageStyle(s)}
+                  key={s.value}
+                  className={`style-btn ${regenImageStyle === s.value ? 'active' : ''}`}
+                  onClick={() => setRegenImageStyle(s.value)}
                   type="button"
-                >{s}</button>
+                >{s.label}</button>
               ))}
             </div>
           </div>
