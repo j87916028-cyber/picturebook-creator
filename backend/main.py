@@ -261,6 +261,21 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def _add_security_headers(request: Request, call_next):
+    """Attach baseline security headers to every API response.
+
+    - ``X-Content-Type-Options: nosniff``   — prevents MIME-type sniffing attacks
+    - ``X-Frame-Options: DENY``             — blocks this API from being framed
+    - ``Referrer-Policy``                   — limits referrer leakage to same-origin
+    """
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+
 @app.exception_handler(RequestValidationError)
 async def _validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """Convert Pydantic 422 validation errors to a human-readable Chinese string.
