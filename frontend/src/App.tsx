@@ -25,6 +25,18 @@ function stableImageSeed(characters: Character[], imageStyle: string): number {
 }
 
 /**
+ * Cheap fingerprint of a scene's media blobs (image + all audio).
+ * Uses only the tail of each base64 string — enough to detect any change
+ * without spending time hashing megabytes of data.
+ * Returns a stable string that only changes when image or audio changes.
+ */
+function blobChecksum(s: { image?: string; lines?: Array<{ audio_base64?: string }> }): string {
+  const img = s.image ? s.image.slice(-24) : ''
+  const audio = (s.lines ?? []).map(l => l.audio_base64 ? l.audio_base64.slice(-12) : '-').join('')
+  return `${img}|${audio}`
+}
+
+/**
  * Build a compact story context from all scenes up to (but not including) endIndex.
  * Each scene contributes: scene number, description, and first + last dialogue line.
  * This keeps every scene in context for long stories while staying under the
@@ -101,6 +113,10 @@ export default function App() {
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingSaveRef = useRef<{ projectId: string; scenes: Scene[]; characters: Character[] } | null>(null)
+  // Stores the blobChecksum for each scene index at the time of the last successful save.
+  // When the checksum hasn't changed the frontend skips re-uploading image/audio data,
+  // telling the backend to preserve the existing DB blobs instead.
+  const lastSavedBlobsRef = useRef<Map<number, string>>(new Map())
 
   // Undo-delete state: remembers the last deleted line for 5 seconds
   type UndoState = { sceneId: string; lineIndex: number; line: ScriptLine }
@@ -176,6 +192,12 @@ export default function App() {
       ? `${projectName} ✦ ${base}`
       : base
   }, [projectName])
+
+  // Reset blob checksums whenever the active project changes so the first save
+  // after loading a project always uploads the full current state.
+  useEffect(() => {
+    lastSavedBlobsRef.current = new Map()
+  }, [currentProjectId])
 
   // ── Service-availability check: warn if critical API keys are missing ──
   useEffect(() => {
@@ -259,16 +281,34 @@ export default function App() {
     pendingSaveRef.current = null
     setSavedStatus('saving')
     try {
+      // For each scene, compute a cheap fingerprint of its image + audio blobs.
+      // Scenes whose fingerprint matches the last successful save get preserve_blobs=true,
+      // which tells the backend to keep existing DB blobs instead of re-uploading them.
+      // This turns a ~7 MB payload on every keystroke into ~10 KB for pure text edits.
+      const prevChecksums = lastSavedBlobsRef.current
+      const nextChecksums = new Map<number, string>()
+
       const body = {
-        scenes: data.scenes.map((s, idx) => ({
-          idx,
-          description: s.description,
-          style: s.style,
-          line_length: s.line_length ?? 'standard',
-          script: s.script,
-          lines: s.lines,
-          image: s.image,
-        })),
+        scenes: data.scenes.map((s, idx) => {
+          const checksum = blobChecksum(s)
+          nextChecksums.set(idx, checksum)
+          const preserveBlobs = prevChecksums.get(idx) === checksum
+          return {
+            idx,
+            description: s.description,
+            style: s.style,
+            line_length: s.line_length ?? 'standard',
+            script: s.script,
+            // Strip audio_base64 / audio_format from lines when blobs are unchanged;
+            // JSON.stringify omits undefined values automatically.
+            lines: preserveBlobs
+              ? s.lines.map(({ audio_base64: _a, audio_format: _f, ...rest }) => rest)
+              : s.lines,
+            // Omit image when unchanged (undefined → omitted from JSON → backend uses "")
+            image: preserveBlobs ? undefined : s.image,
+            preserve_blobs: preserveBlobs,
+          }
+        }),
         characters: data.characters,
       }
       const res = await fetch(`/api/projects/${data.projectId}/scenes`, {
@@ -277,6 +317,8 @@ export default function App() {
         body: JSON.stringify(body),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      // Only update stored checksums after a confirmed successful save.
+      lastSavedBlobsRef.current = nextChecksums
       setSavedStatus('saved')
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
       savedTimerRef.current = setTimeout(() => setSavedStatus('idle'), 2500)

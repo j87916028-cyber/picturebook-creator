@@ -2241,6 +2241,10 @@ class SceneIn(BaseModel):
     lines: List[SceneLineIn] = Field(default_factory=list, max_length=50)
     # base64-encoded image: cap at ~6 MB of encoded data (≈ 4.5 MB raw)
     image: str = Field("", max_length=6_000_000)
+    # When True the frontend omitted image/audio from this scene because they
+    # have not changed since the last save.  The backend reads the existing
+    # blobs from the DB and merges them in before writing.
+    preserve_blobs: bool = False
 
     @field_validator("line_length", mode="before")
     @classmethod
@@ -2515,19 +2519,69 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
     _db_required()
     _validate_uuid(project_id)
 
-    # Compute the cover thumbnail BEFORE entering the transaction.
-    # _make_cover_thumbnail is CPU-bound (Pillow); running it inside the
-    # transaction keeps the DB connection acquired for the full thumbnail
-    # generation time, blocking pool slots for other requests.  Computing
-    # it up-front from the immutable request data lets us keep the
-    # transaction as short as possible.
+    # Fetch existing blobs (image + lines audio) for scenes where the frontend
+    # flagged preserve_blobs=True.  This avoids re-uploading large base64 payloads
+    # on every keystroke while still keeping audio/image data intact in the DB.
+    # We do the SELECT outside the write transaction so we hold the connection
+    # for as short a time as possible.
+    preserve_idxs = [s.idx for s in req.scenes if s.preserve_blobs]
+    existing_blobs: dict[int, dict] = {}
+    if preserve_idxs:
+        async with _db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT idx, image, lines
+                FROM scenes
+                WHERE project_id = $1 AND idx = ANY($2::smallint[])
+                """,
+                project_id, preserve_idxs,
+            )
+            for row in rows:
+                existing_blobs[row["idx"]] = {
+                    "image": row["image"],
+                    "lines": json.loads(row["lines"]),
+                }
+
+    # Build the final rows to INSERT, merging preserved blobs from the DB.
+    def _resolve_scene(scene: SceneIn) -> tuple:
+        if scene.preserve_blobs and scene.idx in existing_blobs:
+            ex = existing_blobs[scene.idx]
+            image = ex["image"]
+            ex_lines: list[dict] = ex["lines"]
+            merged: list[dict] = []
+            for i, ln in enumerate(scene.lines):
+                ld = ln.model_dump()
+                if i < len(ex_lines) and not ld.get("audio_base64"):
+                    ld["audio_base64"] = ex_lines[i].get("audio_base64")
+                    ld["audio_format"] = ex_lines[i].get("audio_format")
+                merged.append(ld)
+        else:
+            image = scene.image
+            merged = [ln.model_dump() for ln in scene.lines]
+        return (
+            project_id,
+            scene.idx,
+            scene.description,
+            scene.style,
+            scene.line_length or "standard",
+            json.dumps(scene.script, ensure_ascii=False),
+            json.dumps(merged, ensure_ascii=False),
+            image,
+        )
+
+    resolved = [_resolve_scene(s) for s in req.scenes]
+
+    # Compute cover thumbnail only from freshly-uploaded images (not preserved ones).
+    # CPU-bound; done before acquiring the write connection to keep transaction short.
     cover_thumb: str | None = None
-    first_image = next(
-        (s.image for s in req.scenes if s.image and s.image != "error"), None
+    first_new_image = next(
+        (s.image for s in req.scenes
+         if not s.preserve_blobs and s.image and s.image not in ("", "error")),
+        None,
     )
-    if first_image:
+    if first_new_image:
         cover_thumb = await asyncio.get_running_loop().run_in_executor(
-            None, _make_cover_thumbnail, first_image
+            None, _make_cover_thumbnail, first_new_image
         )
 
     async with _db_pool.acquire() as conn:
@@ -2537,32 +2591,22 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
 
         async with conn.transaction():
             await conn.execute("DELETE FROM scenes WHERE project_id = $1", project_id)
-            if req.scenes:
+            if resolved:
                 await conn.executemany(
                     """
                     INSERT INTO scenes (project_id, idx, description, style, line_length, script, lines, image)
                     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8)
                     """,
-                    [
-                        (
-                            project_id,
-                            scene.idx,
-                            scene.description,
-                            scene.style,
-                            scene.line_length or "standard",
-                            json.dumps(scene.script, ensure_ascii=False),
-                            json.dumps([ln.model_dump() for ln in scene.lines], ensure_ascii=False),
-                            scene.image,
-                        )
-                        for scene in req.scenes
-                    ],
+                    resolved,
                 )
+            # COALESCE keeps the existing cover when no new image was uploaded
+            # (e.g. pure text edit — all scenes had preserve_blobs=True).
             await conn.execute(
                 """
                 UPDATE projects
                 SET updated_at = NOW(),
                     characters = $1::jsonb,
-                    cover_image = $3
+                    cover_image = COALESCE($3, cover_image)
                 WHERE id = $2
                 """,
                 json.dumps([c.model_dump() for c in req.characters], ensure_ascii=False),
