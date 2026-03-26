@@ -389,6 +389,60 @@ _IMAGE_STYLE_EN: dict[str, str] = {
     "3D 卡通":  "3D cartoon animation style",
 }
 
+# Fallback English visual hints keyed by emoji.
+# Used when a character has no explicit visual_description so that the FLUX
+# image prompt still contains concrete appearance details.
+_EMOJI_VISUAL_HINTS: dict[str, str] = {
+    "🐰": "a cute small white bunny with long floppy ears",
+    "🦊": "an orange fox with a bushy tail and bright eyes",
+    "🐻": "a friendly brown bear with a round belly",
+    "🐼": "a chubby black and white panda bear",
+    "🦁": "a majestic lion with a golden mane",
+    "🐸": "a small bright green frog with big round eyes",
+    "🦄": "a white unicorn with a colorful rainbow horn and flowing mane",
+    "🐧": "a small tuxedo black and white penguin",
+    "🐶": "a fluffy puppy with floppy ears and a wagging tail",
+    "🐱": "a small cat with soft fur, big eyes, and tiny whiskers",
+    "🐮": "a white cow with black spots and gentle eyes",
+    "🐷": "a plump pink pig with a curly tail and snout",
+    "🐭": "a tiny gray mouse with large round ears",
+    "🐹": "a chubby golden hamster with pouchy cheeks",
+    "🐨": "a soft gray koala with large rounded ears",
+    "🦝": "a raccoon with a striped bushy tail and black eye mask",
+    "🦔": "a small brown hedgehog covered in soft spines",
+    "🐺": "a gray wolf with sharp amber eyes and pointed ears",
+    "🦅": "a majestic eagle with brown feathers and a sharp curved beak",
+    "🐢": "a small green turtle with a patterned brown shell",
+    "🦋": "a colorful butterfly with delicate patterned wings",
+    "🐬": "a sleek blue-gray dolphin with a friendly smile",
+    "🐘": "a large gray elephant with big fan ears and a long trunk",
+    "🦒": "a tall spotted giraffe with an extra-long neck and orange patches",
+    "🦓": "a zebra with bold black and white stripes",
+    "🐉": "a small friendly dragon with green scales, small wings, and big eyes",
+    "👦": "a young boy with short dark hair wearing a casual striped shirt",
+    "👧": "a young girl with twin pigtails wearing a cheerful colorful dress",
+    "🧒": "a small child with a round cheerful face and bright curious eyes",
+    "👨": "a young man with short neat hair and a friendly smile",
+    "👩": "a young woman with shoulder-length hair and kind expressive eyes",
+    "🧑": "a teenager with a cheerful open expression",
+    "👴": "a kind elderly man with white hair, rosy cheeks, and a warm smile",
+    "👵": "a gentle elderly woman with silver hair and twinkling eyes",
+    "🧓": "a middle-aged person with silver-streaked hair and warm expression",
+    "🧙": "a wizard in a midnight-blue star-patterned robe and tall pointed hat",
+    "🧝": "an elf with pointy ears, almond eyes, and leafy green clothing",
+    "🧚": "a tiny fairy with shimmering dragonfly wings and a glowing wand",
+    "🧜": "a mermaid with a shimmering iridescent fish tail and flowing hair",
+    "🧞": "a large magical genie with glowing blue skin and billowing robes",
+    "🦸": "a superhero in a bright-colored cape and a bold mask",
+    "🦹": "a villain in a dramatic dark costume with a mysterious air",
+    "🧸": "a soft plush teddy bear with round button eyes and a stitched smile",
+    "👾": "a cute pixel-art space alien with big cartoon eyes",
+    "🤖": "a friendly rounded silver robot with glowing blue eye panels",
+    "👻": "a cute translucent white ghost with a cheerful goofy expression",
+    "🎃": "a glowing jack-o-lantern with a carved smile and orange glow",
+    "🏰": "a fairy-tale stone castle with tall towers and fluttering pennants",
+}
+
 
 def _xfyun_auth_url() -> str:
     """Build HMAC-SHA256 signed WebSocket URL for iFlytek TTS API."""
@@ -1213,11 +1267,13 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
 
     # Pre-extract character visual descriptions so the LLM can embed them
     # directly in the scene_prompt for better FLUX image generation quality.
-    _char_visual_parts = [
-        f"{c.name}: {c.visual_description}"
-        for c in req.characters
-        if c.visual_description
-    ]
+    # Fall back to the emoji hint table when visual_description is not set.
+    _char_visual_parts = []
+    for c in req.characters:
+        if c.visual_description:
+            _char_visual_parts.append(f"{c.name}: {c.visual_description}")
+        elif c.emoji and c.emoji in _EMOJI_VISUAL_HINTS:
+            _char_visual_parts.append(f"{c.name}: {_EMOJI_VISUAL_HINTS[c.emoji]}")
     _char_visual_note = (
         f" Character appearances to include — {'; '.join(_char_visual_parts)}."
         if _char_visual_parts else ""
