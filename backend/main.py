@@ -805,7 +805,7 @@ async def _llm_single_string(
                 GROQ_CHAT_URL,
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
                 json={
-                    "model": "llama-3.1-8b-instant",
+                    "model": "llama-3.3-70b-versatile",
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": temperature,
                     "max_tokens": max_tokens,
@@ -1024,7 +1024,7 @@ async def _llm_suggestions(
                 GROQ_CHAT_URL,
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
                 json={
-                    "model": "llama-3.1-8b-instant",
+                    "model": "llama-3.3-70b-versatile",
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": temperature,
                     "max_tokens": max_tokens,
