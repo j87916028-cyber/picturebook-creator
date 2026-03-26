@@ -114,7 +114,8 @@ _rl_voice   = _RateLimiter(max_calls=60,  window_secs=60)   # TTS (many lines/sc
 _rl_image   = _RateLimiter(max_calls=10,  window_secs=60)   # Image gen
 _rl_suggest = _RateLimiter(max_calls=15,  window_secs=60)   # Scene suggestions
 _rl_title   = _RateLimiter(max_calls=15,  window_secs=60)   # Title gen
-_rl_upload  = _RateLimiter(max_calls=20,  window_secs=60)   # Image/audio upload
+_rl_recognize = _RateLimiter(max_calls=10, window_secs=60)  # Image recognition (AI, expensive)
+_rl_transcribe = _RateLimiter(max_calls=10, window_secs=60) # Audio transcription (AI, expensive)
 _rl_export  = _RateLimiter(max_calls=5,   window_secs=60)   # Export (CPU-heavy)
 _rl_project = _RateLimiter(max_calls=60,  window_secs=60)   # Project CRUD (auto-save fires ~40×/min)
 
@@ -1870,7 +1871,7 @@ IMAGE_DESCRIBE_PROMPT = (
 
 @app.post("/api/recognize-image")
 async def recognize_image(request: Request, file: UploadFile = File(...)):
-    if not _rl_upload.is_allowed(_client_ip(request)):
+    if not _rl_recognize.is_allowed(_client_ip(request)):
         raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     if not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="GROQ_API_KEY 未設定，服務無法使用")
@@ -1949,7 +1950,7 @@ GROQ_TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
 
 @app.post("/api/transcribe")
 async def transcribe_audio(request: Request, file: UploadFile = File(...)):
-    if not _rl_upload.is_allowed(_client_ip(request)):
+    if not _rl_transcribe.is_allowed(_client_ip(request)):
         raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試")
     if not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="GROQ_API_KEY 未設定，服務無法使用")
