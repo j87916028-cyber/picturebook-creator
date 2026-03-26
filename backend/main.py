@@ -2758,9 +2758,11 @@ def _export_pdf(project_name: str, scenes: list, char_color_map: dict | None = N
         current_y = 15
 
         # Title
+        scene_title = scene.get("title", "").strip()
         set_font_safe(16, "B")
         pdf.set_xy(10, current_y)
-        pdf.cell(0, 10, f"第{i + 1}幕", align="L", new_x="LMARGIN", new_y="NEXT")
+        title_text = f"第{i + 1}幕" + (f"  {scene_title}" if scene_title else "")
+        pdf.cell(0, 10, title_text, align="L", new_x="LMARGIN", new_y="NEXT")
         current_y += 12
 
         # Description
@@ -2892,6 +2894,7 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
     for i, scene in enumerate(scenes):
         desc = html.escape(scene.get("description", ""))
         sfx = html.escape(scene.get("sfx_description", "").strip())
+        epub_scene_title = html.escape(scene.get("title", "").strip())
         lines = scene.get("lines", [])
         image_data = scene.get("image", "")
 
@@ -2968,15 +2971,16 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
                     logger.warning("EPUB audio embed failed: %s", e)
 
         sfx_html_epub = f'<p class="scene-sfx">🎵 {sfx}</p>' if sfx else ""
+        epub_title_suffix = f' · {epub_scene_title}' if epub_scene_title else ""
         chapter_content = f"""<?xml version='1.0' encoding='utf-8'?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-TW">
 <head>
-  <title>第{i+1}幕</title>
+  <title>第{i+1}幕{epub_title_suffix}</title>
   <link rel="stylesheet" type="text/css" href="../style/nav.css"/>
 </head>
 <body>
-  <h1>第{i+1}幕</h1>
+  <h1>第{i+1}幕{epub_title_suffix}</h1>
   <p class="scene-desc">{desc}</p>
   {sfx_html_epub}
   {img_html}
@@ -2985,7 +2989,7 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
 </body>
 </html>"""
 
-        chapter = epub.EpubHtml(title=f"第{i+1}幕", file_name=f"scenes/scene_{i}.xhtml", lang="zh-TW")
+        chapter = epub.EpubHtml(title=f"第{i+1}幕{epub_title_suffix}", file_name=f"scenes/scene_{i}.xhtml", lang="zh-TW")
         chapter.content = chapter_content
         chapter.add_item(nav_css)
         book.add_item(chapter)
@@ -3075,6 +3079,7 @@ def _export_html(
     for i, scene in enumerate(scenes):
         desc = html.escape(scene.get("description", ""))
         sfx = html.escape(scene.get("sfx_description", "").strip())
+        scene_title = html.escape(scene.get("title", "").strip())
         lines = scene.get("lines", [])
         image_data = scene.get("image", "")
 
@@ -3125,9 +3130,10 @@ def _export_html(
             if len(scenes) >= 2 else ""
         )
         sfx_html = f'<p class="scene-sfx">🎵 {sfx}</p>' if sfx else ""
+        title_suffix = f' <span class="scene-title-tag">· {scene_title}</span>' if scene_title else ""
         scene_htmls.append(f"""
   <section class="scene-card" id="scene-{i}">
-    <h2 class="scene-title">第{i+1}幕</h2>
+    <h2 class="scene-title">第{i+1}幕{title_suffix}</h2>
     <p class="scene-desc">{desc}</p>
     {sfx_html}
     {img_tag}
@@ -3212,6 +3218,7 @@ def _export_html(
     main {{ max-width: 860px; margin: 0 auto; padding: 32px 16px; display: flex; flex-direction: column; gap: 32px; }}
     .scene-card {{ background: white; border-radius: 16px; padding: 28px; box-shadow: 0 2px 16px rgba(0,0,0,0.08); }}
     .scene-title {{ font-size: 1.3rem; font-weight: 800; color: #667eea; margin-bottom: 8px; }}
+    .scene-title-tag {{ font-size: 0.85rem; font-weight: 600; color: #7c5fcf; background: #f3eeff; border-radius: 6px; padding: 1px 8px; margin-left: 4px; vertical-align: middle; }}
     .scene-desc {{ color: #888; font-style: italic; margin-bottom: 8px; }}
     .scene-sfx {{ display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; color: #7c6f9f; font-style: italic; background: #f8f5ff; border: 1px solid #e8e0ff; border-radius: 20px; padding: 3px 12px; margin-bottom: 16px; }}
     .scene-img {{ width: 100%; border-radius: 12px; margin-bottom: 20px; }}
@@ -3570,7 +3577,11 @@ def _export_txt(project_name: str, scenes: list) -> bytes:
     for i, scene in enumerate(scenes, 1):
         desc = scene.get("description", "").strip()
         style = scene.get("style", "").strip()
-        header = f"【第{i}幕】{desc}"
+        title = scene.get("title", "").strip()
+        header = f"【第{i}幕】"
+        if title:
+            header += f"《{title}》"
+        header += desc
         if style:
             header += f"（{style}）"
         lines_out.append(header)
@@ -3611,7 +3622,7 @@ async def export_project(
         if proj is None:
             raise HTTPException(status_code=404, detail="專案不存在")
         scene_rows = await conn.fetch(
-            "SELECT idx, description, style, script, lines, image FROM scenes "
+            "SELECT idx, title, description, style, script, lines, image FROM scenes "
             "WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
@@ -3638,6 +3649,7 @@ async def export_project(
             raw_script = json.loads(raw_script)
         scenes.append({
             "idx": row["idx"],
+            "title": row["title"] or "",
             "description": row["description"],
             "style": row["style"],
             "sfx_description": raw_script.get("sfx_description", ""),

@@ -2449,6 +2449,22 @@ body {
   color: #667eea;
   white-space: nowrap;
   font-size: 0.72rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
+}
+.scene-nav-title {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #7c5fcf;
+  background: #f3eeff;
+  border-radius: 4px;
+  padding: 0 4px;
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .scene-nav-desc {
   color: #888;

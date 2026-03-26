@@ -101,7 +101,10 @@ function SortableNavChip({
         ) : (
           <span className="scene-nav-placeholder">🎭</span>
         )}
-        <span className="scene-nav-num">第 {index + 1} 幕</span>
+        <span className="scene-nav-num">
+          第 {index + 1} 幕
+          {scene.title && <span className="scene-nav-title">{scene.title}</span>}
+        </span>
         <span className="scene-nav-desc">{scene.description}</span>
         {/* Completion dots: left = image, right = audio */}
         <div className="scene-nav-status">
