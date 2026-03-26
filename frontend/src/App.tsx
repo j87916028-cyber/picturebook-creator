@@ -245,6 +245,7 @@ export default function App() {
     setProjectName(proj.name)
     const loaded: Scene[] = proj.scenes.map(s => ({
       id: s.id,
+      title: s.title ?? '',
       description: s.description,
       style: s.style,
       line_length: s.line_length ?? 'standard',
@@ -300,6 +301,7 @@ export default function App() {
           const preserveBlobs = prevChecksums.get(idx) === checksum
           return {
             idx,
+            title: s.title ?? '',
             description: s.description,
             style: s.style,
             line_length: s.line_length ?? 'standard',
@@ -581,6 +583,13 @@ export default function App() {
   // Edit scene description label without re-generating
   const handleSceneDescriptionUpdate = (sceneId: string, newDescription: string) => {
     const next = scenes.map(s => s.id === sceneId ? { ...s, description: newDescription } : s)
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
+  }
+
+  // Edit scene title (short user-defined label, e.g. "開場", "大結局")
+  const handleSceneTitleUpdate = (sceneId: string, newTitle: string) => {
+    const next = scenes.map(s => s.id === sceneId ? { ...s, title: newTitle } : s)
     setScenes(next)
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
@@ -1871,6 +1880,7 @@ export default function App() {
               onImageRegen={handleImageRegen}
               onImageUpload={handleImageUpload}
               onSceneDescriptionUpdate={handleSceneDescriptionUpdate}
+              onSceneTitleUpdate={handleSceneTitleUpdate}
               onSceneRegen={handleSceneRegen}
               onBatchRegenVoice={handleBatchRegenVoice}
               onSceneRegenAllVoices={handleSceneRegenAllVoices}

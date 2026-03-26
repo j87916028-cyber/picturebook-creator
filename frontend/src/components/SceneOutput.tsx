@@ -223,6 +223,7 @@ interface Props {
   onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
   onImageUpload: (sceneId: string, dataUrl: string) => void
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
+  onSceneTitleUpdate: (sceneId: string, newTitle: string) => void
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string) => Promise<void>
   onBatchRegenVoice: () => void
   onSceneRegenAllVoices: (sceneId: string) => Promise<void>
@@ -255,6 +256,7 @@ interface SceneCardProps {
   onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
   onImageUpload: (sceneId: string, dataUrl: string) => void
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
+  onSceneTitleUpdate: (sceneId: string, newTitle: string) => void
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string) => Promise<void>
   onSceneRegenAllVoices: (sceneId: string) => Promise<void>
   onFocusScene: () => void
@@ -286,6 +288,7 @@ function SceneCard({
   onImageRegen,
   onImageUpload,
   onSceneDescriptionUpdate,
+  onSceneTitleUpdate,
   onSceneRegen,
   onSceneRegenAllVoices,
   onFocusScene,
@@ -361,6 +364,19 @@ function SceneCard({
   useEffect(() => {
     setEditedPrompt(scene.script.scene_prompt || '')
   }, [scene.script.scene_prompt])
+  // Inline scene title edit (short user label, e.g. "開場", "高潮", "結局")
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [editTitleText, setEditTitleText] = useState(scene.title ?? '')
+  useEffect(() => {
+    if (!editingTitle) setEditTitleText(scene.title ?? '')
+  }, [scene.title, editingTitle])
+
+  const commitTitle = () => {
+    const v = editTitleText.trim()
+    onSceneTitleUpdate(scene.id, v)
+    setEditingTitle(false)
+  }
+
   // Inline description edit
   const [editingDesc, setEditingDesc] = useState(false)
   const [editDescText, setEditDescText] = useState(scene.description)
@@ -629,6 +645,31 @@ function SceneCard({
       <div className="scene-card-header">
         <span className="scene-card-title">
           第 {sceneIndex + 1} 幕
+          {/* User-defined short scene title */}
+          {editingTitle ? (
+            <input
+              className="scene-title-edit-input"
+              value={editTitleText}
+              placeholder="幕次標題（選填）"
+              maxLength={100}
+              autoFocus
+              onChange={e => setEditTitleText(e.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={e => {
+                if (e.key === 'Enter') commitTitle()
+                if (e.key === 'Escape') { setEditingTitle(false); setEditTitleText(scene.title ?? '') }
+              }}
+              onClick={e => e.stopPropagation()}
+            />
+          ) : (
+            <span
+              className={`scene-title-label${scene.title ? ' has-title' : ''}`}
+              onDoubleClick={e => { e.stopPropagation(); setEditingTitle(true) }}
+              title={scene.title ? '雙擊編輯標題' : '雙擊新增幕次標題'}
+            >
+              {scene.title || <span className="scene-title-placeholder">雙擊加標題</span>}
+            </span>
+          )}
           {sceneSecs >= 5 && (
             <span
               className="scene-duration-badge"
@@ -1535,6 +1576,7 @@ export default function SceneOutput({
   onImageRegen,
   onImageUpload,
   onSceneDescriptionUpdate,
+  onSceneTitleUpdate,
   onSceneRegen,
   onBatchRegenVoice,
   onSceneRegenAllVoices,
@@ -1940,6 +1982,7 @@ export default function SceneOutput({
               onImageRegen={onImageRegen}
               onImageUpload={onImageUpload}
               onSceneDescriptionUpdate={onSceneDescriptionUpdate}
+              onSceneTitleUpdate={onSceneTitleUpdate}
               onSceneRegen={onSceneRegen}
               onSceneRegenAllVoices={onSceneRegenAllVoices}
               onFocusScene={() => focusScene(scene.id)}

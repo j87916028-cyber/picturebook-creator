@@ -187,7 +187,11 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
 
         {/* ── Header ── */}
         <div className="book-preview-header">
-          <span className="book-page-num">第 {page + 1} 幕 <span className="book-page-total">/ 共 {scenes.length} 幕</span></span>
+          <span className="book-page-num">
+            第 {page + 1} 幕
+            {scene.title && <span className="book-page-scene-title">· {scene.title}</span>}
+            <span className="book-page-total">/ 共 {scenes.length} 幕</span>
+          </span>
           {hasAnyAudio && (
             <button
               className={`book-auto-play-btn${autoPlaying ? ' playing' : ''}`}

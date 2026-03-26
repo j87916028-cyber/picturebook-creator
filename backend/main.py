@@ -200,6 +200,12 @@ ALTER TABLE scenes
   ADD COLUMN IF NOT EXISTS line_length VARCHAR(20) NOT NULL DEFAULT 'standard';
 """
 
+# Migration: add title column to scenes (user-defined short label, e.g. "開場", "結局")
+_ALTER_SCENES_TITLE = """
+ALTER TABLE scenes
+  ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT '';
+"""
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _http_client, _db_pool
@@ -221,6 +227,7 @@ async def lifespan(app: FastAPI):
                 await conn.execute(_ALTER_PROJECTS_CHARS)
                 await conn.execute(_ALTER_PROJECTS_COVER)
                 await conn.execute(_ALTER_SCENES_LINE_LENGTH)
+                await conn.execute(_ALTER_SCENES_TITLE)
             logger.info("PostgreSQL pool created and schema applied")
         except Exception as exc:
             logger.warning("Failed to connect to PostgreSQL: %s — DB features disabled", exc)
@@ -2224,6 +2231,7 @@ class CharacterIn(BaseModel):
 
 class SceneIn(BaseModel):
     idx: int = Field(..., ge=0, le=999)
+    title: str = Field("", max_length=100)
     description: str = Field("", max_length=500)
     style: str = Field("溫馨童趣", max_length=20)
     line_length: str = Field("standard", max_length=20)
@@ -2343,7 +2351,7 @@ async def duplicate_project(project_id: str, request: Request):
             raise HTTPException(status_code=404, detail="專案不存在")
 
         scene_rows = await conn.fetch(
-            "SELECT idx, description, style, line_length, script, lines, image "
+            "SELECT idx, title, description, style, line_length, script, lines, image "
             "FROM scenes WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
@@ -2367,13 +2375,14 @@ async def duplicate_project(project_id: str, request: Request):
                 await conn.executemany(
                     """
                     INSERT INTO scenes
-                      (project_id, idx, description, style, line_length, script, lines, image)
-                    VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8)
+                      (project_id, idx, title, description, style, line_length, script, lines, image)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9)
                     """,
                     [
                         (
                             new_id,
                             row["idx"],
+                            row.get("title", ""),
                             row["description"],
                             row["style"],
                             row["line_length"] or "standard",
@@ -2408,7 +2417,7 @@ async def get_project(project_id: str, request: Request):
         if proj is None:
             raise HTTPException(status_code=404, detail="專案不存在")
         scenes = await conn.fetch(
-            "SELECT id, idx, description, style, line_length, script, lines, image FROM scenes WHERE project_id = $1 ORDER BY idx",
+            "SELECT id, idx, title, description, style, line_length, script, lines, image FROM scenes WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
     raw_chars = proj["characters"]
@@ -2423,6 +2432,7 @@ async def get_project(project_id: str, request: Request):
             {
                 "id": str(s["id"]),
                 "idx": s["idx"],
+                "title": s["title"] or "",
                 "description": s["description"],
                 "style": s["style"],
                 "line_length": s["line_length"] or "standard",
@@ -2551,6 +2561,7 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
         return (
             project_id,
             scene.idx,
+            scene.title,
             scene.description,
             scene.style,
             scene.line_length or "standard",
@@ -2584,8 +2595,8 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
             if resolved:
                 await conn.executemany(
                     """
-                    INSERT INTO scenes (project_id, idx, description, style, line_length, script, lines, image)
-                    VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8)
+                    INSERT INTO scenes (project_id, idx, title, description, style, line_length, script, lines, image)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9)
                     """,
                     resolved,
                 )

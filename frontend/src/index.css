@@ -1531,6 +1531,30 @@ body {
   align-items: center;
   gap: 6px;
 }
+/* Scene title label (user-editable short label inline after "第 N 幕") */
+.scene-title-label {
+  font-size: 0.8rem; font-weight: 600;
+  color: #6b7280; cursor: default;
+  max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.scene-title-label.has-title {
+  color: #5a3e99; background: #f3eeff; border-radius: 6px; padding: 1px 6px;
+}
+.scene-title-placeholder {
+  color: #c0bfd4; font-weight: 400; font-size: 0.72rem; font-style: italic;
+  opacity: 0; transition: opacity 0.15s;
+}
+.scene-card-header:hover .scene-title-placeholder { opacity: 1; }
+.scene-title-edit-input {
+  font-size: 0.8rem; font-weight: 600; color: #5a3e99;
+  background: #f3eeff; border: 1.5px solid #c084fc; border-radius: 6px;
+  padding: 2px 8px; outline: none; max-width: 160px;
+}
+/* BookPreviewModal scene title in header */
+.book-page-scene-title {
+  font-size: 0.85rem; font-weight: 600; color: #7c5fcf;
+  margin: 0 4px;
+}
 .scene-duration-badge {
   font-size: 0.72rem;
   font-weight: 600;

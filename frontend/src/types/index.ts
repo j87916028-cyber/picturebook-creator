@@ -33,6 +33,7 @@ export interface ScriptResponse {
 
 export interface Scene {
   id: string
+  title?: string
   description: string
   style: string
   line_length?: 'short' | 'standard' | 'long'
@@ -64,6 +65,7 @@ export interface ProjectDetail extends ProjectMeta {
   scenes: Array<{
     id: string
     idx: number
+    title?: string
     description: string
     style: string
     line_length?: 'short' | 'standard' | 'long'
