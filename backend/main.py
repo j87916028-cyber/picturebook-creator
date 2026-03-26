@@ -3529,7 +3529,12 @@ def _export_mp3_zip(project_name: str, scenes: list) -> bytes:
             folder = f"幕{i+1:02d}"
             lines = scene.get("lines", [])
             desc = scene.get("description", "")
-            readme_lines.append(f"【第{i+1}幕】{desc}")
+            title = scene.get("title", "").strip()
+            scene_header = f"【第{i+1}幕】"
+            if title:
+                scene_header += f"《{title}》"
+            scene_header += desc
+            readme_lines.append(scene_header)
 
             for j, line in enumerate(lines):
                 char_name = line.get("character_name", "")

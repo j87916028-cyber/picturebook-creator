@@ -224,6 +224,11 @@ export default function App() {
       .catch(() => {/* ignore network errors */})
   }, [])
 
+  // Clear rate-limit countdown timer on unmount to prevent setState on dead component
+  useEffect(() => () => {
+    if (generateRateLimitTimerRef.current) clearInterval(generateRateLimitTimerRef.current)
+  }, [])
+
   // ── Auto-init: fetch projects on mount, auto-load most recent ──
   useEffect(() => {
     const init = async () => {
@@ -1271,6 +1276,17 @@ export default function App() {
         }),
       })
       if (!scriptRes.ok) {
+        if (scriptRes.status === 429) {
+          const wait = parseInt(scriptRes.headers.get('Retry-After') ?? '10', 10)
+          setGenerateRateLimitSecs(wait)
+          if (generateRateLimitTimerRef.current) clearInterval(generateRateLimitTimerRef.current)
+          generateRateLimitTimerRef.current = setInterval(() => {
+            setGenerateRateLimitSecs(prev => {
+              if (prev <= 1) { clearInterval(generateRateLimitTimerRef.current!); generateRateLimitTimerRef.current = null; return 0 }
+              return prev - 1
+            })
+          }, 1000)
+        }
         const errBody = await scriptRes.json().catch(() => ({}))
         throw new Error(errBody.detail ?? `場景重新生成失敗（${scriptRes.status}）`)
       }
