@@ -3221,6 +3221,7 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
 .dialogue-table td { padding: 8px 12px; vertical-align: top; }
 .char-name { font-weight: bold; white-space: nowrap; width: 6em; }
 .dialogue-text { color: #333; }
+.line-audio { display: block; margin-top: 4px; width: 100%; max-width: 260px; height: 32px; }
 .scene-image { max-width: 100%; border-radius: 8px; margin: 1em auto; display: block; }
 """
     nav_css = epub.EpubItem(uid="style_nav", file_name="style/nav.css", media_type="text/css", content=css_content)
@@ -3259,36 +3260,27 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
             safe_src = html.escape(image_data, quote=True)
             img_html = f'<img src="{safe_src}" class="scene-image" alt="第{i+1}幕插圖"/>'
 
-        # Build dialogue HTML — escape user-supplied text to prevent XSS in XHTML.
-        # Apply per-character accent colour via inline style (CSS custom properties
-        # are not reliable across all EPUB readers, so we use direct color values).
+        # Build dialogue HTML with inline audio — escape user-supplied text to
+        # prevent XSS in XHTML.  Per-character accent colour uses direct color
+        # values (CSS custom properties are not reliable across EPUB readers).
+        # Audio <audio> elements are placed inside each dialogue row so readers
+        # can play each line right where they read it, rather than scrolling to
+        # a separate audio section at the bottom of the chapter.
         dialogue_rows = ""
-        for line in lines:
+        for j, line in enumerate(lines):
             raw_char_name = line.get("character_name", "")
             char_name = html.escape(raw_char_name)
             text = html.escape(line.get("text", ""))
             char_color = _safe_css_color(char_color_map.get(raw_char_name, ""))
-            dialogue_rows += (
-                f'<tr>'
-                f'<td class="char-name" style="color:{char_color}">{char_name}</td>'
-                f'<td class="dialogue-text">{text}</td>'
-                f'</tr>'
-            )
 
-        dialogue_html = ""
-        if dialogue_rows:
-            dialogue_html = f'<table class="dialogue-table"><tbody>{dialogue_rows}</tbody></table>'
-
-        # Add audio items
-        audio_items_html = ""
-        for j, line in enumerate(lines):
+            # Inline audio — embed the audio file and add a compact player tag
+            inline_audio = ""
             audio_b64 = line.get("audio_base64")
             if audio_b64:
                 try:
                     audio_bytes = base64.b64decode(audio_b64)
-                    # audio_format is "mp3" for iFlytek/Edge TTS and "wav" for Groq Orpheus.
-                    # Using the wrong extension/MIME type causes silent playback failures in
-                    # EPUB readers that trust the declared format over the stream header.
+                    # audio_format is "mp3" for iFlytek/Edge TTS and "wav" for
+                    # Groq Orpheus.  Wrong MIME type → silent failure in readers.
                     audio_fmt = (line.get("audio_format") or "mp3").lower()
                     mime_type = "audio/mpeg" if audio_fmt == "mp3" else f"audio/{audio_fmt}"
                     audio_fname = f"audio/scene{i}_line{j}.{audio_fmt}"
@@ -3299,13 +3291,25 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
                         content=audio_bytes,
                     )
                     book.add_item(audio_item)
-                    safe_char = html.escape(line.get("character_name", ""))
-                    audio_items_html += (
-                        f'<audio controls src="../{audio_fname}">'
-                        f'<p>{safe_char}</p></audio>'
+                    inline_audio = (
+                        f'<audio class="line-audio" controls="controls" src="../{audio_fname}">'
+                        f'</audio>'
                     )
                 except Exception as e:
                     logger.warning("EPUB audio embed failed: %s", e)
+
+            dialogue_rows += (
+                f'<tr>'
+                f'<td class="char-name" style="color:{char_color}">{char_name}</td>'
+                f'<td class="dialogue-text">{text}{inline_audio}</td>'
+                f'</tr>'
+            )
+
+        dialogue_html = ""
+        if dialogue_rows:
+            dialogue_html = f'<table class="dialogue-table"><tbody>{dialogue_rows}</tbody></table>'
+
+        audio_items_html = ""  # audio is now inline; kept for template compatibility
 
         sfx_html_epub = f'<p class="scene-sfx">🎵 {sfx}</p>' if sfx else ""
         epub_title_suffix = f' · {epub_scene_title}' if epub_scene_title else ""
