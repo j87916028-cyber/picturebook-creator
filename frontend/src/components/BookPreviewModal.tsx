@@ -22,6 +22,8 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
     localStorage.getItem('book_preview_show_notes') === 'true'
   )
   const textRef = useRef<HTMLDivElement>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   // Audio playback state
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -54,6 +56,23 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
     autoPlayRef.current = false
     pendingAutoStartRef.current = false
     setAutoPlaying(false)
+  }, [])
+
+  const toggleFullscreen = useCallback(() => {
+    const el = modalRef.current
+    if (!el) return
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().catch(() => {})
+    } else {
+      document.exitFullscreen().catch(() => {})
+    }
+  }, [])
+
+  // Keep isFullscreen state in sync with the browser's actual fullscreen state
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', handler)
+    return () => document.removeEventListener('fullscreenchange', handler)
   }, [])
 
   // Reset image-loaded flag, scroll back to top, stop audio, and close zoom when page changes.
@@ -214,11 +233,14 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
       } else if (e.key === ' ') {
         e.preventDefault()
         handleAutoPlay()
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault()
+        toggleFullscreen()
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [onClose, scenes.length, handleAutoPlay, zoomedImg])
+  }, [onClose, scenes.length, handleAutoPlay, zoomedImg, toggleFullscreen])
 
   const getCharacter = (name: string): Character | undefined =>
     characters.find(c => c.name === name)
@@ -230,7 +252,7 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
 
   return (
     <div className="book-preview-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="閱讀模式">
-      <div className="book-preview-modal" onClick={e => e.stopPropagation()}>
+      <div className="book-preview-modal" ref={modalRef} onClick={e => e.stopPropagation()}>
 
         {/* ── Header ── */}
         <div className="book-preview-header">
@@ -273,6 +295,13 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
               📋 備註
             </button>
           )}
+          <button
+            className={`book-fullscreen-btn${isFullscreen ? ' active' : ''}`}
+            onClick={toggleFullscreen}
+            title={isFullscreen ? '離開全螢幕（F）' : '全螢幕閱讀（F）'}
+          >
+            {isFullscreen ? '⊡' : '⊞'}
+          </button>
           <button className="book-preview-close" onClick={onClose} title="關閉閱讀模式（Esc）">✕</button>
         </div>
 
@@ -389,7 +418,7 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
         </div>
 
         {/* ── Keyboard hint ── */}
-        <p className="book-keyboard-hint">← → 翻頁 · Space 朗讀 · Esc 關閉</p>
+        <p className="book-keyboard-hint">← → 翻頁 · Space 朗讀 · F 全螢幕 · Esc 關閉</p>
       </div>
 
       {/* ── Image lightbox ── */}
