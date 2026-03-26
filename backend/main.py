@@ -179,8 +179,14 @@ ALTER TABLE scenes
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _http_client, _db_pool
-    _http_client = httpx.AsyncClient()
-    logger.info("Shared httpx.AsyncClient created")
+    _http_client = httpx.AsyncClient(
+        limits=httpx.Limits(
+            max_connections=100,
+            max_keepalive_connections=20,
+            keepalive_expiry=30,
+        ),
+    )
+    logger.info("Shared httpx.AsyncClient created (limits: max_conn=100, keepalive=20)")
 
     if DATABASE_URL and _asyncpg_available:
         try:
