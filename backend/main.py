@@ -138,7 +138,7 @@ _rl_script  = _RateLimiter(max_calls=10,  window_secs=60)   # LLM script gen
 _rl_voice   = _RateLimiter(max_calls=60,  window_secs=60)   # TTS (many lines/scene)
 _rl_image   = _RateLimiter(max_calls=10,  window_secs=60)   # Image gen
 _rl_suggest = _RateLimiter(max_calls=15,  window_secs=60)   # Scene suggestions
-_rl_title   = _RateLimiter(max_calls=15,  window_secs=60)   # Title gen
+_rl_title   = _RateLimiter(max_calls=30,  window_secs=60)   # Title gen
 _rl_recognize = _RateLimiter(max_calls=10, window_secs=60)  # Image recognition (AI, expensive)
 _rl_transcribe = _RateLimiter(max_calls=10, window_secs=60) # Audio transcription (AI, expensive)
 _rl_export  = _RateLimiter(max_calls=5,   window_secs=60)   # Export (CPU-heavy)
@@ -2508,7 +2508,6 @@ class ImportJsonRequest(BaseModel):
 
 
 _DEFAULT_VOICE = "cn-natural-female"
-_SAFE_EMOTIONS = {"happy", "sad", "angry", "surprised", "fearful", "disgusted", "neutral"}
 
 
 @app.post("/api/projects/import-json", status_code=201)
@@ -2558,7 +2557,7 @@ async def import_project_json(req: ImportJsonRequest, request: Request):
             if not text:
                 continue
             emotion = str(ln.get("emotion") or "neutral")
-            if emotion not in _SAFE_EMOTIONS:
+            if emotion not in _VALID_EMOTIONS:
                 emotion = "neutral"
             v_id = str(ln.get("voice_id") or _DEFAULT_VOICE)
             if v_id not in VALID_VOICE_IDS:
