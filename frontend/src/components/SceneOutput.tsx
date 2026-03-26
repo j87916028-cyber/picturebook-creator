@@ -227,7 +227,7 @@ interface Props {
   onImageUpload: (sceneId: string, dataUrl: string) => void
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
   onSceneTitleUpdate: (sceneId: string, newTitle: string) => void
-  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string) => Promise<void>
+  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string) => Promise<void>
   onBatchRegenVoice: () => void
   onSceneRegenAllVoices: (sceneId: string) => Promise<void>
   batchRegenStatus: { done: number; total: number } | null
@@ -260,7 +260,7 @@ interface SceneCardProps {
   onImageUpload: (sceneId: string, dataUrl: string) => void
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
   onSceneTitleUpdate: (sceneId: string, newTitle: string) => void
-  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string) => Promise<void>
+  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string) => Promise<void>
   onSceneRegenAllVoices: (sceneId: string) => Promise<void>
   onFocusScene: () => void
   isFocused: boolean
@@ -399,6 +399,9 @@ function SceneCard({
   )
   const [regenImageStyle, setRegenImageStyle] = useState<string>(
     () => localStorage.getItem('scene_image_style') || '水彩繪本'
+  )
+  const [regenMood, setRegenMood] = useState<string>(
+    () => localStorage.getItem('scene_mood') ?? ''
   )
   const [regenLoading, setRegenLoading] = useState(false)
   const [regenError, setRegenError] = useState<string | null>(null)
@@ -620,7 +623,7 @@ function SceneCard({
     setRegenLoading(true)
     setRegenError(null)
     try {
-      await onSceneRegen(scene.id, regenDesc.trim(), regenStyle, regenLineLength, regenImageStyle)
+      await onSceneRegen(scene.id, regenDesc.trim(), regenStyle, regenLineLength, regenImageStyle, regenMood || undefined)
       setShowRegenForm(false)
     } catch (e) {
       setRegenError(e instanceof Error ? e.message : '重新生成失敗，請稍後重試')
@@ -964,6 +967,32 @@ function SceneCard({
                   onClick={() => setRegenLineLength(opt.value)}
                   type="button"
                 >{opt.label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="style-row" style={{ marginTop: '6px' }}>
+            <label style={{ fontSize: '0.8rem', color: '#888', whiteSpace: 'nowrap' }}>情感基調</label>
+            <div className="style-buttons">
+              <button
+                className={`style-btn ${regenMood === '' ? 'active' : ''}`}
+                onClick={() => setRegenMood('')}
+                type="button"
+                title="由 AI 根據場景描述自動決定情感基調"
+              >🤖 自動</button>
+              {([
+                { value: '輕鬆愉快', emoji: '😄' },
+                { value: '溫馨感動', emoji: '🥰' },
+                { value: '緊張刺激', emoji: '😱' },
+                { value: '搞笑幽默', emoji: '😂' },
+                { value: '神奇夢幻', emoji: '✨' },
+              ]).map(opt => (
+                <button
+                  key={opt.value}
+                  className={`style-btn ${regenMood === opt.value ? 'active' : ''}`}
+                  onClick={() => setRegenMood(opt.value)}
+                  type="button"
+                  title={opt.value}
+                >{opt.emoji} {opt.value}</button>
               ))}
             </div>
           </div>
