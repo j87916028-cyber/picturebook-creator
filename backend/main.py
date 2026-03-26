@@ -1591,20 +1591,30 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
             content = brace_match.group(0)
 
     def _repair_llm_json(s: str) -> str:
-        """Remove trailing commas that LLMs sometimes emit before } or ].
+        """Repair common LLM JSON mistakes so json.loads can parse them.
 
-        Python's json.loads rejects trailing commas (valid in JS, not in JSON spec).
-        Example: {"lines": [...],} → {"lines": [...]}
         Only called when the initial parse fails, so there is zero overhead on success.
+
+        Fixes applied (in order):
+        1. Trailing commas before } or ] — valid in JS but rejected by Python json.
+           Example: {"lines": [...],} → {"lines": [...]}
+        2. Python-style literals — LLMs fine-tuned on Python code sometimes emit
+           True/False/None instead of the JSON-spec true/false/null.
+           Safe to replace unconditionally: these words don't appear in Chinese dialogue,
+           and the replacement is only attempted after a parse failure anyway.
         """
-        return re.sub(r',\s*([}\]])', r'\1', s)
+        s = re.sub(r',\s*([}\]])', r'\1', s)
+        s = re.sub(r'\bTrue\b', 'true', s)
+        s = re.sub(r'\bFalse\b', 'false', s)
+        s = re.sub(r'\bNone\b', 'null', s)
+        return s
 
     try:
         data = json.loads(content)
     except Exception:
         try:
             data = json.loads(_repair_llm_json(content))
-            logger.info("generate-script: JSON repaired (trailing commas removed)")
+            logger.info("generate-script: JSON repaired (trailing commas / Python literals)")
         except Exception as e:
             logger.error("JSON parse failed after repair: %s\nContent: %s", e, content[:800])
             raise HTTPException(status_code=502, detail=f"劇本解析失敗，請重試（{type(e).__name__}）")
