@@ -1554,7 +1554,17 @@ export default function SceneOutput({
   if (scenes.length === 0) return null
 
   const scrollToScene = (index: number) => {
-    sceneRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const targetId = scenes[index]?.id
+    if (targetId && collapsedIds.has(targetId)) {
+      // Expand the scene first; wait one animation frame for React to commit the
+      // expanded DOM before scrolling, so scrollIntoView targets the full height.
+      setCollapsedIds(prev => { const next = new Set(prev); next.delete(targetId); return next })
+      requestAnimationFrame(() =>
+        sceneRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      )
+    } else {
+      sceneRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
   }
 
   const handlePlayFromScene = (sceneIndex: number) => {
