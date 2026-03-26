@@ -1249,6 +1249,7 @@ export default function App() {
   const handleSceneRegenAllVoices = async (sceneId: string) => {
     const scene = scenes.find(s => s.id === sceneId)
     if (!scene || scene.lines.length === 0) return
+    if (scene.is_locked) return  // locked scenes cannot have voices force-regenerated
 
     // Clear audio on all lines in the scene immediately so the UI shows loading state
     setScenes(prev => prev.map(s => {

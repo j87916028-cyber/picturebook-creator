@@ -981,22 +981,23 @@ function SceneCard({
             try { await onSceneRegenAllVoices(scene.id) }
             finally { setRegenAllVoicesLoading(false) }
           }}
-          disabled={regenAllVoicesLoading || isGenerating || regenLoading}
-          title="清除並重新生成此幕所有配音（更換角色聲音後使用）"
+          disabled={regenAllVoicesLoading || isGenerating || regenLoading || !!scene.is_locked}
+          title={scene.is_locked ? '場景已鎖定，請先解鎖才能重新生成配音' : '清除並重新生成此幕所有配音（更換角色聲音後使用）'}
         >
           {regenAllVoicesLoading ? <><span className="spinner-sm" /> 配音中...</> : '🎤 重新生成全部配音'}
         </button>
         <button
           className="btn-scene-action"
           onClick={() => {
+            if (scene.is_locked) return
             setRegenDesc(scene.description)
             setRegenStyle(scene.style)
             setShowRegenForm(v => !v)
           }}
-          disabled={regenLoading || isGenerating}
-          title="重新生成此幕"
+          disabled={regenLoading || isGenerating || !!scene.is_locked}
+          title={scene.is_locked ? '場景已鎖定，請先點 🔓 解鎖才能重新生成' : '重新生成此幕'}
         >
-          ✏️ 重新生成此幕
+          {scene.is_locked ? '🔒 已鎖定' : '✏️ 重新生成此幕'}
         </button>
         <button
           className="btn-scene-action btn-scene-duplicate"
