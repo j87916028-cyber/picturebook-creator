@@ -1689,6 +1689,7 @@ export default function App() {
                 onReset={handleReset}
                 storyContext={storyContext}
                 focusTrigger={editorFocusTrigger}
+                projectId={currentProjectId}
               />
             </div>
 

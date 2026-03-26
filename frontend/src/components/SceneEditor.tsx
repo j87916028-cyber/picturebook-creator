@@ -23,6 +23,7 @@ interface Props {
   onReset: () => void
   storyContext?: string   // context from previous scenes for suggestions
   focusTrigger?: number  // increment to focus the description textarea
+  projectId?: string | null  // scope the description draft to the current project
 }
 
 const STYLES = ['溫馨童趣', '奇幻冒險', '搞笑幽默', '感動溫情', '懸疑神秘']
@@ -52,12 +53,18 @@ export default function SceneEditor({
   onReset,
   storyContext,
   focusTrigger,
+  projectId,
 }: Props) {
+  // Scope the draft key to the current project so switching projects never
+  // leaks a stale description into a different project's editor.
+  // Fall back to a global key when no project is active (new session).
+  const draftKey = projectId ? `scene_description_draft_${projectId}` : 'scene_description_draft'
+
   // Restore description draft from localStorage so the user doesn't lose work on
   // accidental page refresh. The draft is cleared after a scene is successfully
   // generated (sceneCount increments) and when the user resets the project.
   const [description, setDescription] = useState<string>(
-    () => localStorage.getItem('scene_description_draft') || ''
+    () => localStorage.getItem(draftKey) || ''
   )
   const prevSceneCountRef = useRef(sceneCount)
 
@@ -93,8 +100,17 @@ export default function SceneEditor({
   const [showCharRef, setShowCharRef] = useState(false)
   const [copiedCharId, setCopiedCharId] = useState<string | null>(null)
 
+  // When the active project changes, load that project's saved draft (or clear the field).
+  const prevProjectIdRef = useRef(projectId)
+  useEffect(() => {
+    if (projectId !== prevProjectIdRef.current) {
+      prevProjectIdRef.current = projectId
+      setDescription(localStorage.getItem(draftKey) || '')
+    }
+  }, [projectId, draftKey])
+
   // Persist description draft and all other settings to localStorage.
-  useEffect(() => { localStorage.setItem('scene_description_draft', description) }, [description])
+  useEffect(() => { localStorage.setItem(draftKey, description) }, [draftKey, description])
   useEffect(() => { localStorage.setItem('scene_style', style) }, [style])
   useEffect(() => { localStorage.setItem('scene_line_length', lineLength) }, [lineLength])
   useEffect(() => { localStorage.setItem('scene_image_style', imageStyle) }, [imageStyle])
@@ -103,7 +119,7 @@ export default function SceneEditor({
   useEffect(() => {
     if (sceneCount > prevSceneCountRef.current) {
       setDescription('')
-      localStorage.removeItem('scene_description_draft')
+      localStorage.removeItem(draftKey)
     }
     prevSceneCountRef.current = sceneCount
   }, [sceneCount])
@@ -617,7 +633,7 @@ export default function SceneEditor({
                   className="btn-reset"
                   onClick={() => {
                     setDescription('')
-                    localStorage.removeItem('scene_description_draft')
+                    localStorage.removeItem(draftKey)
                     onReset()
                   }}
                   title="清除所有幕次，重新開始"
