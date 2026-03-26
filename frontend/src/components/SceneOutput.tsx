@@ -246,6 +246,13 @@ interface Props {
   batchImageStatus: { done: number; total: number } | null
   onLinesReorder: (sceneId: string, newLines: ScriptLine[]) => void
   onScrollToEditor?: () => void
+  /** Atomic batch replace: applies all line / title / description changes in a
+   *  single state update so no intermediate write overwrites another.           */
+  onBatchReplaceAll: (changes: {
+    lines: { sceneId: string; lineIndex: number; newText: string }[]
+    titles: { sceneId: string; newTitle: string }[]
+    descs:  { sceneId: string; newDesc: string }[]
+  }) => void
 }
 
 interface SceneCardProps {
@@ -1786,6 +1793,7 @@ export default function SceneOutput({
   batchImageStatus,
   onLinesReorder,
   onScrollToEditor,
+  onBatchReplaceAll,
 }: Props) {
   const [showPlayback, setShowPlayback] = useState(false)
   const [playbackStartScene, setPlaybackStartScene] = useState(0)
@@ -1909,30 +1917,43 @@ export default function SceneOutput({
     const q = searchQuery.trim()
     if (!q) return
     const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    let lineCount = 0, metaCount = 0
+
+    // Collect ALL changes first — do NOT call individual setScenes callbacks in a
+    // loop, because React 18 automatic batching means only the last call wins and
+    // all earlier changes are silently dropped.
+    const lineChanges: { sceneId: string; lineIndex: number; newText: string }[] = []
+    const titleChanges: { sceneId: string; newTitle: string }[] = []
+    const descChanges: { sceneId: string; newDesc: string }[] = []
+
     scenes.forEach(scene => {
       const re = () => new RegExp(escaped, 'gi')
       if (scene.title) {
         const newTitle = scene.title.replace(re(), replaceText)
-        if (newTitle !== scene.title) { onSceneTitleUpdate(scene.id, newTitle); metaCount++ }
+        if (newTitle !== scene.title) titleChanges.push({ sceneId: scene.id, newTitle })
       }
       const newDesc = scene.description.replace(re(), replaceText)
-      if (newDesc !== scene.description) { onSceneDescriptionUpdate(scene.id, newDesc); metaCount++ }
+      if (newDesc !== scene.description) descChanges.push({ sceneId: scene.id, newDesc })
       scene.lines.forEach((line, i) => {
         const newText = line.text.replace(re(), replaceText)
-        if (newText !== line.text) { onLineEditTextOnly(scene.id, i, newText); lineCount++ }
+        if (newText !== line.text) lineChanges.push({ sceneId: scene.id, lineIndex: i, newText })
       })
     })
+
+    const lineCount = lineChanges.length
+    const metaCount = titleChanges.length + descChanges.length
     const total = lineCount + metaCount
-    let msg: string
+
     if (total > 0) {
-      msg = lineCount > 0
+      // Single atomic state update — all scenes/lines updated together
+      onBatchReplaceAll({ lines: lineChanges, titles: titleChanges, descs: descChanges })
+      if (replaceText) setSearchQuery(replaceText)
+    }
+
+    const msg = total > 0
+      ? lineCount > 0
         ? `已取代 ${total} 處（含 ${lineCount} 句台詞），台詞配音已清除`
         : `已取代 ${total} 處`
-      if (replaceText) setSearchQuery(replaceText)
-    } else {
-      msg = '找不到可取代的文字'
-    }
+      : '找不到可取代的文字'
     setReplaceMsg(msg)
     if (replaceMsgTimerRef.current) clearTimeout(replaceMsgTimerRef.current)
     replaceMsgTimerRef.current = setTimeout(() => setReplaceMsg(null), 5000)

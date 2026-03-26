@@ -1178,6 +1178,35 @@ export default function App() {
     } catch { setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: 'error' } : s)) }
   }
 
+  // Atomic batch replace-all — applies every line/title/desc change in ONE setScenes
+  // call so that React 18 automatic batching cannot silently drop intermediate updates
+  // (the bug that occurred when the old code called onLineEditTextOnly in a loop).
+  const handleBatchReplaceAll = useCallback((changes: {
+    lines: { sceneId: string; lineIndex: number; newText: string }[]
+    titles: { sceneId: string; newTitle: string }[]
+    descs:  { sceneId: string; newDesc: string }[]
+  }) => {
+    const next = scenes.map(s => {
+      const titleUp = changes.titles.find(t => t.sceneId === s.id)
+      const descUp  = changes.descs.find(d => d.sceneId === s.id)
+      const lineUps = changes.lines.filter(l => l.sceneId === s.id)
+      if (!titleUp && !descUp && lineUps.length === 0) return s
+      let updated = { ...s }
+      if (titleUp) updated = { ...updated, title: titleUp.newTitle }
+      if (descUp)  updated = { ...updated, description: descUp.newDesc }
+      if (lineUps.length > 0) {
+        const lines = [...s.lines]
+        for (const c of lineUps) {
+          lines[c.lineIndex] = { ...lines[c.lineIndex], text: c.newText, audio_base64: undefined, audio_format: undefined }
+        }
+        updated = { ...updated, lines }
+      }
+      return updated
+    })
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
+  }, [scenes, currentProjectId, characters, autoSave])
+
   // Toggle the is_locked flag on a scene (protects it from batch regen)
   const handleSceneLockToggle = useCallback((sceneId: string) => {
     setScenes(prev => {
@@ -2204,6 +2233,7 @@ export default function App() {
               onBatchRegenAllImages={handleBatchRegenAllImages}
               batchImageStatus={batchImageStatus}
               onLinesReorder={handleLinesReorder}
+              onBatchReplaceAll={handleBatchReplaceAll}
               onScrollToEditor={() => {
                 sceneEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                 setEditorFocusTrigger(n => n + 1)
