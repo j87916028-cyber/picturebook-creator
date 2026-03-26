@@ -2727,7 +2727,19 @@ def _export_pdf(project_name: str, scenes: list, char_color_map: dict | None = N
             set_font_safe(10)
             pdf.set_xy(10, current_y)
             pdf.multi_cell(190, 6, desc)
+            current_y = pdf.get_y() + 2
+
+        # SFX hint
+        sfx = scene.get("sfx_description", "").strip()
+        if sfx:
+            set_font_safe(8)
+            pdf.set_text_color(124, 111, 159)
+            pdf.set_xy(10, current_y)
+            pdf.multi_cell(190, 5, f"🎵 音效建議：{sfx}")
+            pdf.set_text_color(0, 0, 0)
             current_y = pdf.get_y() + 4
+        else:
+            current_y += 2
 
         # Image
         image_data = scene.get("image", "")
@@ -2822,7 +2834,8 @@ def _export_epub(project_name: str, scenes: list, char_color_map: dict | None = 
     css_content = """
 body { font-family: 'Noto Sans CJK TC', 'Microsoft JhengHei', sans-serif; margin: 2em; line-height: 1.8; color: #333; }
 h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding-bottom: 0.3em; }
-.scene-desc { font-style: italic; color: #666; margin: 0.8em 0; font-size: 0.95em; }
+.scene-desc { font-style: italic; color: #666; margin: 0.8em 0 0.4em 0; font-size: 0.95em; }
+.scene-sfx { display: inline-block; font-size: 0.8em; color: #7c6f9f; font-style: italic; background: #f8f5ff; border: 1px solid #e8e0ff; border-radius: 20px; padding: 3px 12px; margin-bottom: 0.8em; }
 .dialogue-table { width: 100%; border-collapse: collapse; margin: 1em 0; }
 .dialogue-table td { padding: 8px 12px; vertical-align: top; }
 .char-name { font-weight: bold; white-space: nowrap; width: 6em; }
@@ -2836,6 +2849,7 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
 
     for i, scene in enumerate(scenes):
         desc = html.escape(scene.get("description", ""))
+        sfx = html.escape(scene.get("sfx_description", "").strip())
         lines = scene.get("lines", [])
         image_data = scene.get("image", "")
 
@@ -2911,6 +2925,7 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
                 except Exception as e:
                     logger.warning("EPUB audio embed failed: %s", e)
 
+        sfx_html_epub = f'<p class="scene-sfx">🎵 {sfx}</p>' if sfx else ""
         chapter_content = f"""<?xml version='1.0' encoding='utf-8'?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-TW">
@@ -2921,6 +2936,7 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
 <body>
   <h1>第{i+1}幕</h1>
   <p class="scene-desc">{desc}</p>
+  {sfx_html_epub}
   {img_html}
   {dialogue_html}
   {audio_items_html}
@@ -3016,6 +3032,7 @@ def _export_html(
     scene_htmls = []
     for i, scene in enumerate(scenes):
         desc = html.escape(scene.get("description", ""))
+        sfx = html.escape(scene.get("sfx_description", "").strip())
         lines = scene.get("lines", [])
         image_data = scene.get("image", "")
 
@@ -3065,10 +3082,12 @@ def _export_html(
             '<a href="#toc" class="scene-back-link">↑ 回目次</a>'
             if len(scenes) >= 2 else ""
         )
+        sfx_html = f'<p class="scene-sfx">🎵 {sfx}</p>' if sfx else ""
         scene_htmls.append(f"""
   <section class="scene-card" id="scene-{i}">
     <h2 class="scene-title">第{i+1}幕</h2>
     <p class="scene-desc">{desc}</p>
+    {sfx_html}
     {img_tag}
     <div class="dialogue-block">{line_divs}
     </div>
@@ -3151,7 +3170,8 @@ def _export_html(
     main {{ max-width: 860px; margin: 0 auto; padding: 32px 16px; display: flex; flex-direction: column; gap: 32px; }}
     .scene-card {{ background: white; border-radius: 16px; padding: 28px; box-shadow: 0 2px 16px rgba(0,0,0,0.08); }}
     .scene-title {{ font-size: 1.3rem; font-weight: 800; color: #667eea; margin-bottom: 8px; }}
-    .scene-desc {{ color: #888; font-style: italic; margin-bottom: 16px; }}
+    .scene-desc {{ color: #888; font-style: italic; margin-bottom: 8px; }}
+    .scene-sfx {{ display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; color: #7c6f9f; font-style: italic; background: #f8f5ff; border: 1px solid #e8e0ff; border-radius: 20px; padding: 3px 12px; margin-bottom: 16px; }}
     .scene-img {{ width: 100%; border-radius: 12px; margin-bottom: 20px; }}
     .scene-img-placeholder {{ background: #f0f0f0; border-radius: 12px; height: 200px; display: flex; align-items: center; justify-content: center; color: #bbb; margin-bottom: 20px; }}
     .dialogue-block {{ display: flex; flex-direction: column; gap: 12px; }}
@@ -3513,6 +3533,9 @@ def _export_txt(project_name: str, scenes: list) -> bytes:
             header += f"（{style}）"
         lines_out.append(header)
         lines_out.append("─" * 30)
+        sfx = scene.get("sfx_description", "").strip()
+        if sfx:
+            lines_out.append(f"🎵 音效建議：{sfx}")
         for line in scene.get("lines", []):
             char_name = line.get("character_name", "").strip() or "旁白"
             text = line.get("text", "").strip()
@@ -3546,7 +3569,7 @@ async def export_project(
         if proj is None:
             raise HTTPException(status_code=404, detail="專案不存在")
         scene_rows = await conn.fetch(
-            "SELECT idx, description, style, lines, image FROM scenes "
+            "SELECT idx, description, style, script, lines, image FROM scenes "
             "WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
@@ -3568,10 +3591,14 @@ async def export_project(
         raw_lines = row["lines"]
         if isinstance(raw_lines, str):
             raw_lines = json.loads(raw_lines)
+        raw_script = row["script"] or {}
+        if isinstance(raw_script, str):
+            raw_script = json.loads(raw_script)
         scenes.append({
             "idx": row["idx"],
             "description": row["description"],
             "style": row["style"],
+            "sfx_description": raw_script.get("sfx_description", ""),
             "lines": raw_lines,
             "image": row["image"],
         })
