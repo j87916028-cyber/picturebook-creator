@@ -273,6 +273,20 @@ export default function App() {
   }, [])
 
   const loadProjectData = (proj: ProjectDetail) => {
+    // Cancel any in-flight or debounced saves from the previous project before
+    // switching.  Without this:
+    // 1. A pending _flushSave fires after the switch → setSavedStatus('saved'/'failed')
+    //    shows the wrong status on the newly-loaded project.
+    // 2. lastSavedBlobsRef gets updated with the old project's blob checksums,
+    //    causing incorrect preserve_blobs=true decisions on the next save for the
+    //    new project (blobs that should be re-uploaded are silently skipped).
+    if (autoSaveTimerRef.current) { clearTimeout(autoSaveTimerRef.current); autoSaveTimerRef.current = null }
+    if (charSaveTimerRef.current) { clearTimeout(charSaveTimerRef.current); charSaveTimerRef.current = null }
+    if (savedTimerRef.current)    { clearTimeout(savedTimerRef.current);    savedTimerRef.current    = null }
+    pendingSaveRef.current = null
+    lastSavedBlobsRef.current = new Map()
+    setSavedStatus('idle')
+
     setCurrentProjectId(proj.id)
     setProjectName(proj.name)
     const loaded: Scene[] = proj.scenes.map(s => ({
