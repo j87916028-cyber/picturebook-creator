@@ -772,11 +772,17 @@ export default function App() {
     })
 
     setBatchTitleStatus(null)
-    const finalScenes = scenes.map(s => {
-      const t = titleResults.get(s.id)
-      return t ? { ...s, title: t } : s
+    // Use functional setScenes to get the latest state (not the stale closure
+    // captured at call time) so voice/image data generated during the batch
+    // are included in the save, not overwritten.
+    setScenes(prev => {
+      const finalScenes = prev.map(s => {
+        const t = titleResults.get(s.id)
+        return t ? { ...s, title: t } : s
+      })
+      setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, finalScenes, characters) }, 0)
+      return finalScenes
     })
-    autoSave(currentProjectId, finalScenes, characters)
   }
 
   // Edit private director/author notes for a scene (never exported)
