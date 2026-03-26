@@ -2687,6 +2687,18 @@ body {
   flex-direction: column;
   gap: 7px;
 }
+.storyboard-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #5a45c9;
+  margin: 0 0 2px;
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  letter-spacing: 0.01em;
+}
 .storyboard-desc-row {
   display: flex;
   align-items: flex-start;

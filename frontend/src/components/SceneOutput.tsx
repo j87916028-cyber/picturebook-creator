@@ -154,6 +154,7 @@ function StoryboardCard({
         </div>
       </div>
       <div className="storyboard-info">
+        {scene.title && <h4 className="storyboard-title">《{scene.title}》</h4>}
         <div className="storyboard-desc-row">
           <p className="storyboard-desc">{scene.description}</p>
           {sceneSecs >= 5 && (
