@@ -90,6 +90,8 @@ export default function SceneEditor({
   const [imageLoading, setImageLoading] = useState(false)
   const [audioLoading, setAudioLoading] = useState(false)
   const [inputError, setInputError] = useState<string | null>(null)
+  const [showCharRef, setShowCharRef] = useState(false)
+  const [copiedCharId, setCopiedCharId] = useState<string | null>(null)
 
   // Persist description draft and all other settings to localStorage.
   useEffect(() => { localStorage.setItem('scene_description_draft', description) }, [description])
@@ -553,6 +555,42 @@ export default function SceneEditor({
             </div>
           )}
         </div>
+
+        {/* 角色外觀速查 — 輔助撰寫一致的場景描述 */}
+        {droppedCharacters.length > 0 && droppedCharacters.some(c => c.visual_description) && (
+          <div className="char-ref-panel">
+            <button
+              className="char-ref-toggle"
+              onClick={() => setShowCharRef(v => !v)}
+              type="button"
+            >
+              {showCharRef ? '▲' : '▼'} 角色外觀速查
+              <span className="char-ref-toggle-hint">（輔助撰寫場景描述）</span>
+            </button>
+            {showCharRef && (
+              <div className="char-ref-list">
+                {droppedCharacters.filter(c => c.visual_description).map(c => (
+                  <div key={c.id} className="char-ref-item" style={{ borderLeftColor: c.color }}>
+                    <span className="char-ref-name" style={{ color: c.color }}>{c.emoji} {c.name}</span>
+                    <span className="char-ref-desc">{c.visual_description}</span>
+                    <button
+                      className={`char-ref-copy${copiedCharId === c.id ? ' copied' : ''}`}
+                      onClick={() => {
+                        navigator.clipboard.writeText(c.visual_description!).catch(() => {})
+                        setCopiedCharId(c.id)
+                        setTimeout(() => setCopiedCharId(null), 1500)
+                      }}
+                      title="複製外觀描述"
+                      type="button"
+                    >
+                      {copiedCharId === c.id ? '✓' : '📋'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 生成按鈕列 */}
         <div className="generate-row">

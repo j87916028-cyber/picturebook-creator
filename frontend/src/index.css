@@ -624,6 +624,69 @@ body {
 .btn-char-reorder:disabled { opacity: 0.25; cursor: default; }
 .drop-more-hint { font-size: 0.75rem; color: #bbb; width: 100%; }
 
+/* ── Character Visual Reference Panel ────────── */
+.char-ref-panel {
+  border: 1.5px solid #e8e0ff;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #faf8ff;
+}
+.char-ref-toggle {
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 7px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #7c6f9f;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.15s;
+}
+.char-ref-toggle:hover { background: #f0ebff; }
+.char-ref-toggle-hint { font-weight: 400; color: #bbb; font-size: 0.7rem; }
+.char-ref-list {
+  padding: 4px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.char-ref-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border-left: 3px solid;
+  padding: 4px 8px;
+  background: white;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+.char-ref-name {
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 60px;
+}
+.char-ref-desc { color: #666; flex: 1; }
+.char-ref-copy {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid #e0d8ff;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  color: #9b8ec4;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.char-ref-copy:hover { background: #f0ebff; color: #667eea; }
+.char-ref-copy.copied { background: #e8faf0; border-color: #68d391; color: #38a169; }
+
 /* ── Generate Button ─────────────────────────── */
 .btn-generate {
   width: 100%;
