@@ -1511,6 +1511,7 @@ export default function App() {
             <div ref={sceneEditorRef}>
               <SceneEditor
                 droppedCharacters={droppedCharacters}
+                allCharacters={characters}
                 onRemoveCharacter={removeDropped}
                 onReorderDropped={handleReorderDropped}
                 onGenerate={handleGenerate}

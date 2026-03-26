@@ -12,6 +12,7 @@ type LineLength = 'short' | 'standard' | 'long'
 
 interface Props {
   droppedCharacters: Character[]
+  allCharacters: Character[]   // full character list from the left panel
   onRemoveCharacter: (id: string) => void
   onReorderDropped: (fromIdx: number, toIdx: number) => void
   onGenerate: (description: string, style: string, lineLength: LineLength, isEnding?: boolean, imageStyle?: string) => void
@@ -40,6 +41,7 @@ const IMAGE_STYLES: ImageStyleOption[] = [
 
 export default function SceneEditor({
   droppedCharacters,
+  allCharacters,
   onRemoveCharacter,
   onReorderDropped,
   onGenerate,
@@ -133,8 +135,12 @@ export default function SceneEditor({
 
   const { setNodeRef, isOver } = useDroppable({ id: 'scene-drop-zone' })
 
+  // Characters to use for suggestions: prefer those in the drop zone; fall back to
+  // the full character list so the feature remains accessible even before any dragging.
+  const suggestChars = droppedCharacters.length > 0 ? droppedCharacters : allCharacters
+
   const fetchSuggestions = useCallback(async () => {
-    if (droppedCharacters.length === 0 || suggestLoading) return
+    if (suggestChars.length === 0 || suggestLoading) return
     setSuggestLoading(true)
     setSuggestError(false)
     try {
@@ -142,7 +148,7 @@ export default function SceneEditor({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          characters: droppedCharacters,
+          characters: suggestChars,
           story_context: storyContext || null,  // null → first-scene prompt on backend
           style,
         }),
@@ -163,28 +169,26 @@ export default function SceneEditor({
     if (focusTrigger) descriptionRef.current?.focus()
   }, [focusTrigger])
 
-  // Auto-fetch for first scene: trigger when characters are first dropped in
-  const prevCharCountRef = useRef(0)
+  // Auto-fetch for first scene: trigger when characters become available for the
+  // first time (either dragged in OR present in the full character list on load).
+  const prevSuggestCountRef = useRef(0)
   useEffect(() => {
-    const cur = droppedCharacters.length
-    const prev = prevCharCountRef.current
-    prevCharCountRef.current = cur
-    // Fetch when the first character is added (prev=0 → cur>0) and this is scene 0
+    const cur = suggestChars.length
+    const prev = prevSuggestCountRef.current
+    prevSuggestCountRef.current = cur
     if (cur > 0 && prev === 0 && sceneCount === 0 && !suggestLoading) {
       setSuggestions([])
       setSuggestError(false)
       fetchSuggestions()
     }
-  }, [droppedCharacters.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [suggestChars.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-fetch suggestions every time sceneCount increases.
-  // Previously this was gated on suggestions.length === 0, which meant after the
-  // first fetch the suggestions never updated for subsequent scenes.
   useEffect(() => {
     if (
       sceneCount > 0 &&
       sceneCount !== lastFetchedForCount.current &&
-      droppedCharacters.length > 0 &&
+      suggestChars.length > 0 &&
       !suggestLoading
     ) {
       lastFetchedForCount.current = sceneCount
@@ -194,12 +198,10 @@ export default function SceneEditor({
     }
   }, [sceneCount, storyContext]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When the story style changes, existing suggestions were generated for the old
-  // style and may be misleading.  Clear them immediately and re-fetch after a short
-  // debounce so rapid style-switching doesn't spam the backend.
+  // When the story style changes, clear and re-fetch after a short debounce.
   const styleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
-    if (droppedCharacters.length === 0) return
+    if (suggestChars.length === 0) return
     setSuggestions([])
     setSuggestError(false)
     if (styleDebounceRef.current) clearTimeout(styleDebounceRef.current)
@@ -341,8 +343,8 @@ export default function SceneEditor({
           <div className="error-box" style={{ marginTop: '-8px' }}>{inputError}</div>
         )}
 
-        {/* ✨ 開場/下一幕靈感建議 */}
-        {droppedCharacters.length > 0 && (
+        {/* ✨ 開場/下一幕靈感建議：只要有角色（不論是否已拖入）就顯示 */}
+        {suggestChars.length > 0 && (
           <div className="suggest-section">
             <div className="suggest-header">
               <span className="suggest-title">
