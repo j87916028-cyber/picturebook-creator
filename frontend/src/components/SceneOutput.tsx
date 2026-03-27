@@ -796,6 +796,20 @@ function SceneCard({
   const textLineCount = scene.lines.filter(l => l.text).length
   const voicedCount   = scene.lines.filter(l => l.audio_base64).length
 
+  // Unique characters in this scene (ordered by first appearance), for collapsed header chips
+  const sceneChars = useMemo(() => {
+    const seen = new Set<string>()
+    const result: { id: string; emoji: string; name: string; color: string }[] = []
+    for (const line of scene.lines) {
+      if (line.character_id && !seen.has(line.character_id)) {
+        seen.add(line.character_id)
+        const char = characters.find(c => c.id === line.character_id)
+        if (char) result.push({ id: char.id, emoji: char.emoji, name: char.name, color: char.color })
+      }
+    }
+    return result
+  }, [scene.lines, characters])
+
   return (
     <div className={`scene-card${isCollapsed ? ' scene-card-collapsed' : ''}`}>
       <div className="scene-card-header">
@@ -875,6 +889,26 @@ function SceneCard({
               }
             >
               🔊 {voicedCount}/{textLineCount}
+            </span>
+          )}
+          {/* Character emoji chips — only shown when collapsed, so user can see who's in this scene */}
+          {isCollapsed && sceneChars.length > 0 && (
+            <span className="scene-char-chips">
+              {sceneChars.slice(0, 5).map(ch => (
+                <span
+                  key={ch.id}
+                  className="scene-char-chip"
+                  style={{ borderColor: ch.color, background: `${ch.color}22` }}
+                  title={ch.name}
+                >
+                  {ch.emoji}
+                </span>
+              ))}
+              {sceneChars.length > 5 && (
+                <span className="scene-char-chip-more" title={`還有 ${sceneChars.length - 5} 位角色`}>
+                  +{sceneChars.length - 5}
+                </span>
+              )}
             </span>
           )}
         </span>
