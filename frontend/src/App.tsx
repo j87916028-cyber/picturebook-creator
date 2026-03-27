@@ -223,6 +223,27 @@ export default function App() {
   const abortControllerRef = useRef<AbortController | null>(null)
   const batchAbortRef = useRef<AbortController | null>(null)
   const batchOutlineAbortRef = useRef<AbortController | null>(null)
+  const _notifPermRequestedRef = useRef(false)
+
+  // Ask for notification permission once per session (lazy — first generation).
+  const _requestNotifPermission = async () => {
+    if (!('Notification' in window)) return
+    if (Notification.permission !== 'default') return
+    if (_notifPermRequestedRef.current) return
+    _notifPermRequestedRef.current = true
+    try { await Notification.requestPermission() } catch { /* ignore */ }
+  }
+
+  // Send a browser notification only when the tab is hidden (user is elsewhere).
+  // Clicking the notification focuses the tab and closes it.
+  const _notifyIfHidden = (title: string, body?: string) => {
+    if (!document.hidden) return
+    if (!('Notification' in window) || Notification.permission !== 'granted') return
+    try {
+      const n = new Notification(title, { body, icon: '/favicon.ico' })
+      n.onclick = () => { window.focus(); n.close() }
+    } catch { /* some browsers throw in sandboxed contexts */ }
+  }
 
   // ── Sync browser tab title to current project name ─────────────
   useEffect(() => {
@@ -526,6 +547,8 @@ export default function App() {
   ) => {
     if (outlineScenes.length === 0 || droppedCharacters.length === 0) return
 
+    await _requestNotifPermission()
+
     batchOutlineAbortRef.current?.abort()
     const controller = new AbortController()
     batchOutlineAbortRef.current = controller
@@ -548,6 +571,7 @@ export default function App() {
     }
 
     if (!controller.signal.aborted) {
+      _notifyIfHidden('繪本生成完成 ✅', `共 ${outlineScenes.length} 幕已全部就緒`)
       setTimeout(() => setBatchOutlineStatus(null), 2000)
     }
   }
@@ -580,6 +604,12 @@ export default function App() {
 
   const handleGenerate = async (description: string, style: string, lineLength: 'short' | 'standard' | 'long' = 'standard', isEnding?: boolean, imageStyle?: string, mood?: string, lineCount?: 'few' | 'standard' | 'many', ageGroup?: 'toddler' | 'child' | 'preteen') => {
     if (!description.trim() || droppedCharacters.length === 0) return
+
+    // Ask for notification permission once (before the first async gap)
+    await _requestNotifPermission()
+
+    // Capture 1-based scene number for the completion notification
+    const _pendingSceneNum = ctrlSSaveRef.current.scenes.length + 1
 
     // Ensure a project exists before generating
     let projId = currentProjectId
@@ -741,6 +771,14 @@ export default function App() {
         setTimeout(() => setError(e => e.startsWith(String(voiceFailCount)) ? '' : e), 8000)
       }
       setGenStatus({ step: 'done', done: totalLines, total: totalLines })
+
+      // Notify the user if they've switched to another tab while waiting
+      if (!signal.aborted) {
+        _notifyIfHidden(
+          `第 ${_pendingSceneNum} 幕生成完成 ✅`,
+          description.length > 50 ? description.slice(0, 50) + '…' : description,
+        )
+      }
 
       // Auto-save after all generation completes (read latest state via setter, then save outside)
       if (projId) {
