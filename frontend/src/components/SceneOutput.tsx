@@ -1577,6 +1577,22 @@ function SceneCard({
                             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                               e.preventDefault()
                               if (editLineText.trim()) handleConfirmEditLine(i)
+                            } else if (e.key === 'Tab') {
+                              // Tab / Shift+Tab: save text-only and jump to next / previous line
+                              e.preventDefault()
+                              const newText = editLineText.trim().slice(0, 200)
+                              if (newText && newText !== scene.lines[i].text) {
+                                onLineEditTextOnly(scene.id, i, newText)
+                              }
+                              const nextIdx = e.shiftKey ? i - 1 : i + 1
+                              setRephraseSuggestions([])
+                              if (nextIdx >= 0 && nextIdx < scene.lines.length) {
+                                setEditingLineIndex(nextIdx)
+                                setEditLineText(scene.lines[nextIdx].text.slice(0, 200))
+                              } else {
+                                setEditingLineIndex(null)
+                                setEditLineText('')
+                              }
                             } else if (e.key === 'Escape') {
                               handleCancelEditLine()
                             }
@@ -1587,7 +1603,7 @@ function SceneCard({
                         />
                         <p className="line-char-count" style={{ color: editLineText.length >= 180 ? '#e53e3e' : editLineText.length >= 150 ? '#e07b00' : '#bbb' }}>
                           {editLineText.length} / 200
-                          <span className="line-edit-hint">Ctrl+Enter 確認・Esc 取消</span>
+                          <span className="line-edit-hint">Ctrl+Enter 確認・Tab 跳下句・Esc 取消</span>
                         </p>
                         <div className="line-edit-btns">
                           <button
