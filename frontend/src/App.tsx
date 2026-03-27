@@ -132,6 +132,7 @@ export default function App() {
   const [projectPanelOpen, setProjectPanelOpen] = useState(true)
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const saveRetryCountRef = useRef(0)  // auto-retry once on transient failure
   const pendingSaveRef = useRef<{ projectId: string; scenes: Scene[]; characters: Character[] } | null>(null)
   // Stores the blobChecksum for each scene index at the time of the last successful save.
   // When the checksum hasn't changed the frontend skips re-uploading image/audio data,
@@ -536,13 +537,28 @@ export default function App() {
       }
       // Only update stored checksums after a confirmed successful save.
       lastSavedBlobsRef.current = nextChecksums
+      saveRetryCountRef.current = 0
       setSavedStatus('saved')
       setSavedError(null)
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
       savedTimerRef.current = setTimeout(() => setSavedStatus('idle'), 2500)
     } catch (err) {
-      setSavedStatus('failed')
-      setSavedError(err instanceof Error ? err.message : '儲存失敗，請確認網路連線')
+      const msg = err instanceof Error ? err.message : '儲存失敗，請確認網路連線'
+      // Auto-retry ONCE after 5 s for transient failures (network hiccup, 502).
+      // Non-retryable errors (404 project deleted, 413 too large) skip retry.
+      const isRetryable = !(msg.includes('已被刪除') || msg.includes('資料量過大'))
+      if (isRetryable && saveRetryCountRef.current < 1) {
+        saveRetryCountRef.current++
+        // Re-queue the same data for retry; don't show 'failed' yet
+        pendingSaveRef.current = data
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+        autoSaveTimerRef.current = setTimeout(_flushSave, 5000)
+        setSavedStatus('saving')  // keep showing "儲存中..." during retry
+      } else {
+        saveRetryCountRef.current = 0
+        setSavedStatus('failed')
+        setSavedError(msg)
+      }
     }
   }, [])
 
