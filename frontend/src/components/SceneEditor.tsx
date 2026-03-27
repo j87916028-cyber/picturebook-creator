@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { useDroppable } from '@dnd-kit/core'
-import { Character, STORY_STYLES, IMAGE_STYLES } from '../types'
+import { Character, STORY_STYLES, IMAGE_STYLES, lsSet } from '../types'
 
 interface OutlineScene { title: string; description: string }
 
@@ -141,14 +141,14 @@ export default function SceneEditor({
   }, [])
 
   // Persist description draft and all other settings to localStorage.
-  useEffect(() => { localStorage.setItem(draftKey, description) }, [draftKey, description])
-  useEffect(() => { localStorage.setItem('scene_style', style) }, [style])
-  useEffect(() => { localStorage.setItem('scene_line_length', lineLength) }, [lineLength])
-  useEffect(() => { localStorage.setItem('scene_line_count',  lineCount)  }, [lineCount])
-  useEffect(() => { localStorage.setItem('scene_image_style', imageStyle) }, [imageStyle])
-  useEffect(() => { localStorage.setItem('scene_age_group',   ageGroup)   }, [ageGroup])
+  useEffect(() => { lsSet(draftKey, description) }, [draftKey, description])
+  useEffect(() => { lsSet('scene_style', style) }, [style])
+  useEffect(() => { lsSet('scene_line_length', lineLength) }, [lineLength])
+  useEffect(() => { lsSet('scene_line_count',  lineCount)  }, [lineCount])
+  useEffect(() => { lsSet('scene_image_style', imageStyle) }, [imageStyle])
+  useEffect(() => { lsSet('scene_age_group',   ageGroup)   }, [ageGroup])
   useEffect(() => {
-    if (mood) localStorage.setItem('scene_mood', mood)
+    if (mood) lsSet('scene_mood', mood)
     else localStorage.removeItem('scene_mood')
   }, [mood])
 

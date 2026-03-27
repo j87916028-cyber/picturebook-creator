@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Scene, Character, EMOTION_META } from '../types'
+import { Scene, Character, EMOTION_META, lsSet } from '../types'
 
 // emoji-only labels for the compact book preview display
 const EMOTION_LABELS = Object.fromEntries(
@@ -141,7 +141,7 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
 
   // Persist font size when it changes
   useEffect(() => {
-    localStorage.setItem('book_preview_font_size', fontSize)
+    lsSet('book_preview_font_size', fontSize)
   }, [fontSize])
 
   // Auto-scroll active line into view during auto-play
@@ -156,7 +156,7 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
   // Persist speed and apply to active audio when it changes
   useEffect(() => {
     playSpeedRef.current = playSpeed
-    localStorage.setItem('book_preview_speed', String(playSpeed))
+    lsSet('book_preview_speed', String(playSpeed))
     if (audioRef.current) audioRef.current.playbackRate = playSpeed
   }, [playSpeed])
 
@@ -295,12 +295,12 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
 
   // Persist auto-advance preference
   useEffect(() => {
-    localStorage.setItem('book_preview_auto_advance', autoAdvanceSecs === null ? '' : String(autoAdvanceSecs))
+    lsSet('book_preview_auto_advance', autoAdvanceSecs === null ? '' : String(autoAdvanceSecs))
   }, [autoAdvanceSecs])
 
   // Persist thumbnail strip toggle
   useEffect(() => {
-    localStorage.setItem('book_preview_show_thumbnails', String(showThumbnails))
+    lsSet('book_preview_show_thumbnails', String(showThumbnails))
   }, [showThumbnails])
 
   // Auto-scroll thumbnail strip to keep the active thumbnail visible
@@ -448,7 +448,7 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
               onClick={() => {
                 const next = !showDirectorNotes
                 setShowDirectorNotes(next)
-                localStorage.setItem('book_preview_show_notes', String(next))
+                lsSet('book_preview_show_notes', String(next))
               }}
               title={showDirectorNotes ? '隱藏導演備註' : '顯示導演備註'}
             >

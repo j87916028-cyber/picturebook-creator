@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Character, Voice, CHARACTER_COLORS } from '../types'
+import { Character, Voice, CHARACTER_COLORS, lsSet } from '../types'
 import CharacterCard from './CharacterCard'
 
 interface Props {
@@ -527,7 +527,7 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
   }
 
   useEffect(() => {
-    localStorage.setItem('character_library', JSON.stringify(library))
+    lsSet('character_library', JSON.stringify(library))
   }, [library])
 
   useEffect(() => {

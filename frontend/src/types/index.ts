@@ -92,6 +92,13 @@ export const IMAGE_STYLES: ImageStyleOption[] = [
   { label: '3D 卡通',  value: '3D render cartoon, Pixar style, vibrant colors' },
 ]
 
+/** Safe localStorage.setItem — silently ignores QuotaExceededError
+ *  (private browsing, storage full) so a failed preference write
+ *  doesn't crash the React error boundary. */
+export function lsSet(key: string, value: string): void {
+  try { localStorage.setItem(key, value) } catch { /* quota exceeded or disabled */ }
+}
+
 export const CHARACTER_COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
   '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F',

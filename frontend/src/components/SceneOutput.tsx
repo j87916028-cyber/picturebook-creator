@@ -6,7 +6,7 @@ import {
   SortableContext, useSortable, sortableKeyboardCoordinates, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Scene, Character, ScriptLine, EMOTION_META, STORY_STYLES, IMAGE_STYLES } from '../types'
+import { Scene, Character, ScriptLine, EMOTION_META, STORY_STYLES, IMAGE_STYLES, lsSet } from '../types'
 import PlaybackModal from './PlaybackModal'
 import BookPreviewModal from './BookPreviewModal'
 
@@ -563,13 +563,13 @@ function SceneCard({
   })
   // Persist regen-form selections so they survive page refresh and stay in sync
   // with SceneEditor (which reads these same keys on init).
-  useEffect(() => { localStorage.setItem('scene_age_group',   regenAgeGroup)   }, [regenAgeGroup])
-  useEffect(() => { localStorage.setItem('scene_image_style', regenImageStyle) }, [regenImageStyle])
+  useEffect(() => { lsSet('scene_age_group',   regenAgeGroup)   }, [regenAgeGroup])
+  useEffect(() => { lsSet('scene_image_style', regenImageStyle) }, [regenImageStyle])
   useEffect(() => {
-    if (regenMood) localStorage.setItem('scene_mood', regenMood)
+    if (regenMood) lsSet('scene_mood', regenMood)
     else localStorage.removeItem('scene_mood')
   }, [regenMood])
-  useEffect(() => { localStorage.setItem('scene_line_count', regenLineCount) }, [regenLineCount])
+  useEffect(() => { lsSet('scene_line_count', regenLineCount) }, [regenLineCount])
   const [regenLoading, setRegenLoading] = useState(false)
   const [regenError, setRegenError] = useState<string | null>(null)
   const [regenAllVoicesLoading, setRegenAllVoicesLoading] = useState(false)

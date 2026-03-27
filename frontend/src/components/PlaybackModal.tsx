@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { Scene, Character, EMOTION_META } from '../types'
+import { Scene, Character, EMOTION_META, lsSet } from '../types'
 
 // neutral is intentionally empty in playback — it's the default state
 const EMOTION_LABELS = Object.fromEntries(
@@ -183,13 +183,13 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
   // Apply speed change to live audio immediately; persist preference
   useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = speed
-    localStorage.setItem('pb_speed', String(speed))
+    lsSet('pb_speed', String(speed))
   }, [speed])
 
   // Apply volume / mute changes to live audio immediately; persist volume preference
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = muted ? 0 : volume
-    localStorage.setItem('pb_volume', String(volume))
+    lsSet('pb_volume', String(volume))
   }, [volume, muted])
 
   // Per-line audio progress tracking
@@ -245,7 +245,7 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
   useEffect(() => { loopModeRef.current = loopMode }, [loopMode])
 
   // Persist loop preference
-  useEffect(() => { localStorage.setItem('pb_loop', loopMode) }, [loopMode])
+  useEffect(() => { lsSet('pb_loop', loopMode) }, [loopMode])
 
   // Auto-advance when audio ends
   const handleEnded = useCallback(() => {
