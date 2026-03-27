@@ -1701,7 +1701,18 @@ export default function App() {
     const effectiveImageStyle = imageStyle ?? oldScene.image_style ?? localStorage.getItem('scene_image_style') ?? undefined
     setScenes(prev => prev.map(s =>
       s.id === sceneId
-        ? { ...s, description: newDescription, style, line_length: effectiveLineLength as Scene['line_length'], image_style: effectiveImageStyle, lines: [], image: '', script: { lines: [], scene_prompt: '', sfx_description: '' } }
+        ? {
+            ...s,
+            description: newDescription,
+            style,
+            line_length: effectiveLineLength as Scene['line_length'],
+            image_style: effectiveImageStyle,
+            mood: mood || s.mood || '',
+            age_group: (ageGroup ?? s.age_group ?? 'child') as Scene['age_group'],
+            lines: [],
+            image: '',
+            script: { lines: [], scene_prompt: '', sfx_description: '' },
+          }
         : s
     ))
 
@@ -1768,6 +1779,9 @@ export default function App() {
           lines: linesWithIds,
           // Preserve user-set title; apply LLM title only when scene had none (oldScene snapshot)
           title: oldScene.title || regenLlmTitle,
+          // Commit the regen-form's mood/age_group so the next autosave persists the new values.
+          mood: mood || s.mood || '',
+          age_group: (ageGroup ?? s.age_group ?? 'child') as Scene['age_group'],
         }
       }))
 
