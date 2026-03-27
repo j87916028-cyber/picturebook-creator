@@ -2282,6 +2282,7 @@ export default function App() {
               onClick={() => {
                 const next = isDark ? '' : 'dark'
                 document.documentElement.dataset.theme = next
+                document.querySelector('meta[name="theme-color"]')?.setAttribute('content', next ? '#0f1729' : '#667eea')
                 setIsDark(!isDark)
                 // Save explicit choice: 'dark' or 'light' (not '' — that means "follow OS")
                 try { localStorage.setItem('theme', next || 'light') } catch {}
