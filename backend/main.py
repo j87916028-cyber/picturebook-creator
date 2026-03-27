@@ -5384,9 +5384,13 @@ async def export_project(
     project_name = proj["name"]
 
     # Build name→color map for per-character accent colours in exports.
-    raw_chars = proj["characters"] or []
-    if isinstance(raw_chars, str):
-        raw_chars = json.loads(raw_chars)
+    # Guard json.loads against corrupted rows (e.g. partial writes or schema migration artifacts).
+    try:
+        raw_chars = proj["characters"] or []
+        if isinstance(raw_chars, str):
+            raw_chars = json.loads(raw_chars)
+    except (json.JSONDecodeError, TypeError):
+        raw_chars = []
     char_color_map: dict[str, str] = {
         c.get("name", ""): c.get("color", "")
         for c in raw_chars
@@ -5395,12 +5399,18 @@ async def export_project(
 
     scenes = []
     for row in scene_rows:
-        raw_lines = row["lines"]
-        if isinstance(raw_lines, str):
-            raw_lines = json.loads(raw_lines)
-        raw_script = row["script"] or {}
-        if isinstance(raw_script, str):
-            raw_script = json.loads(raw_script)
+        try:
+            raw_lines = row["lines"]
+            if isinstance(raw_lines, str):
+                raw_lines = json.loads(raw_lines)
+        except (json.JSONDecodeError, TypeError):
+            raw_lines = []
+        try:
+            raw_script = row["script"] or {}
+            if isinstance(raw_script, str):
+                raw_script = json.loads(raw_script)
+        except (json.JSONDecodeError, TypeError):
+            raw_script = {}
         scenes.append({
             "idx":             row["idx"],
             "title":           row["title"] or "",
@@ -5419,44 +5429,86 @@ async def export_project(
         })
 
     # Run CPU-bound export functions in a thread pool to avoid blocking
-    # the async event loop (PDF rendering / EPUB serialisation can take >1 s)
+    # the async event loop (PDF rendering / EPUB serialisation can take >1 s).
+    # asyncio.wait_for() enforces a hard ceiling so a hung renderer cannot
+    # exhaust thread-pool resources or leave the client waiting indefinitely.
+    _EXPORT_TIMEOUT_SECS = 300  # 5 minutes — generous for large PDF/EPUB
     loop = asyncio.get_running_loop()
-    if format == "pdf":
-        data = await loop.run_in_executor(None, _export_pdf, project_name, scenes, char_color_map, raw_chars)
-        media_type = "application/pdf"
-        filename = f"{project_name}.pdf"
-    elif format == "epub":
-        data = await loop.run_in_executor(None, _export_epub, project_name, scenes, char_color_map, project_id, raw_chars)
-        media_type = "application/epub+zip"
-        filename = f"{project_name}.epub"
-    elif format == "html":
-        data = await loop.run_in_executor(None, _export_html, project_name, scenes, char_color_map, raw_chars)
-        media_type = "text/html; charset=utf-8"
-        filename = f"{project_name}.html"
-    elif format == "mp3":
-        data = await loop.run_in_executor(None, _export_mp3_zip, project_name, scenes)
-        media_type = "application/zip"
-        filename = f"{project_name}_audio.zip"
-    elif format == "md":
-        data = await loop.run_in_executor(None, _export_md, project_name, scenes, raw_chars)
-        media_type = "text/markdown; charset=utf-8"
-        filename = f"{project_name}.md"
-    elif format == "images":
-        data = await loop.run_in_executor(None, _export_images_zip, project_name, scenes)
-        media_type = "application/zip"
-        filename = f"{project_name}_插圖.zip"
-    elif format == "json":
-        data = await loop.run_in_executor(None, _export_json_backup, project_name, scenes, raw_chars)
-        media_type = "application/json; charset=utf-8"
-        filename = f"{project_name}_備份.json"
-    elif format == "srt":
-        data = await loop.run_in_executor(None, _export_srt, project_name, scenes)
-        media_type = "text/srt; charset=utf-8"
-        filename = f"{project_name}_字幕.srt"
-    else:  # "txt"
-        data = await loop.run_in_executor(None, _export_txt, project_name, scenes, raw_chars)
-        media_type = "text/plain; charset=utf-8"
-        filename = f"{project_name}_劇本.txt"
+    try:
+        if format == "pdf":
+            data = await asyncio.wait_for(
+                loop.run_in_executor(None, _export_pdf, project_name, scenes, char_color_map, raw_chars),
+                timeout=_EXPORT_TIMEOUT_SECS,
+            )
+            media_type = "application/pdf"
+            filename = f"{project_name}.pdf"
+        elif format == "epub":
+            data = await asyncio.wait_for(
+                loop.run_in_executor(None, _export_epub, project_name, scenes, char_color_map, project_id, raw_chars),
+                timeout=_EXPORT_TIMEOUT_SECS,
+            )
+            media_type = "application/epub+zip"
+            filename = f"{project_name}.epub"
+        elif format == "html":
+            data = await asyncio.wait_for(
+                loop.run_in_executor(None, _export_html, project_name, scenes, char_color_map, raw_chars),
+                timeout=_EXPORT_TIMEOUT_SECS,
+            )
+            media_type = "text/html; charset=utf-8"
+            filename = f"{project_name}.html"
+        elif format == "mp3":
+            data = await asyncio.wait_for(
+                loop.run_in_executor(None, _export_mp3_zip, project_name, scenes),
+                timeout=_EXPORT_TIMEOUT_SECS,
+            )
+            media_type = "application/zip"
+            filename = f"{project_name}_audio.zip"
+        elif format == "md":
+            data = await asyncio.wait_for(
+                loop.run_in_executor(None, _export_md, project_name, scenes, raw_chars),
+                timeout=_EXPORT_TIMEOUT_SECS,
+            )
+            media_type = "text/markdown; charset=utf-8"
+            filename = f"{project_name}.md"
+        elif format == "images":
+            data = await asyncio.wait_for(
+                loop.run_in_executor(None, _export_images_zip, project_name, scenes),
+                timeout=_EXPORT_TIMEOUT_SECS,
+            )
+            media_type = "application/zip"
+            filename = f"{project_name}_插圖.zip"
+        elif format == "json":
+            data = await asyncio.wait_for(
+                loop.run_in_executor(None, _export_json_backup, project_name, scenes, raw_chars),
+                timeout=_EXPORT_TIMEOUT_SECS,
+            )
+            media_type = "application/json; charset=utf-8"
+            filename = f"{project_name}_備份.json"
+        elif format == "srt":
+            data = await asyncio.wait_for(
+                loop.run_in_executor(None, _export_srt, project_name, scenes),
+                timeout=_EXPORT_TIMEOUT_SECS,
+            )
+            media_type = "text/srt; charset=utf-8"
+            filename = f"{project_name}_字幕.srt"
+        else:  # "txt"
+            data = await asyncio.wait_for(
+                loop.run_in_executor(None, _export_txt, project_name, scenes, raw_chars),
+                timeout=_EXPORT_TIMEOUT_SECS,
+            )
+            media_type = "text/plain; charset=utf-8"
+            filename = f"{project_name}_劇本.txt"
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail=f"匯出逾時（{format} 格式處理時間過長），請縮短作品長度或稍後再試",
+        )
+    except Exception as exc:
+        logger.error("Export %s failed for project %s: %s", format, project_id, exc, exc_info=True)
+        raise HTTPException(
+            status_code=502,
+            detail=f"匯出失敗（{type(exc).__name__}），請重試或改用其他格式",
+        )
 
     # URL-encode filename for Content-Disposition (RFC 5987)
     encoded_filename = urllib.parse.quote(filename)
