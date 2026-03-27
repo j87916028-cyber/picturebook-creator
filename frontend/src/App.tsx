@@ -289,22 +289,31 @@ export default function App() {
   }, [])
 
   // ── Warn before unload when there is unsaved data or generation in progress ──
-  // Guards against accidental tab close / refresh when autosave failed,
-  // a save is pending in the debounce queue, or voice/image generation
-  // is still running (losing all in-flight progress).
+  // Ref mirrors let us read current state inside the handler without adding
+  // batchRegenStatus/batchImageStatus/batchOutlineStatus to the dependency
+  // array (which would re-register the listener dozens of times per batch).
+  const isLoadingRef = useRef(isLoading)
+  isLoadingRef.current = isLoading
+  const batchRegenRef = useRef(batchRegenStatus)
+  batchRegenRef.current = batchRegenStatus
+  const batchImageRef = useRef(batchImageStatus)
+  batchImageRef.current = batchImageStatus
+  const batchOutlineRef = useRef(batchOutlineStatus)
+  batchOutlineRef.current = batchOutlineStatus
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       const hasPending    = pendingSaveRef.current !== null
       const hasFailed     = savedStatus === 'failed'
-      const isGenerating  = isLoading
-      if (hasPending || hasFailed || isGenerating) {
+      const isGenerating  = isLoadingRef.current
+      const hasBatch      = !!(batchRegenRef.current || batchImageRef.current || batchOutlineRef.current)
+      if (hasPending || hasFailed || isGenerating || hasBatch) {
         e.preventDefault()
         e.returnValue = ''
       }
     }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [savedStatus, isLoading])
+  }, [savedStatus])
 
   // ── Sync URL (?project=<id>) whenever the active project changes ──
   // Allows bookmarking / sharing / refreshing without losing the open project.
