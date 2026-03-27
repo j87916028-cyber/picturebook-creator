@@ -659,15 +659,21 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
           .filter((c: unknown): c is Record<string, unknown> =>
             !!c && typeof c === 'object' && typeof (c as Record<string, unknown>).name === 'string'
           )
-          .map(c => ({
-            id: `char_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-            name: String(c.name || '').slice(0, 30),
-            personality: String(c.personality || '').slice(0, 100),
-            visual_description: c.visual_description ? String(c.visual_description).slice(0, 200) : undefined,
-            voice_id: String(c.voice_id || ''),
-            color: typeof c.color === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(c.color) ? c.color : '#667eea',
-            emoji: String(c.emoji || '🎭').slice(0, 10),
-          }))
+          .map(c => {
+            // Only accept portrait_url if it's a safe image data URI
+            const rawPortrait = typeof c.portrait_url === 'string' ? c.portrait_url : ''
+            const portrait_url = rawPortrait.startsWith('data:image/') ? rawPortrait : undefined
+            return {
+              id: `char_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+              name: String(c.name || '').slice(0, 30),
+              personality: String(c.personality || '').slice(0, 100),
+              visual_description: c.visual_description ? String(c.visual_description).slice(0, 200) : undefined,
+              voice_id: String(c.voice_id || ''),
+              color: typeof c.color === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(c.color) ? c.color : '#667eea',
+              emoji: String(c.emoji || '🎭').slice(0, 10),
+              portrait_url,
+            }
+          })
           .filter(c => c.name.trim().length > 0)
         if (newChars.length === 0) {
           setImportMsg('未找到有效角色資料')
