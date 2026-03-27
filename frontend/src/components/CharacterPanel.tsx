@@ -472,6 +472,60 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
   const importInputRef = useRef<HTMLInputElement>(null)
   const [importMsg, setImportMsg] = useState<string | null>(null)
 
+  // Batch portrait generation state
+  const [batchPortraitProgress, setBatchPortraitProgress] = useState<{ done: number; total: number } | null>(null)
+
+  // Generate portraits for all characters that lack one and have a visual_description
+  const handleBatchGeneratePortraits = async () => {
+    const targets = characters.filter(c => !c.portrait_url && c.visual_description?.trim())
+    if (targets.length === 0 || batchPortraitProgress) return
+    setBatchPortraitProgress({ done: 0, total: targets.length })
+
+    const imageStyle = localStorage.getItem('scene_image_style') || undefined
+    let done = 0
+    const CONCURRENCY = 2
+
+    // Run with max CONCURRENCY in parallel using a simple semaphore approach
+    const results = new Map<string, string>()
+    const queue = [...targets]
+
+    const runOne = async (char: typeof targets[0]) => {
+      try {
+        const res = await fetch('/api/generate-character-portrait', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: char.name,
+            visual_description: char.visual_description!.trim(),
+            emoji: char.emoji,
+            image_style: imageStyle,
+          }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.url) results.set(char.id, data.url)
+        }
+      } catch { /* ignore individual failures */ }
+      done++
+      setBatchPortraitProgress({ done, total: targets.length })
+    }
+
+    // Process queue with limited concurrency
+    const workers = Array.from({ length: CONCURRENCY }, async () => {
+      while (queue.length > 0) {
+        const char = queue.shift()!
+        await runOne(char)
+      }
+    })
+    await Promise.all(workers)
+
+    // Apply all generated portraits to the characters array at once
+    if (results.size > 0) {
+      onChange(characters.map(c => results.has(c.id) ? { ...c, portrait_url: results.get(c.id) } : c))
+    }
+    setBatchPortraitProgress(null)
+  }
+
   useEffect(() => {
     localStorage.setItem('character_library', JSON.stringify(library))
   }, [library])
@@ -637,12 +691,29 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
     reader.readAsText(file)
   }
 
+  const batchPortraitTargetCount = characters.filter(c => !c.portrait_url && c.visual_description?.trim()).length
+
   return (
     <div className="character-panel">
       <div className="panel-header">
         <h2>角色卡片</h2>
         <span className="panel-hint">拖曳或點 ➕ 加入場景</span>
       </div>
+
+      {batchPortraitTargetCount > 0 && (
+        <div className="batch-portrait-bar">
+          <button
+            className="btn-batch-portrait"
+            onClick={handleBatchGeneratePortraits}
+            disabled={!!batchPortraitProgress}
+            title={`為 ${batchPortraitTargetCount} 個有外觀描述但尚無肖像的角色批次生成肖像`}
+          >
+            {batchPortraitProgress
+              ? `🎨 生成中… ${batchPortraitProgress.done}/${batchPortraitProgress.total}`
+              : `🎨 一鍵生成全部肖像（${batchPortraitTargetCount}）`}
+          </button>
+        </div>
+      )}
 
       <div className="character-list">
         {characters.map(c => (

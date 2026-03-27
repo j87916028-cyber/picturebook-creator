@@ -352,6 +352,26 @@ body {
 .btn-generate-portrait:hover:not(:disabled) { opacity: 0.85; }
 .btn-generate-portrait:disabled { opacity: 0.45; cursor: default; }
 
+/* Batch portrait generation bar */
+.batch-portrait-bar {
+  padding: 6px 10px 2px;
+}
+.btn-batch-portrait {
+  width: 100%;
+  padding: 7px 12px;
+  background: linear-gradient(135deg, #a18cd1, #fbc2eb);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  letter-spacing: 0.02em;
+}
+.btn-batch-portrait:hover:not(:disabled) { opacity: 0.85; }
+.btn-batch-portrait:disabled { opacity: 0.55; cursor: default; }
+
 .btn-ai-inline {
   display: inline-flex;
   align-items: center;
