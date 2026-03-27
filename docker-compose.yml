@@ -22,7 +22,7 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"  # localhost only — production traffic goes through Nginx (port 3070)
     environment:
       - MINIMAX_API_KEY=${MINIMAX_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
