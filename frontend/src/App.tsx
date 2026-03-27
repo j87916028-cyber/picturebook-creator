@@ -118,7 +118,7 @@ export default function App() {
   const voiceDoneRef = useRef(0)
   const [generateRateLimitSecs, setGenerateRateLimitSecs] = useState(0)
   const generateRateLimitTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const [batchRegenStatus, setBatchRegenStatus] = useState<{ done: number; total: number } | null>(null)
+  const [batchRegenStatus, setBatchRegenStatus] = useState<{ done: number; total: number; failed?: number } | null>(null)
   const [batchImageStatus, setBatchImageStatus] = useState<{ done: number; total: number } | null>(null)
   const [batchTitleStatus, setBatchTitleStatus] = useState<{ done: number; total: number } | null>(null)
 
@@ -1378,6 +1378,11 @@ export default function App() {
 
     setBatchRegenStatus({ done: 0, total: tasks.length })
 
+    // Track API-level failures (non-abort errors + non-2xx responses).
+    // Stored in a plain mutable object so the async task closures can share it
+    // without a React state update per task.
+    let failCount = 0
+
     const voiceTasks = tasks.map(task => async () => {
       if (batchSignal.aborted) return
       try {
@@ -1387,14 +1392,14 @@ export default function App() {
           body: JSON.stringify({ text: task.text, voice_id: task.voice_id, emotion: task.emotion }),
           signal: batchSignal,
         })
-        if (!res.ok) return
+        if (!res.ok) { failCount++; return }
         const data = await res.json()
         setScenes(prev => {
           const next = prev.map(s => {
             if (s.id !== task.sceneId) return s
             const lines = [...s.lines]
             const idx = task.lineId ? lines.findIndex(l => l.id === task.lineId) : task.lineIndex
-            if (idx === -1) return s
+            if (idx === -1) return s  // line was deleted while task was in-flight
             lines[idx] = { ...lines[idx], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
             return { ...s, lines }
           })
@@ -1405,13 +1410,21 @@ export default function App() {
         })
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return
+        failCount++  // network error (not abort)
       }
     })
     try {
       await throttled(voiceTasks, 5, (done, total) => setBatchRegenStatus({ done, total }))
     } finally {
-      if (batchSignal.aborted) setBatchRegenStatus(null)
-      else setTimeout(() => setBatchRegenStatus(null), 1500)
+      if (batchSignal.aborted) {
+        setBatchRegenStatus(null)
+      } else if (failCount > 0) {
+        // Show final result with failure count for 3 s so users know to retry
+        setBatchRegenStatus({ done: tasks.length - failCount, total: tasks.length, failed: failCount })
+        setTimeout(() => setBatchRegenStatus(null), 3000)
+      } else {
+        setTimeout(() => setBatchRegenStatus(null), 1500)
+      }
     }
   }
 
@@ -1434,6 +1447,7 @@ export default function App() {
     batchAbortRef.current = batchController
     const { signal: batchSignal } = batchController
 
+    let sceneVoiceFailCount = 0
     const tasks = linesToRegen.map(({ line, i }) => async () => {
       const lineId = line.id   // snapshot stable ID before any async gap
       if (batchSignal.aborted) return
@@ -1444,7 +1458,7 @@ export default function App() {
           body: JSON.stringify({ text: line.text, voice_id: line.voice_id, emotion: line.emotion || 'neutral' }),
           signal: batchSignal,
         })
-        if (!res.ok) return
+        if (!res.ok) { sceneVoiceFailCount++; return }
         const data = await res.json()
         setScenes(prev => {
           const next = prev.map(s => {
@@ -1460,10 +1474,16 @@ export default function App() {
         })
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return
+        sceneVoiceFailCount++
       }
     })
 
     await throttled(tasks, 4)
+    if (sceneVoiceFailCount > 0) {
+      const saved = linesToRegen.length - sceneVoiceFailCount
+      setBatchRegenStatus({ done: saved, total: linesToRegen.length, failed: sceneVoiceFailCount })
+      setTimeout(() => setBatchRegenStatus(null), 3000)
+    }
   }
 
   // Batch-regenerate ALL scene images (force-refresh, including existing ones)

@@ -301,7 +301,7 @@ interface Props {
   onSceneLockToggle: (sceneId: string) => void
   onBatchRegenVoice: () => void
   onSceneRegenAllVoices: (sceneId: string) => Promise<void>
-  batchRegenStatus: { done: number; total: number } | null
+  batchRegenStatus: { done: number; total: number; failed?: number } | null
   onBatchRegenImages: () => void
   onBatchRegenAllImages: () => void
   batchImageStatus: { done: number; total: number } | null
@@ -2307,7 +2307,9 @@ export default function SceneOutput({
                 title={`補齊 ${missingAudioCount} 條缺失配音`}
               >
                 {batchRegenStatus
-                  ? `🎤 配音中 ${batchRegenStatus.done}/${batchRegenStatus.total}…`
+                  ? batchRegenStatus.failed
+                    ? `⚠️ 配音完成 ${batchRegenStatus.done}/${batchRegenStatus.total}（${batchRegenStatus.failed} 條失敗）`
+                    : `🎤 配音中 ${batchRegenStatus.done}/${batchRegenStatus.total}…`
                   : `🎤 補齊配音（${missingAudioCount}）`}
               </button>
             )}
@@ -2349,7 +2351,9 @@ export default function SceneOutput({
             )}
             <span className="playbook-hint">
               {batchRegenStatus
-                ? `正在生成配音 ${batchRegenStatus.done}/${batchRegenStatus.total}`
+                ? batchRegenStatus.failed
+                  ? `配音結果：${batchRegenStatus.done}/${batchRegenStatus.total} 成功，${batchRegenStatus.failed} 條失敗，可再試`
+                  : `正在生成配音 ${batchRegenStatus.done}/${batchRegenStatus.total}`
                 : batchImageStatus
                 ? `正在生成插圖 ${batchImageStatus.done}/${batchImageStatus.total}`
                 : batchTitleStatus
