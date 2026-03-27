@@ -3577,16 +3577,19 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
     # Previously we used the first *any* new image, which caused the cover to flip to
     # a later scene whenever that scene was regenerated while scene 0 stayed the same.
     # CPU-bound; done before acquiring the write connection to keep the transaction short.
+    # Prefer scene 0's image for the cover; fall back to the first scene that has one.
+    # This ensures the project list always shows a thumbnail as soon as ANY scene has an image,
+    # even if the user generated scenes out of order.
     cover_thumb: str | None = None
-    first_scene = next((s for s in req.scenes if s.idx == 0), None)
-    if (
-        first_scene is not None
-        and not first_scene.preserve_blobs
-        and first_scene.image
-        and first_scene.image not in ("", "error")
-    ):
+    sorted_scenes = sorted(req.scenes, key=lambda s: s.idx)
+    cover_scene = next(
+        (s for s in sorted_scenes
+         if not s.preserve_blobs and s.image and s.image not in ("", "error")),
+        None,
+    )
+    if cover_scene is not None:
         cover_thumb = await asyncio.get_running_loop().run_in_executor(
-            None, _make_cover_thumbnail, first_scene.image
+            None, _make_cover_thumbnail, cover_scene.image
         )
 
     # Indexes of scenes being saved — used to prune any scenes the user deleted.
