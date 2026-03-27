@@ -2175,10 +2175,19 @@ export default function SceneOutput({
   // charStats is O(characters × scenes × lines) — most expensive of the group
   const charStats = useMemo(
     () => characters
-      .map(c => ({
-        id: c.id, name: c.name, emoji: c.emoji, color: c.color,
-        count: scenes.reduce((n, s) => n + s.lines.filter(l => l.character_id === c.id).length, 0),
-      }))
+      .map(c => {
+        let count = 0
+        let textChars = 0
+        for (const s of scenes) {
+          for (const l of s.lines) {
+            if (l.character_id === c.id) {
+              count++
+              textChars += l.text.length
+            }
+          }
+        }
+        return { id: c.id, name: c.name, emoji: c.emoji, color: c.color, count, textChars }
+      })
       .filter(c => c.count > 0),
     [scenes, characters]
   )
@@ -2511,11 +2520,23 @@ export default function SceneOutput({
             )}
             {charStats.length > 0 && (
               <div className="stats-chars">
-                {charStats.map(c => (
-                  <span key={c.id} className="stats-char-badge" style={{ borderColor: c.color, color: c.color }} title={`${c.name} 共 ${c.count} 句`}>
-                    {c.emoji} {c.name} <strong>{c.count}</strong>
-                  </span>
-                ))}
+                {charStats.map(c => {
+                  const secs = Math.round(c.textChars / 4)
+                  const timeStr = secs >= 60
+                    ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`
+                    : secs >= 5 ? `${secs}s` : null
+                  return (
+                    <span
+                      key={c.id}
+                      className="stats-char-badge"
+                      style={{ borderColor: c.color, color: c.color }}
+                      title={`${c.name}：${c.count} 句 · ${c.textChars} 字${secs >= 5 ? ` · 約 ${secs >= 60 ? `${Math.floor(secs / 60)} 分 ${secs % 60} 秒` : `${secs} 秒`}` : ''}`}
+                    >
+                      {c.emoji} {c.name} <strong>{c.count}</strong>
+                      {timeStr && <span className="stats-char-time">⏱{timeStr}</span>}
+                    </span>
+                  )
+                })}
               </div>
             )}
             {scenes.length >= 2 && viewMode === 'detail' && (
