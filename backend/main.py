@@ -321,17 +321,27 @@ app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 
 @app.middleware("http")
-async def _add_security_headers(request: Request, call_next):
-    """Attach baseline security headers to every API response.
+async def _add_security_and_timing_headers(request: Request, call_next):
+    """Attach security headers and measure request processing time.
 
+    Security:
     - ``X-Content-Type-Options: nosniff``   — prevents MIME-type sniffing attacks
     - ``X-Frame-Options: DENY``             — blocks this API from being framed
     - ``Referrer-Policy``                   — limits referrer leakage to same-origin
+
+    Timing:
+    - ``X-Response-Time``                   — wall-clock ms for backend processing
+    - Requests taking >5 s are logged as warnings for easy triage.
     """
+    start = time.monotonic()
     response = await call_next(request)
+    elapsed_ms = round((time.monotonic() - start) * 1000)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["X-Response-Time"] = f"{elapsed_ms}ms"
+    if elapsed_ms > 5000:
+        logger.warning("Slow request: %s %s → %s in %dms", request.method, request.url.path, response.status_code, elapsed_ms)
     return response
 
 
