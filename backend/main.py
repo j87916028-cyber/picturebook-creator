@@ -4682,6 +4682,10 @@ def _export_mp3_zip(project_name: str, scenes: list) -> bytes:
     readme_lines = [f"《{project_name}》有聲書音檔", "=" * 40, ""]
     has_any_audio = False
 
+    # M3U playlist entries: list of (filepath_in_zip, scene_label, char_name, text, duration_secs)
+    # Built alongside the audio files so the playlist order matches the ZIP structure exactly.
+    playlist_entries: list[tuple[str, str, str, str, int]] = []
+
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for i, scene in enumerate(scenes):
             folder = f"幕{i+1:02d}"
@@ -4693,6 +4697,7 @@ def _export_mp3_zip(project_name: str, scenes: list) -> bytes:
                 scene_header += f"《{title}》"
             scene_header += desc
             readme_lines.append(scene_header)
+            scene_label = f"第{i+1}幕" + (f"《{title}》" if title else "")
 
             for j, line in enumerate(lines):
                 char_name = line.get("character_name", "")
@@ -4711,6 +4716,9 @@ def _export_mp3_zip(project_name: str, scenes: list) -> bytes:
                         filename = f"{folder}/{folder}_行{j+1:02d}_{safe_name}.{audio_fmt}"
                         zf.writestr(filename, audio_bytes)
                         has_any_audio = True
+                        # Estimate duration at _CHARS_PER_SEC Chinese chars/second (same as SRT export)
+                        dur = max(1, math.ceil(len(text) / _CHARS_PER_SEC))
+                        playlist_entries.append((filename, scene_label, char_name, text, dur))
                     except Exception as e:
                         logger.warning("MP3 ZIP audio decode failed: %s", e)
                 else:
@@ -4722,6 +4730,24 @@ def _export_mp3_zip(project_name: str, scenes: list) -> bytes:
         if not has_any_audio:
             readme_lines.append("注意：此作品尚未生成任何語音，請先在創作工坊中生成配音後再匯出。")
         zf.writestr("README.txt", "\n".join(readme_lines).encode("utf-8"))
+
+        # ── M3U playlist ─────────────────────────────────────────────────
+        # An M3U file lets media players (VLC, Windows Media Player, etc.) open
+        # the entire story as a single playlist in the correct scene/line order.
+        # Each #EXTINF entry carries the estimated duration and a human-readable
+        # title (「第N幕 · 角色名：台詞」) so the player's Now Playing shows
+        # meaningful labels instead of raw filenames.
+        if playlist_entries:
+            m3u_lines = ["#EXTM3U", f"# 《{project_name}》有聲書完整播放清單", ""]
+            for filepath, scene_label, char_name, text, dur in playlist_entries:
+                # Truncate long lines so the title stays readable in player UIs
+                short_text = text[:40] + "…" if len(text) > 40 else text
+                title_tag = f"{scene_label} · {char_name}：{short_text}"
+                m3u_lines.append(f"#EXTINF:{dur},{title_tag}")
+                m3u_lines.append(filepath)
+            m3u_lines.append("")
+            safe_proj = re.sub(r'[\\/:*?"<>|]', "_", project_name)
+            zf.writestr(f"{safe_proj}.m3u", "\n".join(m3u_lines).encode("utf-8"))
 
     return buf.getvalue()
 
