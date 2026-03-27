@@ -1345,14 +1345,16 @@ export default function App() {
 
   // Batch-regenerate all lines that are missing audio (e.g. after a voice change)
   const handleBatchRegenVoice = async () => {
-    // Collect every (sceneId, lineIndex) that has text but no audio
-    type Task = { sceneId: string; lineIndex: number; text: string; voice_id: string; emotion: string }
+    // Collect every (sceneId, lineIndex, lineId) that has text but no audio.
+    // lineId is snapshotted so the async callback can route audio to the correct
+    // line by ID even if the user reorders lines while the batch is in flight.
+    type Task = { sceneId: string; lineIndex: number; lineId?: string; text: string; voice_id: string; emotion: string }
     const tasks: Task[] = []
     for (const scene of scenes) {
       if (scene.is_locked) continue  // skip locked scenes
       scene.lines.forEach((line, i) => {
         if (line.text && !line.audio_base64) {
-          tasks.push({ sceneId: scene.id, lineIndex: i, text: line.text, voice_id: line.voice_id, emotion: line.emotion || 'neutral' })
+          tasks.push({ sceneId: scene.id, lineIndex: i, lineId: line.id, text: line.text, voice_id: line.voice_id, emotion: line.emotion || 'neutral' })
         }
       })
     }
@@ -1380,7 +1382,9 @@ export default function App() {
           const next = prev.map(s => {
             if (s.id !== task.sceneId) return s
             const lines = [...s.lines]
-            lines[task.lineIndex] = { ...lines[task.lineIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+            const idx = task.lineId ? lines.findIndex(l => l.id === task.lineId) : task.lineIndex
+            if (idx === -1) return s
+            lines[idx] = { ...lines[idx], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
             return { ...s, lines }
           })
           // Incrementally persist each completed voice via the debounced auto-save
@@ -1420,6 +1424,7 @@ export default function App() {
     const { signal: batchSignal } = batchController
 
     const tasks = linesToRegen.map(({ line, i }) => async () => {
+      const lineId = line.id   // snapshot stable ID before any async gap
       if (batchSignal.aborted) return
       try {
         const res = await fetch('/api/generate-voice', {
@@ -1434,7 +1439,9 @@ export default function App() {
           const next = prev.map(s => {
             if (s.id !== sceneId) return s
             const lines = [...s.lines]
-            lines[i] = { ...lines[i], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+            const idx = lineId ? lines.findIndex(l => l.id === lineId) : i
+            if (idx === -1) return s
+            lines[idx] = { ...lines[idx], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
             return { ...s, lines }
           })
           setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
