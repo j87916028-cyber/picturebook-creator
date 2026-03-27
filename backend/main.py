@@ -3374,6 +3374,36 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
                     "lines": json.loads(row["lines"]),
                 }
 
+    # ── Preserve character portrait_url values stripped by the frontend ─────
+    # App.tsx strips portrait_url from the _flushSave (autosave) payload to cut
+    # payload size from ~600 KB (6 chars × 100 KB portrait) down to ~5 KB.
+    # Portraits are separately persisted by PUT /projects/{id}/characters.
+    # Without this merge, every autosave would overwrite the characters column
+    # with portrait_url=null, erasing all AI-generated portrait images.
+    existing_portrait_map: dict[str, str] = {}
+    if req.characters and any(c.portrait_url is None for c in req.characters):
+        async with _db_pool.acquire() as conn:
+            proj_row = await conn.fetchrow(
+                "SELECT characters FROM projects WHERE id = $1", project_id
+            )
+            if proj_row:
+                raw_existing = proj_row["characters"] or []
+                if isinstance(raw_existing, str):
+                    raw_existing = json.loads(raw_existing)
+                for ch in raw_existing:
+                    cid = ch.get("id", "")
+                    portrait = ch.get("portrait_url", "")
+                    if cid and portrait:
+                        existing_portrait_map[cid] = portrait
+
+    def _char_dict(c: CharacterIn) -> dict:
+        """Serialize a character, restoring its portrait from the DB when the
+        frontend omitted it (payload-size optimisation in _flushSave)."""
+        d = c.model_dump()
+        if not d.get("portrait_url") and d.get("id") in existing_portrait_map:
+            d["portrait_url"] = existing_portrait_map[d["id"]]
+        return d
+
     # Build the final rows to INSERT, merging preserved blobs from the DB.
     def _resolve_scene(scene: SceneIn) -> tuple:
         if scene.preserve_blobs and scene.idx in existing_blobs:
@@ -3461,7 +3491,7 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
                 WHERE id = $2
                 RETURNING id
                 """,
-                json.dumps([c.model_dump() for c in req.characters], ensure_ascii=False),
+                json.dumps([_char_dict(c) for c in req.characters], ensure_ascii=False),
                 project_id,
                 cover_thumb,
             )
