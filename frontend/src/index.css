@@ -49,6 +49,34 @@
 [data-theme="dark"] .app-header { background: linear-gradient(135deg, #3a4a8a, #5a3a7a); }
 [data-theme="dark"] img { opacity: 0.92; }
 
+/* Dark overrides for tinted backgrounds (dialogue rows, inputs, modals) */
+[data-theme="dark"] .dialogue-line,
+[data-theme="dark"] .script-line { background: #1e2a3a; }
+[data-theme="dark"] .dialogue-line.playing { background: #1a2845; }
+[data-theme="dark"] .scene-input,
+[data-theme="dark"] .line-edit-textarea,
+[data-theme="dark"] .prompt-edit-textarea,
+[data-theme="dark"] .scene-notes-textarea,
+[data-theme="dark"] .project-search-input,
+[data-theme="dark"] .scene-search-input,
+[data-theme="dark"] .voice-preview-text-input,
+[data-theme="dark"] .outline-theme-input,
+[data-theme="dark"] .form-row input,
+[data-theme="dark"] .form-row select,
+[data-theme="dark"] .current-project-name-input { background: #1a2332; color: var(--color-text); border-color: var(--color-border); }
+[data-theme="dark"] .scene-regen-panel,
+[data-theme="dark"] .prompt-edit-panel,
+[data-theme="dark"] .scene-notes-area,
+[data-theme="dark"] .gen-progress { background: #162032; }
+[data-theme="dark"] .error-box { background: #2d1b1b; border-color: #e53e3e; color: #fca5a5; }
+[data-theme="dark"] .service-warning { background: #2d2415; border-color: #d97706; color: #fcd34d; }
+[data-theme="dark"] .offline-warning { background: #2d1515; border-color: #ef4444; color: #fca5a5; }
+[data-theme="dark"] .undo-toast { background: #1e293b; border-color: var(--color-border); color: var(--color-text); }
+[data-theme="dark"] .playback-overlay { background: #0a0f1a; }
+[data-theme="dark"] .book-preview-overlay { background: #0a0f1a; }
+[data-theme="dark"] .error-boundary-card { background: var(--color-surface); color: var(--color-text); }
+[data-theme="dark"] ::placeholder { color: var(--color-text-muted); }
+
 /* ── Accessibility: global keyboard focus ring ────────────── */
 :focus-visible {
   outline: 2px solid var(--color-accent);
