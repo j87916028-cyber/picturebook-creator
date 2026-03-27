@@ -406,7 +406,10 @@ export default function App() {
             preserve_blobs: preserveBlobs,
           }
         }),
-        characters: data.characters,
+        // Strip portrait_url from the autosave payload: portraits are 50-100 KB
+        // base64 data URIs each, already persisted by saveCharacters().
+        // Omitting them reduces a potentially 600 KB payload back to ~5 KB.
+        characters: data.characters.map(({ portrait_url: _p, ...rest }) => rest),
       }
       const res = await fetch(`/api/projects/${data.projectId}/scenes`, {
         method: 'PUT',

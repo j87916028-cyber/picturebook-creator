@@ -2803,6 +2803,10 @@ class CharacterIn(BaseModel):
     voice_id: str = Field("", max_length=64)
     color: str = Field("", max_length=20)
     emoji: str = Field("", max_length=10)
+    # AI-generated portrait stored as a base64 data URI.  No max_length here
+    # because portraits can reach ~150 KB encoded; the DB column is JSONB (no row
+    # limit beyond the 1 GB page size), so truncating would corrupt the image.
+    portrait_url: Optional[str] = None
 
     @field_validator("color", mode="before")
     @classmethod
