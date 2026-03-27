@@ -3122,8 +3122,8 @@ async def import_project_json(req: ImportJsonRequest, request: Request):
         if voice_id not in VALID_VOICE_IDS:
             voice_id = _DEFAULT_VOICE
         color_raw = str(c.get("color") or "#667eea")
-        # Only accept CSS hex colors
-        color = color_raw if re.fullmatch(r"#[0-9a-fA-F]{3,8}", color_raw) else "#667eea"
+        # Only accept CSS hex colors (reuse the compiled pattern, not a duplicate regex)
+        color = color_raw if _SAFE_CSS_COLOR_RE.match(color_raw) else "#667eea"
         clean_chars.append({
             "id":               str(c.get("id") or "")[:64] or f"char_{uuid.uuid4().hex[:8]}",
             "name":             str(c.get("name") or "角色")[:30] or "角色",
