@@ -565,6 +565,8 @@ export default function App() {
   const autoSave = useCallback((projectId: string, currentScenes: Scene[], currentCharacters?: Character[]) => {
     if (!projectId) return
     pendingSaveRef.current = { projectId, scenes: currentScenes, characters: currentCharacters ?? [] }
+    // New edit → reset retry counter so this save gets its own retry chance
+    saveRetryCountRef.current = 0
     // Clear any 'failed' state so the user sees a fresh 'saving…' indicator on retry
     setSavedStatus(s => (s === 'failed' ? 'idle' : s))
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
