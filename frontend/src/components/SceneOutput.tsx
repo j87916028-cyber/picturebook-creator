@@ -2301,6 +2301,41 @@ export default function SceneOutput({
     }
   }
 
+  // ← / → to navigate between scenes in detail view.
+  // Use a ref so the listener is registered once (empty deps) but always reads
+  // current state — avoids re-registering on every render.
+  const _arrowNavRef = useRef<{
+    scenes: Scene[]
+    viewMode: 'detail' | 'storyboard'
+    activeSceneId: string | null
+    showPlayback: boolean
+    showBookPreview: boolean
+    scrollToScene: (i: number) => void
+  } | null>(null)
+  _arrowNavRef.current = { scenes, viewMode, activeSceneId, showPlayback, showBookPreview, scrollToScene }
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const nav = _arrowNavRef.current
+      if (!nav) return
+      const { scenes, viewMode, activeSceneId, showPlayback, showBookPreview, scrollToScene } = nav
+      if (viewMode !== 'detail' || scenes.length < 2) return
+      if (showPlayback || showBookPreview) return
+      const tag = (e.target as HTMLElement)?.tagName
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || (e.target as HTMLElement).isContentEditable) return
+      const activeIdx = activeSceneId ? scenes.findIndex(s => s.id === activeSceneId) : 0
+      const targetIdx = e.key === 'ArrowLeft'
+        ? Math.max(0, activeIdx - 1)
+        : Math.min(scenes.length - 1, activeIdx + 1)
+      if (targetIdx === (activeIdx < 0 ? 0 : activeIdx)) return  // boundary — let browser scroll naturally
+      e.preventDefault()
+      scrollToScene(targetIdx)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handlePlayFromScene = (sceneIndex: number) => {
     setPlaybackStartScene(sceneIndex)
     setShowPlayback(true)
