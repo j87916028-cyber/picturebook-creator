@@ -4681,6 +4681,10 @@ def _export_mp3_zip(project_name: str, scenes: list) -> bytes:
     return buf.getvalue()
 
 
+# Reading-speed heuristic shared by txt / srt / md exporters (4 Chinese chars ≈ 1 second)
+_CHARS_PER_SEC: int = 4
+
+
 def _export_txt(project_name: str, scenes: list, characters: list | None = None) -> bytes:
     """Export the full script as a plain UTF-8 text file.
 
@@ -4760,9 +4764,8 @@ def _export_txt(project_name: str, scenes: list, characters: list | None = None)
                 total_char_count += len(text)
         lines_out.append("")
 
-    # Footer with reading time estimate (4 Chinese chars/second heuristic)
-    CHARS_PER_SEC = 4
-    est_secs = max(0, total_char_count // CHARS_PER_SEC)
+    # Footer with reading time estimate
+    est_secs = max(0, total_char_count // _CHARS_PER_SEC)
     est_min  = est_secs // 60
     est_sec  = est_secs % 60
     time_str = f"　預估閱讀時長 約 {est_min}:{est_sec:02d}" if est_secs >= 10 else ""
@@ -4786,7 +4789,6 @@ def _export_srt(project_name: str, scenes: list) -> bytes:
     Each scene is preceded by a 2-second title card entry so viewers can
     orient themselves within the story (e.g. "第2幕 · 神奇地圖").
     """
-    CHARS_PER_SEC  = 4       # rough reading speed
     GAP_SECS       = 0.5     # pause between consecutive lines
     MIN_SECS       = 1.5     # minimum display duration per line
     TITLE_SECS     = 2.0     # duration of the scene title card
@@ -4828,7 +4830,7 @@ def _export_srt(project_name: str, scenes: list) -> bytes:
         for line in scene_lines:
             text      = line["text"].strip()
             char_name = (line.get("character_name") or "").strip() or "旁白"
-            duration  = max(MIN_SECS, len(text) / CHARS_PER_SEC)
+            duration  = max(MIN_SECS, len(text) / _CHARS_PER_SEC)
             end_time  = clock + duration
             entries.append(
                 f"{seq}\n{_fmt(clock)} --> {_fmt(end_time)}\n[{char_name}] {text}"
@@ -4935,9 +4937,8 @@ def _export_md(project_name: str, scenes: list, characters: list | None = None) 
         lines_out.append("---")
         lines_out.append("")
 
-    # Footer with reading time estimate (4 Chinese chars/second heuristic)
-    CHARS_PER_SEC = 4
-    est_secs = max(0, total_char_count // CHARS_PER_SEC)
+    # Footer with reading time estimate
+    est_secs = max(0, total_char_count // _CHARS_PER_SEC)
     est_min  = est_secs // 60
     est_sec  = est_secs % 60
     time_str = f"約 {est_min}:{est_sec:02d}" if est_secs >= 10 else ""
