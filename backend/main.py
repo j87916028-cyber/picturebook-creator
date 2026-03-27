@@ -2424,6 +2424,11 @@ async def generate_image(req: GenerateImageRequest, request: Request):
                         "seed": _seed,
                         "num_inference_steps": 4,
                         "guidance_scale": 0.0,
+                        # 1024×768 landscape matches Pollinations and Pillow fallback.
+                        # Both dimensions are multiples of 64 (required by FLUX.1-schnell)
+                        # and produce a 4:3 aspect ratio suited to picturebook pages.
+                        "width": 1024,
+                        "height": 768,
                     },
                 },
                 timeout=60,
