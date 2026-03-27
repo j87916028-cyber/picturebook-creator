@@ -10,6 +10,8 @@ const SECTIONS = [
     shortcuts: [
       { keys: ['Ctrl', 'S'], desc: '立即儲存專案' },
       { keys: ['Ctrl', 'Z'], desc: '復原刪除（台詞 / 場景 / 角色）' },
+      { keys: ['P'], desc: '開啟 / 關閉全書播放器（需有已生成配音）' },
+      { keys: ['B'], desc: '開啟 / 關閉繪本閱讀模式' },
       { keys: ['?'], desc: '開啟此快捷鍵說明' },
       { keys: ['Esc'], desc: '關閉目前開啟的視窗' },
     ],
@@ -29,6 +31,8 @@ const SECTIONS = [
       { keys: ['F'], desc: '切換全螢幕' },
       { keys: ['Shift', 'L'], desc: '切換循環播放（關閉→全書→單幕）' },
       { keys: ['M'], desc: '靜音 / 取消靜音' },
+      { keys: ['← 滑動'], desc: '下一句台詞（觸控）' },
+      { keys: ['→ 滑動'], desc: '上一句台詞（觸控）' },
     ],
   },
   {

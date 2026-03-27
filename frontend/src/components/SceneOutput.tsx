@@ -2017,6 +2017,35 @@ export default function SceneOutput({
     () => scenes.some(s => s.lines.some(l => l.audio_base64)),
     [scenes]
   )
+
+  // Global keyboard shortcuts: P = PlaybackModal, B = BookPreviewModal
+  // Only fire when no text field is focused and no modal is currently open.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'p' && e.key !== 'P' && e.key !== 'b' && e.key !== 'B') return
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable) return
+      if (e.key === 'p' || e.key === 'P') {
+        if (!hasAudio) return
+        e.preventDefault()
+        setShowPlayback(v => {
+          if (!v) setPlaybackStartScene(0)
+          return !v
+        })
+      } else {
+        if (scenes.length === 0) return
+        e.preventDefault()
+        setShowBookPreview(v => {
+          if (!v) setBookPreviewStart(0)
+          return !v
+        })
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [hasAudio, scenes.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const missingAudioCount = useMemo(
     () => scenes.reduce((n, s) => n + s.lines.filter(l => l.text && !l.audio_base64).length, 0),
     [scenes]
