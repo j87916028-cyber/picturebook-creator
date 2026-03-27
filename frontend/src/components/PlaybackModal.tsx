@@ -100,24 +100,6 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
   const touchStartXRef = useRef<number | null>(null)
   const touchStartYRef = useRef<number | null>(null)
 
-  // Touch swipe: horizontal swipe navigates lines; ignore vertical (transcript scroll)
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartXRef.current = e.touches[0].clientX
-    touchStartYRef.current = e.touches[0].clientY
-  }, [])
-
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (touchStartXRef.current === null || touchStartYRef.current === null) return
-    const dx = e.changedTouches[0].clientX - touchStartXRef.current
-    const dy = e.changedTouches[0].clientY - touchStartYRef.current
-    touchStartXRef.current = null
-    touchStartYRef.current = null
-    // Require minimum 50px horizontal distance and dominantly horizontal direction
-    if (Math.abs(dx) < 50 || Math.abs(dx) <= Math.abs(dy)) return
-    if (dx < 0) goTo(cursor + 1)   // swipe left  → next line
-    else         goTo(cursor - 1)   // swipe right → previous line
-  }, [cursor, goTo])
-
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
       containerRef.current?.requestFullscreen().catch(() => {})
@@ -153,6 +135,24 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
     setCursor(clamped)
     setPlaying(true)
   }, [playlist.length])
+
+  // Touch swipe: horizontal swipe navigates lines; ignore vertical (transcript scroll)
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX
+    touchStartYRef.current = e.touches[0].clientY
+  }, [])
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return
+    const dx = e.changedTouches[0].clientX - touchStartXRef.current
+    const dy = e.changedTouches[0].clientY - touchStartYRef.current
+    touchStartXRef.current = null
+    touchStartYRef.current = null
+    // Require minimum 50px horizontal distance and dominantly horizontal direction
+    if (Math.abs(dx) < 50 || Math.abs(dx) <= Math.abs(dy)) return
+    if (dx < 0) goTo(cursor + 1)   // swipe left  → next line
+    else         goTo(cursor - 1)   // swipe right → previous line
+  }, [cursor, goTo])
 
   // Jump to the first audio line of a given scene (absolute index)
   const goToScene = useCallback((targetSceneIdx: number) => {
