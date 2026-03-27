@@ -297,7 +297,7 @@ interface Props {
   onSceneTitleUpdate: (sceneId: string, newTitle: string) => void
   onSceneNotesUpdate: (sceneId: string, newNotes: string) => void
   onSceneSfxUpdate: (sceneId: string, newSfx: string) => void
-  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string, lineCount?: string) => Promise<void>
+  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string, lineCount?: string, ageGroup?: string) => Promise<void>
   onSceneLockToggle: (sceneId: string) => void
   onBatchRegenVoice: () => void
   onSceneRegenAllVoices: (sceneId: string) => Promise<void>
@@ -344,7 +344,7 @@ interface SceneCardProps {
   onSceneTitleUpdate: (sceneId: string, newTitle: string) => void
   onSceneNotesUpdate: (sceneId: string, newNotes: string) => void
   onSceneSfxUpdate: (sceneId: string, newSfx: string) => void
-  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string, lineCount?: string) => Promise<void>
+  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string, lineCount?: string, ageGroup?: string) => Promise<void>
   onSceneLockToggle: (sceneId: string) => void
   onSceneRegenAllVoices: (sceneId: string) => Promise<void>
   onFocusScene: () => void
@@ -565,12 +565,17 @@ function SceneCard({
   const [regenMood, setRegenMood] = useState<string>(
     () => localStorage.getItem('scene_mood') ?? ''
   )
+  const [regenAgeGroup, setRegenAgeGroup] = useState<'toddler' | 'child' | 'preteen'>(() => {
+    const saved = localStorage.getItem('scene_age_group') as 'toddler' | 'child' | 'preteen' | null
+    return saved && ['toddler', 'child', 'preteen'].includes(saved) ? saved : 'child'
+  })
   const [regenLineCount, setRegenLineCount] = useState<'few' | 'standard' | 'many'>(() => {
     const saved = localStorage.getItem('scene_line_count')
     return (saved === 'few' || saved === 'many') ? saved : 'standard'
   })
   // Persist regen-form selections so they survive page refresh and stay in sync
   // with SceneEditor (which reads these same keys on init).
+  useEffect(() => { localStorage.setItem('scene_age_group',   regenAgeGroup)   }, [regenAgeGroup])
   useEffect(() => { localStorage.setItem('scene_image_style', regenImageStyle) }, [regenImageStyle])
   useEffect(() => {
     if (regenMood) localStorage.setItem('scene_mood', regenMood)
@@ -816,7 +821,7 @@ function SceneCard({
     setRegenLoading(true)
     setRegenError(null)
     try {
-      await onSceneRegen(scene.id, regenDesc.trim(), regenStyle, regenLineLength, regenImageStyle, regenMood || undefined, regenLineCount)
+      await onSceneRegen(scene.id, regenDesc.trim(), regenStyle, regenLineLength, regenImageStyle, regenMood || undefined, regenLineCount, regenAgeGroup)
       setShowRegenForm(false)
     } catch (e) {
       setRegenError(e instanceof Error ? e.message : '重新生成失敗，請稍後重試')
@@ -1287,6 +1292,24 @@ function SceneCard({
                     opt.value === 'standard' ? '標準節奏（預設）' :
                                                '適合高潮或情感濃烈的幕次'
                   }
+                >{opt.label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="style-row" style={{ marginTop: '6px' }}>
+            <label style={{ fontSize: '0.8rem', color: '#888', whiteSpace: 'nowrap' }}>年齡層</label>
+            <div className="style-buttons">
+              {([
+                { value: 'toddler', label: '🐣 幼兒', title: '3-6歲，極簡用語' },
+                { value: 'child',   label: '🧒 兒童', title: '7-10歲，標準（預設）' },
+                { value: 'preteen', label: '📚 少年', title: '11-14歲，豐富詞彙' },
+              ] as { value: 'toddler' | 'child' | 'preteen'; label: string; title: string }[]).map(opt => (
+                <button
+                  key={opt.value}
+                  className={`style-btn ${regenAgeGroup === opt.value ? 'active' : ''}`}
+                  onClick={() => setRegenAgeGroup(opt.value)}
+                  type="button"
+                  title={opt.title}
                 >{opt.label}</button>
               ))}
             </div>

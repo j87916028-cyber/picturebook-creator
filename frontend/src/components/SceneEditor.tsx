@@ -12,13 +12,14 @@ interface GenStatus {
 
 type LineLength = 'short' | 'standard' | 'long'
 type LineCount  = 'few' | 'standard' | 'many'
+type AgeGroup   = 'toddler' | 'child' | 'preteen'
 
 interface Props {
   droppedCharacters: Character[]
   allCharacters: Character[]   // full character list from the left panel
   onRemoveCharacter: (id: string) => void
   onReorderDropped: (fromIdx: number, toIdx: number) => void
-  onGenerate: (description: string, style: string, lineLength: LineLength, isEnding?: boolean, imageStyle?: string, mood?: string, lineCount?: LineCount) => void
+  onGenerate: (description: string, style: string, lineLength: LineLength, isEnding?: boolean, imageStyle?: string, mood?: string, lineCount?: LineCount, ageGroup?: AgeGroup) => void
   onCancel: () => void
   isLoading: boolean
   genStatus: GenStatus | null
@@ -106,6 +107,12 @@ export default function SceneEditor({
     return IMAGE_STYLES.some(s => s.value === saved) ? saved : IMAGE_STYLES[0].value
   })
 
+  // Age group for vocabulary/complexity adjustment
+  const [ageGroup, setAgeGroup] = useState<AgeGroup>(() => {
+    const saved = localStorage.getItem('scene_age_group') as AgeGroup | null
+    return saved && ['toddler', 'child', 'preteen'].includes(saved) ? saved : 'child'
+  })
+
   // Mood / emotional tone for this scene ('' = auto / no override)
   const [mood, setMood] = useState<string>(() => localStorage.getItem('scene_mood') ?? '')
   const [suggestingMood, setSuggestingMood] = useState(false)
@@ -145,6 +152,7 @@ export default function SceneEditor({
   useEffect(() => { localStorage.setItem('scene_line_length', lineLength) }, [lineLength])
   useEffect(() => { localStorage.setItem('scene_line_count',  lineCount)  }, [lineCount])
   useEffect(() => { localStorage.setItem('scene_image_style', imageStyle) }, [imageStyle])
+  useEffect(() => { localStorage.setItem('scene_age_group',   ageGroup)   }, [ageGroup])
   useEffect(() => {
     if (mood) localStorage.setItem('scene_mood', mood)
     else localStorage.removeItem('scene_mood')
@@ -516,7 +524,7 @@ export default function SceneEditor({
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
               e.preventDefault()
               if (!isLoading && generateRateLimitSecs <= 0 && droppedCharacters.length > 0 && description.trim()) {
-                onGenerate(description, style, lineLength, false, imageStyle, mood || undefined, lineCount)
+                onGenerate(description, style, lineLength, false, imageStyle, mood || undefined, lineCount, ageGroup)
               }
             }
           }}
@@ -808,6 +816,26 @@ export default function SceneEditor({
           </div>
         </div>
 
+        {/* 年齡層設定 */}
+        <div className="style-row">
+          <label>年齡層</label>
+          <div className="style-buttons">
+            {([
+              { value: 'toddler', label: '🐣 幼兒（3-6歲）', title: '極簡用語、重複句型，適合最小的讀者' },
+              { value: 'child',   label: '🧒 兒童（7-10歲）', title: '清楚易懂的詞彙，標準兒童故事（預設）' },
+              { value: 'preteen', label: '📚 少年（11-14歲）', title: '豐富詞彙與比喻，情節更有深度' },
+            ] as { value: AgeGroup; label: string; title: string }[]).map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`style-btn ${ageGroup === opt.value ? 'active' : ''}`}
+                onClick={() => setAgeGroup(opt.value)}
+                title={opt.title}
+              >{opt.label}</button>
+            ))}
+          </div>
+        </div>
+
         {/* 情感基調 */}
         <div className="style-row">
           <label>
@@ -968,7 +996,7 @@ export default function SceneEditor({
             <>
               <button
                 className="btn-generate"
-                onClick={() => onGenerate(description, style, lineLength, false, imageStyle, mood || undefined, lineCount)}
+                onClick={() => onGenerate(description, style, lineLength, false, imageStyle, mood || undefined, lineCount, ageGroup)}
                 disabled={droppedCharacters.length === 0 || !description.trim() || generateRateLimitSecs > 0}
                 title={generateRateLimitSecs > 0 ? `請求過於頻繁，請等 ${generateRateLimitSecs} 秒後再試` : undefined}
               >
@@ -994,7 +1022,7 @@ export default function SceneEditor({
                   className="btn-ending"
                   onClick={() => {
                     const desc = description.trim() || '故事結尾'
-                    onGenerate(desc, style, lineLength, true, imageStyle, mood || undefined, lineCount)
+                    onGenerate(desc, style, lineLength, true, imageStyle, mood || undefined, lineCount, ageGroup)
                   }}
                   disabled={droppedCharacters.length === 0 || generateRateLimitSecs > 0}
                   title={generateRateLimitSecs > 0 ? `請稍候 ${generateRateLimitSecs} 秒` : '讓 AI 自動為故事寫一個圓滿結尾'}

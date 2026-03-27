@@ -527,7 +527,7 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
-  const handleGenerate = async (description: string, style: string, lineLength: 'short' | 'standard' | 'long' = 'standard', isEnding?: boolean, imageStyle?: string, mood?: string, lineCount?: 'few' | 'standard' | 'many') => {
+  const handleGenerate = async (description: string, style: string, lineLength: 'short' | 'standard' | 'long' = 'standard', isEnding?: boolean, imageStyle?: string, mood?: string, lineCount?: 'few' | 'standard' | 'many', ageGroup?: 'toddler' | 'child' | 'preteen') => {
     if (!description.trim() || droppedCharacters.length === 0) return
 
     // Ensure a project exists before generating
@@ -597,6 +597,7 @@ export default function App() {
           is_ending: isEnding ?? false,
           image_style: imageStyle,
           mood: mood || undefined,
+          age_group: ageGroup ?? 'child',
         }),
         signal,
       })
@@ -1586,7 +1587,7 @@ export default function App() {
   }
 
   // Re-generate entire scene
-  const handleSceneRegen = async (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string, lineCount?: string) => {
+  const handleSceneRegen = async (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string, lineCount?: string, ageGroup?: string) => {
     // Snapshot the old scene BEFORE clearing — needed for rollback on failure.
     // `scenes` here refers to the closure-captured state at call time (correct).
     const oldScene = scenes.find(s => s.id === sceneId)
@@ -1633,6 +1634,7 @@ export default function App() {
           line_count: lineCount ?? localStorage.getItem('scene_line_count') ?? 'standard',
           image_style: imageStyle ?? localStorage.getItem('scene_image_style') ?? undefined,
           mood: mood || undefined,
+          age_group: ageGroup ?? localStorage.getItem('scene_age_group') ?? 'child',
         }),
       })
       if (!scriptRes.ok) {

@@ -472,6 +472,24 @@ _LINE_COUNT_RULES = {
     "many":     "- 全幕台詞總數控制在 10～14 句（豐富對白，適合高潮或情感濃烈的幕次）",
 }
 
+# Vocabulary and tone rules by target reader age group.
+# Each value is injected as an extra bullet into the generate-script prompt.
+_AGE_GROUP_RULES: dict[str, str] = {
+    "toddler": (
+        "- 【幼兒版 3～6 歲】用語極度簡單，多用重複句型（如：「我要、我要！」）、"
+        "擬聲詞（如：哇哦、咚咚、啪啦），句子短且節奏明快，避免抽象概念與長複句，"
+        "讓孩子聽一遍就能跟著說"
+    ),
+    "child": (
+        "- 【兒童版 7～10 歲】用語清楚易懂，詞彙中等，可有簡單的情節轉折與道德啟示，"
+        "句子流暢自然，鼓勵共情與解決問題的思維"
+    ),
+    "preteen": (
+        "- 【少年版 11～14 歲】可使用較豐富的詞彙與比喻，劇情可有反轉或哲理思考，"
+        "對話可展現更複雜的情感衝突，語言接近青少年日常對話風格"
+    ),
+}
+
 # Maps Chinese art-style names (sent from the frontend) to English equivalents
 # used inside the English scene_prompt instruction sent to image generation APIs.
 _IMAGE_STYLE_EN: dict[str, str] = {
@@ -673,6 +691,7 @@ class GenerateScriptRequest(BaseModel):
     is_ending: Optional[bool] = False  # True → inject ending guidance into prompt
     image_style: Optional[str] = Field("watercolor children's book illustration", max_length=80)
     mood: Optional[str] = Field(None, max_length=20)  # e.g. 輕鬆愉快|溫馨感動|緊張刺激|搞笑幽默|神奇夢幻
+    age_group: Optional[str] = Field(None, max_length=20)  # 'toddler' | 'child' | 'preteen'
 
     @field_validator("scene_description", mode="before")
     @classmethod
@@ -1670,6 +1689,7 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
 
     line_length_rule = _LINE_LENGTH_RULES.get(req.line_length or "standard", _LINE_LENGTH_RULES["standard"])
     line_count_rule = _LINE_COUNT_RULES.get(req.line_count or "standard", _LINE_COUNT_RULES["standard"])
+    age_group_rule = _AGE_GROUP_RULES.get(req.age_group or "child", _AGE_GROUP_RULES["child"])
 
     _raw_style = (req.image_style or "").strip()
     _img_style = _IMAGE_STYLE_EN.get(_raw_style, _raw_style) or "watercolor children's book illustration"
@@ -1718,6 +1738,7 @@ async def generate_script(req: GenerateScriptRequest, request: Request):
 - 請使用台灣繁體中文，符合台灣的語言習慣與用語，避免使用中國大陸用語
 - 對話要自然有趣，適合兒童
 - 每個角色至少說一句話
+{age_group_rule}
 {line_count_rule}
 {line_length_rule}
 - 角色在台詞中稱呼其他角色時，只能使用角色列表中的名字，不得自行發明暱稱或別名
