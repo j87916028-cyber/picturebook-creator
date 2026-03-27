@@ -26,7 +26,7 @@
       /* Dark splash */
       [data-theme="dark"] .splash{background:#0f1729;color:#8b9cf7}
     </style>
-    <script>try{if(localStorage.getItem('theme')==='dark')document.documentElement.dataset.theme='dark'}catch(e){}</script>
+    <script>try{var t=localStorage.getItem('theme');if(t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.dataset.theme='dark'}catch(e){}</script>
   </head>
   <body>
     <div id="root"><div class="splash"><span class="splash-icon">📖</span><span class="splash-text">載入中…</span></div></div>

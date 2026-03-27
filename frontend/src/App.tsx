@@ -196,6 +196,20 @@ export default function App() {
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
   const [isDark, setIsDark] = useState(() => document.documentElement.dataset.theme === 'dark')
 
+  // Sync with OS dark mode preference changes (e.g. system auto-switch at sunset)
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = (e: MediaQueryListEvent) => {
+      // Only auto-switch if user hasn't explicitly chosen a theme
+      try { if (localStorage.getItem('theme')) return } catch {}
+      const dark = e.matches
+      document.documentElement.dataset.theme = dark ? 'dark' : ''
+      setIsDark(dark)
+    }
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
   // Inline title-editing state
   const [editingTitle, setEditingTitle] = useState(false)
   const [editTitleValue, setEditTitleValue] = useState('')
@@ -2269,7 +2283,8 @@ export default function App() {
                 const next = isDark ? '' : 'dark'
                 document.documentElement.dataset.theme = next
                 setIsDark(!isDark)
-                try { localStorage.setItem('theme', next) } catch {}
+                // Save explicit choice: 'dark' or 'light' (not '' — that means "follow OS")
+                try { localStorage.setItem('theme', next || 'light') } catch {}
               }}
               title={isDark ? '切換為亮色模式' : '切換為暗色模式'}
             >
