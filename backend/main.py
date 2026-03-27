@@ -7,6 +7,7 @@ import os
 import re
 import json
 import math
+import struct
 import time
 import uuid
 import asyncio
@@ -4844,13 +4845,99 @@ def _export_txt(project_name: str, scenes: list, characters: list | None = None)
     return "\n".join(lines_out).encode("utf-8")
 
 
+def _parse_audio_duration(audio_b64: str, fmt: str) -> float | None:
+    """Extract actual playback duration (seconds) from a base64-encoded audio blob.
+
+    Supports WAV (exact, via RIFF header) and MPEG1 Layer III MP3 (CBR estimate
+    via frame header + file size).  Returns None on any parse failure so callers
+    can fall back to the character-count heuristic.
+
+    WAV layout (all little-endian):
+        Bytes  0– 3  "RIFF"
+        Bytes  4– 7  ChunkSize
+        Bytes  8–11  "WAVE"
+        then sub-chunks: "fmt " → ByteRate at chunk-data+8; "data" → chunk-data-size
+        Duration = data-chunk-size / ByteRate
+
+    MP3 layout:
+        Optional ID3v2 tag (3 bytes "ID3" + 7 header bytes + syncsafe size)
+        MPEG frame sync (0xFF 0xE? / 0xFF 0xF?)
+        4-byte frame header → MPEG version, layer, bitrate index, sample-rate index
+        Duration ≈ (audio_bytes × 8) / (bitrate_kbps × 1000)   [accurate for CBR]
+    """
+    try:
+        data = base64.b64decode(audio_b64)
+    except Exception:
+        return None
+
+    fmt = fmt.lower()
+
+    if fmt == "wav":
+        if len(data) < 44 or data[:4] != b"RIFF" or data[8:12] != b"WAVE":
+            return None
+        byte_rate: int | None = None
+        offset = 12
+        while offset + 8 <= len(data):
+            chunk_id   = data[offset : offset + 4]
+            chunk_size = struct.unpack_from("<I", data, offset + 4)[0]
+            if chunk_id == b"fmt ":
+                # chunk data layout: AudioFormat(2) NumChannels(2) SampleRate(4) ByteRate(4)…
+                if offset + 20 <= len(data):
+                    byte_rate = struct.unpack_from("<I", data, offset + 16)[0]
+            elif chunk_id == b"data":
+                if byte_rate and byte_rate > 0:
+                    return chunk_size / byte_rate
+                return None
+            offset += 8 + chunk_size
+            if chunk_size & 1:     # RIFF chunks are padded to even byte boundaries
+                offset += 1
+        return None
+
+    elif fmt == "mp3":
+        # Skip ID3v2 tag when present (3-byte magic + 7-byte header with syncsafe size)
+        pos = 0
+        if len(data) >= 10 and data[:3] == b"ID3":
+            sz = (
+                (data[6] & 0x7F) << 21 | (data[7] & 0x7F) << 14 |
+                (data[8] & 0x7F) << 7  | (data[9] & 0x7F)
+            )
+            pos = 10 + sz
+        # Walk forward until we find a valid MPEG sync word (max 4 kB search)
+        limit = min(pos + 4096, len(data) - 4)
+        while pos < limit:
+            if data[pos] == 0xFF and (data[pos + 1] & 0xE0) == 0xE0:
+                break
+            pos += 1
+        else:
+            return None
+        if pos >= len(data) - 4:
+            return None
+        # Parse the 4-byte MPEG frame header (big-endian)
+        b0, b1, b2 = data[pos], data[pos + 1], data[pos + 2]
+        mpeg_ver   = (b1 >> 3) & 0x3   # 0b11=MPEG1  0b10=MPEG2  0b00=MPEG2.5
+        layer      = (b1 >> 1) & 0x3   # 0b01=LayerIII  0b10=LayerII  0b11=LayerI
+        br_idx     = (b2 >> 4) & 0xF
+        # Only handle MPEG1 LayerIII (0b11 / 0b01) — what all TTS engines here emit
+        if mpeg_ver != 0b11 or layer != 0b01:
+            return None
+        BITRATES_MPEG1_L3 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0]
+        if br_idx == 0 or br_idx == 15:
+            return None
+        bitrate_kbps = BITRATES_MPEG1_L3[br_idx]
+        if bitrate_kbps == 0:
+            return None
+        # CBR duration estimate: (bytes after sync) × 8 / bitrate_bps
+        return ((len(data) - pos) * 8) / (bitrate_kbps * 1000)
+
+    return None
+
+
 def _export_srt(project_name: str, scenes: list) -> bytes:
     """Export the full script as an SRT subtitle file.
 
-    Timestamps are estimated at 4 Chinese characters per second (the same
-    heuristic the frontend uses for reading-time display).  There is no
-    real audio duration data available at export time, so this is the best
-    approximation we can offer.
+    When a dialogue line has ``audio_base64``, the actual playback duration is
+    extracted from the WAV/MP3 header via ``_parse_audio_duration``.  Lines
+    without audio fall back to the 4-chars-per-second heuristic.
 
     Format per entry:
         1
@@ -4901,7 +4988,12 @@ def _export_srt(project_name: str, scenes: list) -> bytes:
         for line in scene_lines:
             text      = line["text"].strip()
             char_name = (line.get("character_name") or "").strip() or "旁白"
-            duration  = max(MIN_SECS, len(text) / _CHARS_PER_SEC)
+            # Prefer actual audio duration for frame-accurate subtitle timing.
+            # Falls back to the character-count heuristic when no audio exists.
+            audio_b64 = line.get("audio_base64")
+            audio_fmt = (line.get("audio_format") or "mp3").lower()
+            actual    = _parse_audio_duration(audio_b64, audio_fmt) if audio_b64 else None
+            duration  = max(MIN_SECS, actual if actual is not None else len(text) / _CHARS_PER_SEC)
             end_time  = clock + duration
             entries.append(
                 f"{seq}\n{_fmt(clock)} --> {_fmt(end_time)}\n[{char_name}] {text}"
