@@ -1302,7 +1302,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt,
-          seed: stableImageSeed(characters, localStorage.getItem('scene_image_style') ?? ''),
+          seed: stableImageSeed(characters, scene.image_style || localStorage.getItem('scene_image_style') || ''),
         }),
       })
       if (!res.ok) { setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: 'error' } : s)); return }
@@ -1509,7 +1509,7 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             prompt,
-            seed: stableImageSeed(characters, localStorage.getItem('scene_image_style') ?? ''),
+            seed: stableImageSeed(characters, scene.image_style || localStorage.getItem('scene_image_style') || ''),
           }),
           signal: batchSignal,
         })
@@ -1558,7 +1558,7 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             prompt,
-            seed: stableImageSeed(characters, localStorage.getItem('scene_image_style') ?? ''),
+            seed: stableImageSeed(characters, scene.image_style || localStorage.getItem('scene_image_style') || ''),
           }),
           signal: batchSignal,
         })
