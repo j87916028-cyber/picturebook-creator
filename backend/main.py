@@ -3788,7 +3788,7 @@ def _export_pdf(
     return pdf.output()
 
 
-def _export_epub(project_name: str, scenes: list, char_color_map: dict | None = None, project_id: str | None = None) -> bytes:
+def _export_epub(project_name: str, scenes: list, char_color_map: dict | None = None, project_id: str | None = None, characters: list | None = None) -> bytes:
     try:
         from ebooklib import epub
     except ImportError:
@@ -3796,6 +3796,8 @@ def _export_epub(project_name: str, scenes: list, char_color_map: dict | None = 
 
     if char_color_map is None:
         char_color_map = {}
+    if characters is None:
+        characters = []
 
     book = epub.EpubBook()
     book.set_title(project_name)
@@ -3822,11 +3824,81 @@ h1 { color: #667eea; font-size: 1.4em; border-bottom: 2px solid #667eea; padding
 .dialogue-text { color: #333; }
 .line-audio { display: block; margin-top: 4px; width: 100%; max-width: 260px; height: 32px; }
 .scene-image { max-width: 100%; border-radius: 8px; margin: 1em auto; display: block; }
+.char-intro-title { color: #667eea; font-size: 1.3em; border-bottom: 2px solid #667eea; padding-bottom: 0.3em; }
+.char-intro-grid { display: block; }
+.char-intro-card { border: 1px solid #e0e0e0; border-radius: 10px; padding: 1em; margin: 0.8em 0; border-top-width: 4px; }
+.char-intro-emoji { font-size: 2em; margin-bottom: 0.2em; }
+.char-intro-portrait { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; display: block; margin-bottom: 0.5em; }
+.char-intro-name { font-size: 1.1em; font-weight: bold; margin-bottom: 0.3em; }
+.char-intro-personality { font-size: 0.9em; color: #555; line-height: 1.6; }
 """
     nav_css = epub.EpubItem(uid="style_nav", file_name="style/nav.css", media_type="text/css", content=css_content)
     book.add_item(nav_css)
 
     chapters = []
+
+    # ── Character introduction chapter ──────────────────────────────────────
+    eligible_chars = [
+        c for c in characters
+        if c.get("name") and (c.get("personality") or c.get("portrait_url"))
+    ]
+    if eligible_chars:
+        char_cards_xhtml = ""
+        for ci, c in enumerate(eligible_chars):
+            name        = html.escape(str(c.get("name", "")))
+            emoji       = html.escape(str(c.get("emoji", "🎭")))
+            personality = html.escape(str(c.get("personality", "")))
+            color       = _safe_css_color(c.get("color", ""), fallback="#667eea")
+            portrait_url = c.get("portrait_url", "")
+
+            # Embed portrait image if it's a data URI
+            portrait_html = ""
+            if portrait_url and portrait_url.startswith("data:"):
+                try:
+                    hdr, b64data = portrait_url.split(",", 1)
+                    mime = hdr.split(";")[0].replace("data:", "")
+                    ext = mime.split("/")[1]
+                    if ext == "jpeg":
+                        ext = "jpg"
+                    port_bytes = base64.b64decode(b64data)
+                    port_item = epub.EpubItem(
+                        uid=f"char_portrait_{ci}",
+                        file_name=f"images/char_portrait_{ci}.{ext}",
+                        media_type=mime,
+                        content=port_bytes,
+                    )
+                    book.add_item(port_item)
+                    portrait_html = f'<img src="../images/char_portrait_{ci}.{ext}" class="char-intro-portrait" alt="{name}"/>'
+                except Exception as e:
+                    logger.warning("EPUB char portrait embed failed: %s", e)
+
+            avatar_html = portrait_html if portrait_html else f'<div class="char-intro-emoji">{emoji}</div>'
+            personality_html = f'<div class="char-intro-personality">{personality}</div>' if personality else ""
+            char_cards_xhtml += f"""
+  <div class="char-intro-card" style="border-top-color:{color}">
+    {avatar_html}
+    <div class="char-intro-name" style="color:{color}">{name}</div>
+    {personality_html}
+  </div>"""
+
+        char_intro_content = f"""<?xml version='1.0' encoding='utf-8'?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-TW">
+<head>
+  <title>認識角色</title>
+  <link rel="stylesheet" type="text/css" href="../style/nav.css"/>
+</head>
+<body>
+  <h1 class="char-intro-title">✨ 認識角色</h1>
+  <div class="char-intro-grid">{char_cards_xhtml}
+  </div>
+</body>
+</html>"""
+        char_intro_chapter = epub.EpubHtml(title="認識角色", file_name="scenes/char_intro.xhtml", lang="zh-TW")
+        char_intro_chapter.content = char_intro_content
+        char_intro_chapter.add_item(nav_css)
+        book.add_item(char_intro_chapter)
+        chapters.append(char_intro_chapter)
 
     for i, scene in enumerate(scenes):
         desc = html.escape(scene.get("description", ""))
@@ -4888,7 +4960,7 @@ async def export_project(
         media_type = "application/pdf"
         filename = f"{project_name}.pdf"
     elif format == "epub":
-        data = await loop.run_in_executor(None, _export_epub, project_name, scenes, char_color_map, project_id)
+        data = await loop.run_in_executor(None, _export_epub, project_name, scenes, char_color_map, project_id, raw_chars)
         media_type = "application/epub+zip"
         filename = f"{project_name}.epub"
     elif format == "html":
