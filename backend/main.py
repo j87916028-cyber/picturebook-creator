@@ -4983,7 +4983,7 @@ async def export_project(
         if proj is None:
             raise HTTPException(status_code=404, detail="專案不存在")
         scene_rows = await conn.fetch(
-            f"SELECT idx, title, description, style, line_length, image_style, notes, script, lines, {_image_col} FROM scenes "
+            f"SELECT idx, title, description, style, line_length, image_style, is_locked, notes, script, lines, {_image_col} FROM scenes "
             "WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
@@ -5014,6 +5014,8 @@ async def export_project(
             "description":     row["description"],
             "style":           row["style"],
             "line_length":     row["line_length"] or "standard",
+            "image_style":     row["image_style"] or "",
+            "is_locked":       bool(row["is_locked"]),
             "notes":           row["notes"] or "",
             "scene_prompt":    raw_script.get("scene_prompt", ""),
             "sfx_description": raw_script.get("sfx_description", ""),
