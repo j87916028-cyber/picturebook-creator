@@ -1242,6 +1242,64 @@ body {
   color: #555;
   line-height: 1.55;
   margin: 0;
+  cursor: text;
+}
+.outline-scene-desc:hover { color: #333; }
+.outline-scene-edit {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 0.78rem;
+  opacity: 0.5;
+  line-height: 1;
+  border-radius: 4px;
+}
+.outline-scene-edit:hover { opacity: 1; background: rgba(100,181,246,0.15); }
+.outline-scene-edit-area { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.outline-scene-textarea {
+  width: 100%;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  border: 1.5px solid #64b5f6;
+  border-radius: 6px;
+  padding: 5px 8px;
+  resize: vertical;
+  color: #333;
+  background: #f0f8ff;
+  box-sizing: border-box;
+}
+.outline-scene-textarea:focus { outline: none; border-color: #1976d2; }
+.outline-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.outline-edit-confirm {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.outline-edit-confirm:hover { background: #1565c0; }
+.outline-edit-cancel {
+  background: none;
+  border: 1px solid #bbb;
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: #666;
+}
+.outline-edit-cancel:hover { background: #f5f5f5; }
+.outline-edit-hint {
+  font-size: 0.68rem;
+  color: #aaa;
+  margin-left: auto;
 }
 
 /* ── Scene Image Output ──────────────────────── */

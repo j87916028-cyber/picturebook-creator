@@ -191,6 +191,10 @@ export default function SceneEditor({
   const [outlineLoading, setOutlineLoading] = useState(false)
   const [outlineScenes, setOutlineScenes] = useState<OutlineScene[]>([])
   const [outlineError, setOutlineError] = useState<string | null>(null)
+  // Inline editing state for outline scene cards
+  const [editingOutlineIdx, setEditingOutlineIdx] = useState<number | null>(null)
+  const [editingOutlineText, setEditingOutlineText] = useState('')
+  const outlineEditRef = useRef<HTMLTextAreaElement>(null)
 
   const imageInputRef = useRef<HTMLInputElement>(null)
   const audioInputRef = useRef<HTMLInputElement>(null)
@@ -718,7 +722,19 @@ export default function SceneEditor({
                             onClick={() => setDescription(scene.description)}
                             title="將此描述填入場景編輯器"
                           >使用</button>
-                          {droppedCharacters.length > 0 && !isLoading && !batchOutlineStatus && (generateRateLimitSecs ?? 0) <= 0 && (
+                          {editingOutlineIdx !== i && (
+                            <button
+                              type="button"
+                              className="outline-scene-edit"
+                              onClick={() => {
+                                setEditingOutlineIdx(i)
+                                setEditingOutlineText(scene.description)
+                                setTimeout(() => { outlineEditRef.current?.focus(); outlineEditRef.current?.select() }, 30)
+                              }}
+                              title="直接編輯此場景描述"
+                            >✏️</button>
+                          )}
+                          {droppedCharacters.length > 0 && !isLoading && !batchOutlineStatus && (generateRateLimitSecs ?? 0) <= 0 && editingOutlineIdx !== i && (
                             <button
                               type="button"
                               className="outline-scene-gen"
@@ -730,7 +746,55 @@ export default function SceneEditor({
                             >⚡ 立即生成</button>
                           )}
                         </div>
-                        <p className="outline-scene-desc">{scene.description}</p>
+                        {editingOutlineIdx === i ? (
+                          <div className="outline-scene-edit-area">
+                            <textarea
+                              ref={outlineEditRef}
+                              className="outline-scene-textarea"
+                              value={editingOutlineText}
+                              onChange={e => setEditingOutlineText(e.target.value.slice(0, 200))}
+                              onKeyDown={e => {
+                                if (e.key === 'Escape') { e.preventDefault(); setEditingOutlineIdx(null) }
+                                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                                  e.preventDefault()
+                                  const trimmed = editingOutlineText.trim()
+                                  if (trimmed) setOutlineScenes(prev => prev.map((s, j) => j === i ? { ...s, description: trimmed } : s))
+                                  setEditingOutlineIdx(null)
+                                }
+                              }}
+                              rows={2}
+                              maxLength={200}
+                              placeholder="修改場景描述..."
+                            />
+                            <div className="outline-edit-actions">
+                              <button
+                                type="button"
+                                className="outline-edit-confirm"
+                                onClick={() => {
+                                  const trimmed = editingOutlineText.trim()
+                                  if (trimmed) setOutlineScenes(prev => prev.map((s, j) => j === i ? { ...s, description: trimmed } : s))
+                                  setEditingOutlineIdx(null)
+                                }}
+                              >✓ 確認</button>
+                              <button
+                                type="button"
+                                className="outline-edit-cancel"
+                                onClick={() => setEditingOutlineIdx(null)}
+                              >取消</button>
+                              <span className="outline-edit-hint">Ctrl+Enter 確認 · Esc 取消</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <p
+                            className="outline-scene-desc"
+                            title="雙擊編輯描述"
+                            onDoubleClick={() => {
+                              setEditingOutlineIdx(i)
+                              setEditingOutlineText(scene.description)
+                              setTimeout(() => { outlineEditRef.current?.focus(); outlineEditRef.current?.select() }, 30)
+                            }}
+                          >{scene.description}</p>
+                        )}
                       </div>
                     ))}
                   </div>
