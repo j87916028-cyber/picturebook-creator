@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { useDroppable } from '@dnd-kit/core'
-import { Character } from '../types'
+import { Character, STORY_STYLES, IMAGE_STYLES } from '../types'
 
 interface OutlineScene { title: string; description: string }
 
@@ -34,19 +34,7 @@ interface Props {
   batchOutlineStatus?: { done: number; total: number } | null
 }
 
-const STYLES = ['溫馨童趣', '奇幻冒險', '搞笑幽默', '感動溫情', '懸疑神秘']
-
-interface ImageStyleOption {
-  label: string       // displayed in Chinese
-  value: string       // English value sent to the image API
-}
-const IMAGE_STYLES: ImageStyleOption[] = [
-  { label: '水彩繪本',   value: "watercolor children's book illustration" },
-  { label: '粉彩卡通',   value: 'soft pastel cartoon, cute kawaii style' },
-  { label: '鉛筆素描',   value: 'pencil sketch children illustration, warm tones' },
-  { label: '宮崎駿風',   value: 'Studio Ghibli anime style illustration' },
-  { label: '3D 卡通',   value: '3D render cartoon, Pixar style, vibrant colors' },
-]
+const STYLES = STORY_STYLES
 
 export default function SceneEditor({
   droppedCharacters,

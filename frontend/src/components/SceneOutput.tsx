@@ -6,7 +6,7 @@ import {
   SortableContext, useSortable, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Scene, Character, ScriptLine, EMOTION_META } from '../types'
+import { Scene, Character, ScriptLine, EMOTION_META, STORY_STYLES, IMAGE_STYLES } from '../types'
 import PlaybackModal from './PlaybackModal'
 import BookPreviewModal from './BookPreviewModal'
 
@@ -35,14 +35,7 @@ function highlightText(text: string, query: string): React.ReactNode {
   return nodes.length === 0 ? text : <>{nodes}</>
 }
 
-const STYLES = ['溫馨童趣', '奇幻冒險', '搞笑幽默', '感動溫情', '懸疑神秘']
-const IMAGE_STYLES = [
-  { label: '水彩繪本', value: "watercolor children's book illustration" },
-  { label: '粉彩卡通', value: 'soft pastel cartoon, cute kawaii style' },
-  { label: '鉛筆素描', value: 'pencil sketch children illustration, warm tones' },
-  { label: '宮崎駿風', value: 'Studio Ghibli anime style illustration' },
-  { label: '3D 卡通',  value: '3D render cartoon, Pixar style, vibrant colors' },
-]
+const STYLES = STORY_STYLES
 
 const EMOTION_LABELS = Object.fromEntries(
   Object.entries(EMOTION_META).map(([k, v]) => [k, `${v.emoji} ${v.label}`])
