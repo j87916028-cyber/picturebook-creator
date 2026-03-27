@@ -139,7 +139,6 @@ Copy `backend/.env.example` to `backend/.env`:
 | `XFYUN_APP_ID` | No | iFlytek TTS (best Chinese quality; all three vars required together) |
 | `XFYUN_API_KEY` | No | iFlytek TTS |
 | `XFYUN_API_SECRET` | No | iFlytek TTS |
-| `GEMINI_API_KEY` | No | Reserved; not currently used |
 | `DATABASE_URL` | No | PostgreSQL connection string (default set in docker-compose.yml) |
 | `CORS_ORIGINS` | No | Comma-separated allowed origins (default: localhost:5173,localhost:3000) |
 
