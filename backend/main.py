@@ -863,6 +863,7 @@ _VOICE_SAMPLE: dict[str, str] = {
 async def voice_preview(
     voice_id: str,
     request: Request,
+    response: Response,
     text: Optional[str] = Query(None, max_length=200),
 ):
     ip = _client_ip(request)
@@ -874,6 +875,10 @@ async def voice_preview(
     # Custom text: synthesise on demand and skip the cache entirely
     # (cache key is voice_id only; custom-text results must not pollute it)
     custom_text = text.strip() if text and text.strip() else None
+
+    # Voice previews are deterministic — let the browser cache them for 1 hour.
+    # Each unique ?text= gets its own cache entry (URL-based key).
+    response.headers["Cache-Control"] = "public, max-age=3600"
 
     if not custom_text and voice_id in _voice_preview_cache:
         cached = _voice_preview_cache[voice_id]
