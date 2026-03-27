@@ -489,15 +489,15 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
     onChange([...characters, newChar])
   }
 
-  // Save a character to the cross-project library (dedup by name)
+  // Save a character to the cross-project library (dedup by name + emoji)
   const handleSaveToLibrary = (char: Character) => {
-    if (library.some(c => c.name === char.name)) return
+    if (library.some(c => c.name === char.name && c.emoji === char.emoji)) return
     setLibrary(prev => [...prev, char])
   }
 
   // Load a character from library into current project (new ID to avoid conflicts)
   const handleLoadFromLibrary = (char: Character) => {
-    if (characters.some(c => c.name === char.name)) return
+    if (characters.some(c => c.name === char.name && c.emoji === char.emoji)) return
     onChange([...characters, {
       ...char,
       id: `char_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -587,7 +587,7 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
               isInScene={droppedCharacterIds.includes(c.id)}
               onAddToScene={onAddToScene ? () => onAddToScene(c) : undefined}
               onSaveToLibrary={() => handleSaveToLibrary(c)}
-              isInLibrary={library.some(l => l.name === c.name)}
+              isInLibrary={library.some(l => l.name === c.name && l.emoji === c.emoji)}
             />
             {editingId === c.id && (
               <CharacterForm
