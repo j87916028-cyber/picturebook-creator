@@ -1999,7 +1999,6 @@ export default function App() {
     setTitleSuggestions([])
     setTitleSuggestLoading(true)
     try {
-      const storyContext = buildStoryContext(scenes)
       // Pick the most common style across scenes as the dominant style
       const styleCounts = scenes.reduce<Record<string, number>>((acc, s) => {
         acc[s.style] = (acc[s.style] ?? 0) + 1; return acc
