@@ -1464,6 +1464,53 @@ async def suggest_mood(req: SuggestMoodRequest, request: Request):
     raise HTTPException(status_code=502, detail="情感基調建議生成失敗")
 
 
+# ── 端點：AI 音效描述建議 ──────────────────────────────────────
+class SuggestSfxRequest(BaseModel):
+    description: Annotated[str, Field(max_length=500)]
+    style: Annotated[str, Field(max_length=20)] = "溫馨童趣"
+    lines: list[str] = Field(default_factory=list, max_length=20)
+
+    @field_validator("lines", mode="before")
+    @classmethod
+    def trim_lines(cls, v: list) -> list:
+        return [str(x)[:100] for x in v if x] if isinstance(v, list) else []
+
+
+@app.post("/api/suggest-sfx")
+async def suggest_sfx(req: SuggestSfxRequest, request: Request):
+    """AI suggests a background SFX / music description for the scene."""
+    ip = _client_ip(request)
+    if not _rl_suggest_scene.is_allowed(ip):
+        raise _rl_429(_rl_suggest_scene, ip)
+    if not MINIMAX_API_KEY and not GROQ_API_KEY:
+        raise HTTPException(status_code=503, detail="服務未設定")
+
+    lines_snippet = "、".join(req.lines[:6]) if req.lines else "（無台詞）"
+    prompt = f"""你是台灣繪本故事作家。根據以下場景，建議一段簡短的背景音效描述（10～30 字），
+描述應讓讀者/聽眾能想像出合適的環境音效或背景音樂。
+
+故事風格：{req.style}
+場景描述：{req.description}
+場景台詞（節錄）：{lines_snippet}
+
+直接輸出 JSON，格式如下，不要任何多餘說明：
+{{"suggestions": ["音效描述文字（中文，10～30字，例如：輕柔鋼琴音樂伴隨森林鳥鳴聲）"]}}"""
+
+    suggestions = await _llm_suggestions(
+        prompt,
+        temperature=0.6,
+        max_tokens=80,
+        groq_timeout=15,
+        minimax_timeout=20,
+        endpoint_name="suggest-sfx",
+    )
+    if suggestions:
+        sfx = suggestions[0].strip()[:100]
+        if sfx:
+            return {"sfx": sfx}
+    raise HTTPException(status_code=502, detail="音效描述建議生成失敗")
+
+
 # ── 端點：AI 書名建議 ─────────────────────────────────────────
 class SuggestTitleRequest(BaseModel):
     story_context: Annotated[str, Field(max_length=5000)]

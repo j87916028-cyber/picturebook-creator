@@ -1245,13 +1245,28 @@ body {
 .image-error-icon { font-size: 2rem; opacity: 0.5; }
 .image-error-text { font-size: 0.85rem; color: #e53e3e; font-weight: 600; }
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+/* SFX row: sfx pill + AI suggest button side by side */
+.sfx-note-row {
+  display: flex; align-items: center; gap: 6px; margin-top: 10px;
+}
 .sfx-note {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 0.78rem; color: #7c6f9f; font-style: italic;
   background: #f8f5ff; border: 1px solid #e8e0ff; border-radius: 20px;
-  padding: 3px 12px; margin-top: 10px;
+  padding: 3px 12px;
   cursor: text; transition: border-color 0.15s, background 0.15s;
+  flex: 1; min-width: 0;
 }
+.btn-suggest-sfx {
+  flex-shrink: 0;
+  background: #f8f5ff; border: 1px solid #e8e0ff; border-radius: 50%;
+  width: 26px; height: 26px; font-size: 0.85rem;
+  cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center; padding: 0;
+  color: #7c6fcd;
+}
+.btn-suggest-sfx:hover:not(:disabled) { background: #ede8ff; border-color: #b39ddb; }
+.btn-suggest-sfx.loading { opacity: 0.6; cursor: not-allowed; }
 .sfx-note:hover:not(.sfx-editing) { border-color: #c5b8f0; background: #f2edff; }
 .sfx-note.sfx-editing { cursor: default; border-color: #a78bfa; background: #eee8ff; border-radius: 8px; }
 .sfx-note-text { cursor: text; }

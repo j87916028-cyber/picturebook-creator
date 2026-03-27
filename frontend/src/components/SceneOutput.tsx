@@ -508,11 +508,37 @@ function SceneCard({
   // Inline sfx (background music/sound effect) description edit
   const [editingSfx, setEditingSfx] = useState(false)
   const [sfxText, setSfxText] = useState(scene.script.sfx_description ?? '')
+  const [sfxSuggesting, setSfxSuggesting] = useState(false)
   useEffect(() => { if (!editingSfx) setSfxText(scene.script.sfx_description ?? '') }, [scene.script.sfx_description, editingSfx])
   const commitSfx = () => {
     setEditingSfx(false)
     if (sfxText.trim() !== (scene.script.sfx_description ?? '').trim()) {
       onSceneSfxUpdate(scene.id, sfxText.trim())
+    }
+  }
+  const handleSuggestSfx = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (sfxSuggesting) return
+    setSfxSuggesting(true)
+    try {
+      const res = await fetch('/api/suggest-sfx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: scene.description,
+          style: scene.style,
+          lines: scene.lines.slice(0, 6).map(l => l.text).filter(Boolean),
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.sfx) {
+          setSfxText(data.sfx)
+          onSceneSfxUpdate(scene.id, data.sfx)
+        }
+      }
+    } catch { /* silent */ } finally {
+      setSfxSuggesting(false)
     }
   }
 
@@ -1380,32 +1406,42 @@ function SceneCard({
       )}
 
       {scene.lines.length > 0 && (
-        <div
-          className={`sfx-note${editingSfx ? ' sfx-editing' : ''}`}
-          onClick={() => { if (!editingSfx) setEditingSfx(true) }}
-          title={editingSfx ? undefined : '點擊編輯音效建議'}
-        >
-          🎵
-          {editingSfx ? (
-            <input
-              className="sfx-note-input"
-              value={sfxText}
-              onChange={e => setSfxText(e.target.value.slice(0, 100))}
-              onBlur={commitSfx}
-              onKeyDown={e => {
-                if (e.key === 'Enter') { e.preventDefault(); commitSfx() }
-                else if (e.key === 'Escape') { setEditingSfx(false); setSfxText(scene.script.sfx_description ?? '') }
-              }}
-              autoFocus
-              maxLength={100}
-              placeholder="音效描述（如：森林鳥鳴、輕柔鋼琴）"
-              onClick={e => e.stopPropagation()}
-            />
-          ) : (
-            <span className="sfx-note-text">
-              {sfxText || <em style={{ opacity: 0.55 }}>點擊新增音效建議</em>}
-            </span>
-          )}
+        <div className="sfx-note-row">
+          <div
+            className={`sfx-note${editingSfx ? ' sfx-editing' : ''}`}
+            onClick={() => { if (!editingSfx) setEditingSfx(true) }}
+            title={editingSfx ? undefined : '點擊編輯音效建議'}
+          >
+            🎵
+            {editingSfx ? (
+              <input
+                className="sfx-note-input"
+                value={sfxText}
+                onChange={e => setSfxText(e.target.value.slice(0, 100))}
+                onBlur={commitSfx}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.preventDefault(); commitSfx() }
+                  else if (e.key === 'Escape') { setEditingSfx(false); setSfxText(scene.script.sfx_description ?? '') }
+                }}
+                autoFocus
+                maxLength={100}
+                placeholder="音效描述（如：森林鳥鳴、輕柔鋼琴）"
+                onClick={e => e.stopPropagation()}
+              />
+            ) : (
+              <span className="sfx-note-text">
+                {sfxText || <em style={{ opacity: 0.55 }}>點擊新增音效建議</em>}
+              </span>
+            )}
+          </div>
+          <button
+            className={`btn-suggest-sfx${sfxSuggesting ? ' loading' : ''}`}
+            onClick={handleSuggestSfx}
+            disabled={sfxSuggesting}
+            title={sfxSuggesting ? 'AI 建議中…' : 'AI 自動建議音效描述'}
+          >
+            {sfxSuggesting ? <span className="spinner-sm" /> : '✨'}
+          </button>
         </div>
       )}
 
