@@ -158,6 +158,12 @@ Copy `backend/.env.example` to `backend/.env`:
 - `GET /api/projects/{id}` returns `ETag` + `Cache-Control: no-cache`; on `If-None-Match` match returns 304 (skips scenes query).
 - `asyncpg.create_pool(command_timeout=30)` prevents hung queries from exhausting the 5-connection pool.
 - Nginx `client_max_body_size` is 50 MB.
+- `beforeunload` handler uses ref-mirrored state to warn on pending saves, active generation (single or batch), without excessive listener re-registration.
+- `loadProjectData()` and `handleProjectCreated()` both abort in-flight generation AbortControllers and reset all progress states to prevent cross-project data pollution on project switch.
+- Scene regeneration supports 10-second undo (`undoRegenState`): old scene is snapshotted before regen and restorable via toast button or Ctrl+Z.
+- `checkHealth()` detects backend unavailability on mount + `visibilitychange`; shows a red "offline" banner and auto-clears when connectivity resumes.
+- Browser tab title dynamically shows generation progress (`🎤 3/6 · ProjectName ✦ …`) so background tabs are informative.
+- `@media print` stylesheet hides all interactive chrome; `break-inside: avoid` keeps scene cards intact across page breaks.
 
 ## Security Headers
 
