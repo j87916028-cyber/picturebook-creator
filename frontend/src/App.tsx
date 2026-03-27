@@ -121,6 +121,7 @@ export default function App() {
   const [batchRegenStatus, setBatchRegenStatus] = useState<{ done: number; total: number; failed?: number } | null>(null)
   const [batchImageStatus, setBatchImageStatus] = useState<{ done: number; total: number } | null>(null)
   const [batchTitleStatus, setBatchTitleStatus] = useState<{ done: number; total: number } | null>(null)
+  const [batchOutlineStatus, setBatchOutlineStatus] = useState<{ done: number; total: number } | null>(null)
 
   // Project state
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
@@ -221,6 +222,7 @@ export default function App() {
 
   const abortControllerRef = useRef<AbortController | null>(null)
   const batchAbortRef = useRef<AbortController | null>(null)
+  const batchOutlineAbortRef = useRef<AbortController | null>(null)
 
   // ── Sync browser tab title to current project name ─────────────
   useEffect(() => {
@@ -506,6 +508,50 @@ export default function App() {
     abortControllerRef.current?.abort()
   }
 
+  // Cancel the ongoing batch-outline generation
+  const handleCancelBatchOutline = () => {
+    batchOutlineAbortRef.current?.abort()
+    abortControllerRef.current?.abort()
+    setBatchOutlineStatus(null)
+  }
+
+  // Sequentially generate scenes from an outline (e.g. produced by the outline panel).
+  // Each call awaits the full generation (script + voice + image) before starting the next
+  // so that buildStoryContext() sees all previously generated scenes for continuity.
+  const handleBatchOutlineGenerate = async (
+    outlineScenes: Array<{ description: string; title?: string }>,
+    style: string,
+    lineLength: 'short' | 'standard' | 'long',
+    imageStyle: string,
+  ) => {
+    if (outlineScenes.length === 0 || droppedCharacters.length === 0) return
+
+    batchOutlineAbortRef.current?.abort()
+    const controller = new AbortController()
+    batchOutlineAbortRef.current = controller
+
+    setBatchOutlineStatus({ done: 0, total: outlineScenes.length })
+
+    for (let i = 0; i < outlineScenes.length; i++) {
+      if (controller.signal.aborted) break
+      const isLast = i === outlineScenes.length - 1
+      await handleGenerate(
+        outlineScenes[i].description,
+        style,
+        lineLength,
+        isLast,   // mark last outline scene as ending
+        imageStyle || undefined,
+      )
+      if (!controller.signal.aborted) {
+        setBatchOutlineStatus({ done: i + 1, total: outlineScenes.length })
+      }
+    }
+
+    if (!controller.signal.aborted) {
+      setTimeout(() => setBatchOutlineStatus(null), 2000)
+    }
+  }
+
   // Reorder dropped characters in the scene editor (affects dialogue generation order)
   const handleReorderDropped = (fromIdx: number, toIdx: number) => {
     if (toIdx < 0 || toIdx >= droppedCharacters.length) return
@@ -561,8 +607,10 @@ export default function App() {
     abortControllerRef.current = controller
     const { signal } = controller
 
-    // Build story context from ALL previous scenes (compact summary per scene)
-    const storyContext = buildStoryContext(scenes)
+    // Build story context from ALL previous scenes (compact summary per scene).
+    // Use ctrlSSaveRef (updated every render) instead of the closure-captured `scenes`
+    // so that sequential batch calls always see the latest state.
+    const storyContext = buildStoryContext(ctrlSSaveRef.current.scenes)
 
     const newSceneId = `scene-${Date.now()}`
     const placeholderScene: Scene = {
@@ -2245,6 +2293,9 @@ export default function App() {
                 focusTrigger={editorFocusTrigger}
                 projectId={currentProjectId}
                 generateRateLimitSecs={generateRateLimitSecs}
+                onBatchOutlineGenerate={handleBatchOutlineGenerate}
+                onCancelBatchOutline={handleCancelBatchOutline}
+                batchOutlineStatus={batchOutlineStatus}
               />
             </div>
 

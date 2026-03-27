@@ -29,6 +29,9 @@ interface Props {
   focusTrigger?: number  // increment to focus the description textarea
   projectId?: string | null  // scope the description draft to the current project
   generateRateLimitSecs?: number  // countdown from App when generate-script hits 429
+  onBatchOutlineGenerate?: (outlineScenes: Array<{ description: string; title?: string }>, style: string, lineLength: LineLength, imageStyle: string) => void
+  onCancelBatchOutline?: () => void
+  batchOutlineStatus?: { done: number; total: number } | null
 }
 
 const STYLES = ['溫馨童趣', '奇幻冒險', '搞笑幽默', '感動溫情', '懸疑神秘']
@@ -60,6 +63,9 @@ export default function SceneEditor({
   focusTrigger,
   projectId,
   generateRateLimitSecs = 0,
+  onBatchOutlineGenerate,
+  onCancelBatchOutline,
+  batchOutlineStatus,
 }: Props) {
   // Scope the draft key to the current project so switching projects never
   // leaks a stale description into a different project's editor.
@@ -687,6 +693,32 @@ export default function SceneEditor({
                 {outlineError && <div className="suggest-error">{outlineError}</div>}
                 {outlineScenes.length > 0 && (
                   <div className="outline-scenes">
+                    {/* 批次生成全部 / 取消 按鈕 */}
+                    {onBatchOutlineGenerate && droppedCharacters.length > 0 && (generateRateLimitSecs ?? 0) <= 0 && (
+                      <div className="outline-batch-bar">
+                        {batchOutlineStatus ? (
+                          <>
+                            <span className="outline-batch-progress">
+                              <span className="spinner spinner-sm" />
+                              批次生成中 {batchOutlineStatus.done}/{batchOutlineStatus.total} 幕…
+                            </span>
+                            <button
+                              type="button"
+                              className="btn-outline-cancel"
+                              onClick={onCancelBatchOutline}
+                            >✕ 取消</button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn-batch-outline"
+                            disabled={isLoading}
+                            onClick={() => onBatchOutlineGenerate(outlineScenes, style, lineLength, imageStyle)}
+                            title="依大綱順序逐幕生成完整場景（含劇本、語音、插圖）"
+                          >🚀 批次生成全部（{outlineScenes.length} 幕）</button>
+                        )}
+                      </div>
+                    )}
                     {outlineScenes.map((scene, i) => (
                       <div key={i} className="outline-scene-card">
                         <div className="outline-scene-header">
@@ -698,7 +730,7 @@ export default function SceneEditor({
                             onClick={() => setDescription(scene.description)}
                             title="將此描述填入場景編輯器"
                           >使用</button>
-                          {droppedCharacters.length > 0 && !isLoading && (generateRateLimitSecs ?? 0) <= 0 && (
+                          {droppedCharacters.length > 0 && !isLoading && !batchOutlineStatus && (generateRateLimitSecs ?? 0) <= 0 && (
                             <button
                               type="button"
                               className="outline-scene-gen"
