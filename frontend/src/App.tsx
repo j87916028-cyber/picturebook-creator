@@ -252,12 +252,23 @@ export default function App() {
   }
 
   // ── Sync browser tab title to current project name ─────────────
+  // Dynamic page title: shows generation progress so background tabs are informative.
+  // E.g. "🎤 3/6 · 小兔冒險記 ✦ 繪本有聲書創作工坊"
   useEffect(() => {
     const base = '繪本有聲書創作工坊'
-    document.title = projectName && projectName !== '未命名作品'
-      ? `${projectName} ✦ ${base}`
-      : base
-  }, [projectName])
+    const name = projectName && projectName !== '未命名作品' ? projectName : ''
+    let prefix = ''
+    if (genStatus) {
+      prefix = genStatus.step === 'script' ? '⟳ 劇本… · '
+        : genStatus.step === 'done' ? '✅ · '
+        : `🎤 ${genStatus.done}/${genStatus.total} · `
+    } else if (batchRegenStatus) {
+      prefix = `🎤 ${batchRegenStatus.done}/${batchRegenStatus.total} · `
+    } else if (batchImageStatus) {
+      prefix = `🖼️ ${batchImageStatus.done}/${batchImageStatus.total} · `
+    }
+    document.title = `${prefix}${name ? `${name} ✦ ` : ''}${base}`
+  }, [projectName, genStatus, batchRegenStatus, batchImageStatus])
 
   // Reset blob checksums whenever the active project changes so the first save
   // after loading a project always uploads the full current state.
