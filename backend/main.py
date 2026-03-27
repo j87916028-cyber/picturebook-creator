@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Annotated, Any, Dict, Literal
@@ -284,6 +285,12 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Content-Type"],
 )
+
+# Compress JSON responses ≥ 1 kB.  Starlette's GZipMiddleware skips responses
+# that already carry a Content-Encoding header (e.g. StreamingResponse audio),
+# so binary downloads are unaffected.  The 1024-byte threshold avoids wasting
+# CPU on tiny health-check or rate-limit error payloads.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 
 @app.middleware("http")
