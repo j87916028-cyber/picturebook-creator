@@ -4723,10 +4723,15 @@ def _export_srt(project_name: str, scenes: list) -> bytes:
         1
         00:00:01,000 --> 00:00:05,000
         [角色名] 台詞文字
+
+    Each scene is preceded by a 2-second title card entry so viewers can
+    orient themselves within the story (e.g. "第2幕 · 神奇地圖").
     """
-    CHARS_PER_SEC = 4       # rough reading speed
-    GAP_SECS     = 0.5      # pause between consecutive lines
-    MIN_SECS     = 1.5      # minimum display duration per line
+    CHARS_PER_SEC  = 4       # rough reading speed
+    GAP_SECS       = 0.5     # pause between consecutive lines
+    MIN_SECS       = 1.5     # minimum display duration per line
+    TITLE_SECS     = 2.0     # duration of the scene title card
+    TITLE_GAP_SECS = 0.8     # pause between title card and first dialogue line
 
     def _fmt(total_secs: float) -> str:
         """Convert float seconds → SRT timestamp HH:MM:SS,mmm."""
@@ -4742,11 +4747,27 @@ def _export_srt(project_name: str, scenes: list) -> bytes:
     seq      = 1
     clock    = 1.0          # running position in seconds; start at 1 s not 0
 
-    for scene in scenes:
-        for line in scene.get("lines", []):
-            text = (line.get("text") or "").strip()
-            if not text:
-                continue
+    for scene_num, scene in enumerate(scenes, 1):
+        scene_lines = [
+            ln for ln in scene.get("lines", [])
+            if (ln.get("text") or "").strip()
+        ]
+        if not scene_lines:
+            continue
+
+        # ── Scene title card ────────────────────────────────────────────
+        scene_title = (scene.get("title") or "").strip()
+        card_label  = f"第{scene_num}幕" + (f" · {scene_title}" if scene_title else "")
+        card_end    = clock + TITLE_SECS
+        entries.append(
+            f"{seq}\n{_fmt(clock)} --> {_fmt(card_end)}\n【{card_label}】"
+        )
+        seq   += 1
+        clock  = card_end + TITLE_GAP_SECS
+
+        # ── Dialogue lines ───────────────────────────────────────────────
+        for line in scene_lines:
+            text      = line["text"].strip()
             char_name = (line.get("character_name") or "").strip() or "旁白"
             duration  = max(MIN_SECS, len(text) / CHARS_PER_SEC)
             end_time  = clock + duration
