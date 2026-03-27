@@ -786,6 +786,11 @@ body {
   font-family: inherit; transition: border-color 0.2s; line-height: 1.6;
 }
 .scene-input:focus { border-color: #667eea; }
+.scene-input-dragover {
+  border-color: #667eea;
+  background: #f0edff;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.25);
+}
 
 .style-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .style-row label { font-size: 0.8rem; color: #888; white-space: nowrap; }

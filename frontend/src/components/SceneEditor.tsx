@@ -184,6 +184,9 @@ export default function SceneEditor({
   const [rateLimitSecs, setRateLimitSecs] = useState(0)
   const rateLimitTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Drag-and-drop image onto the description textarea
+  const [dragOver, setDragOver] = useState(false)
+
   // Outline generation state
   const [showOutlinePanel, setShowOutlinePanel] = useState(false)
   const [outlineTheme, setOutlineTheme] = useState('')
@@ -514,8 +517,8 @@ export default function SceneEditor({
         {/* 場景描述 */}
         <textarea
           ref={descriptionRef}
-          className="scene-input"
-          placeholder="描述場景...&#10;例：在一片大森林裡，小兔子迷路了，遇見了一隻友善的狐狸&#10;（Ctrl+Enter 快速生成，可貼上圖片自動辨識）"
+          className={`scene-input${dragOver ? ' scene-input-dragover' : ''}`}
+          placeholder="描述場景...&#10;例：在一片大森林裡，小兔子迷路了，遇見了一隻友善的狐狸&#10;（Ctrl+Enter 快速生成，可貼上或拖入圖片自動辨識）"
           value={description}
           onChange={e => handleDescChange(e.target.value)}
           onKeyDown={e => {
@@ -527,6 +530,14 @@ export default function SceneEditor({
             }
           }}
           onPaste={handlePaste}
+          onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={e => {
+            e.preventDefault()
+            setDragOver(false)
+            const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith('image/'))
+            if (file) recognizeImageFile(file)
+          }}
           rows={3}
           maxLength={500}
         />
