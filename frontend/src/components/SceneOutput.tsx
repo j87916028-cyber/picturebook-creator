@@ -2203,7 +2203,22 @@ export default function SceneOutput({
   const [replaceText, setReplaceText] = useState('')
   const [replaceMsg, setReplaceMsg] = useState<string | null>(null)
   const replaceMsgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   useEffect(() => () => { if (replaceMsgTimerRef.current) clearTimeout(replaceMsgTimerRef.current) }, [])
+
+  // Ctrl+F / Cmd+F — intercept browser's native find and focus our search bar instead
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        if (viewMode !== 'detail' || showPlayback || showBookPreview) return
+        e.preventDefault()
+        searchInputRef.current?.focus()
+        searchInputRef.current?.select()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [viewMode, showPlayback, showBookPreview])
 
   const handleReplaceAll = () => {
     const q = searchQuery.trim()
@@ -2544,9 +2559,10 @@ export default function SceneOutput({
             <div className="scene-search-bar">
               <span className="scene-search-icon">🔍</span>
               <input
+                ref={searchInputRef}
                 type="text"
                 className="scene-search-input"
-                placeholder="搜尋幕次標題、場景描述、台詞、角色或備註..."
+                placeholder="搜尋幕次標題、場景描述、台詞、角色或備註...（Ctrl+F）"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 onKeyDown={e => {

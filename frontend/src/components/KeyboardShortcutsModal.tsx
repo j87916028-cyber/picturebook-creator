@@ -56,9 +56,11 @@ const SECTIONS = [
   {
     title: '場景編輯',
     shortcuts: [
-      { keys: ['Ctrl', 'Enter'], desc: '快速生成故事（場景描述欄）' },
-      { keys: ['Enter'], desc: '確認台詞文字編輯' },
-      { keys: ['Esc'], desc: '取消台詞文字編輯' },
+      { keys: ['Ctrl', 'F'],     desc: '聚焦全文搜尋欄' },
+      { keys: ['Ctrl', 'Enter'], desc: '快速生成故事（場景描述欄）・確認台詞文字編輯' },
+      { keys: ['Tab'],           desc: '台詞編輯中：儲存並跳至下一句' },
+      { keys: ['Shift', 'Tab'],  desc: '台詞編輯中：儲存並跳至上一句' },
+      { keys: ['Esc'],           desc: '取消台詞文字編輯' },
     ],
   },
 ]
