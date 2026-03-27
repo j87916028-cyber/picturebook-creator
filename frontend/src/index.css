@@ -145,12 +145,12 @@ body {
 
 .panel-header { display: flex; align-items: baseline; justify-content: space-between; }
 .panel-header h2 { font-size: 1rem; color: #555; }
-.panel-hint { font-size: 0.75rem; color: #aaa; }
+.panel-hint { font-size: 0.75rem; color: #777; }
 
 .character-list { display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
 
 .empty-hint {
-  text-align: center; color: #bbb; font-size: 0.85rem;
+  text-align: center; color: #888; font-size: 0.85rem;
   padding: 16px 0; line-height: 1.6;
 }
 
@@ -197,7 +197,7 @@ body {
   white-space: nowrap;
   cursor: default;
 }
-.card-personality { font-size: 0.75rem; color: #888; margin-top: 2px; }
+.card-personality { font-size: 0.75rem; color: #666; margin-top: 2px; }
 .card-visual-desc {
   font-size: 0.7rem; color: #a878e0; margin-top: 2px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;
@@ -287,7 +287,7 @@ body {
 }
 
 .form-row { display: flex; flex-direction: column; gap: 4px; }
-.form-row label { font-size: 0.75rem; color: #888; font-weight: 600; }
+.form-row label { font-size: 0.75rem; color: #555; font-weight: 600; }
 .visual-desc-input-wrap { display: flex; gap: 6px; align-items: center; }
 .visual-desc-input-wrap input { flex: 1; min-width: 0; }
 .btn-ai-visual {
@@ -837,7 +837,7 @@ body {
 .drop-zone.over { border-color: #667eea; background: #eef0ff; }
 .drop-zone.has-chars { border-style: solid; border-color: #b0bce8; }
 
-.drop-hint { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #aaa; }
+.drop-hint { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #888; }
 .drop-icon { font-size: 2rem; }
 
 .dropped-chars { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; align-items: center; }
