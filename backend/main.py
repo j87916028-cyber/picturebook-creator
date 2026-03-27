@@ -2913,7 +2913,7 @@ class SceneLineIn(BaseModel):
 
 # Compiled once at module level — used by CharacterIn._normalise_color and
 # _safe_css_color() (defined later, near the export helpers).
-_SAFE_CSS_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{3,8}$')
+_SAFE_CSS_COLOR_RE = re.compile(r'^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$')
 
 
 class CharacterIn(BaseModel):
