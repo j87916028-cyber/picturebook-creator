@@ -308,12 +308,13 @@ interface Props {
   batchTitleStatus: { done: number; total: number } | null
   onLinesReorder: (sceneId: string, newLines: ScriptLine[]) => void
   onScrollToEditor?: () => void
-  /** Atomic batch replace: applies all line / title / description changes in a
+  /** Atomic batch replace: applies all line / title / description / notes changes in a
    *  single state update so no intermediate write overwrites another.           */
   onBatchReplaceAll: (changes: {
-    lines: { sceneId: string; lineIndex: number; newText: string }[]
+    lines:  { sceneId: string; lineIndex: number; newText: string }[]
     titles: { sceneId: string; newTitle: string }[]
     descs:  { sceneId: string; newDesc: string }[]
+    notes:  { sceneId: string; newNotes: string }[]
   }) => void
 }
 
@@ -2016,9 +2017,10 @@ export default function SceneOutput({
     // Collect ALL changes first — do NOT call individual setScenes callbacks in a
     // loop, because React 18 automatic batching means only the last call wins and
     // all earlier changes are silently dropped.
-    const lineChanges: { sceneId: string; lineIndex: number; newText: string }[] = []
+    const lineChanges:  { sceneId: string; lineIndex: number; newText: string }[] = []
     const titleChanges: { sceneId: string; newTitle: string }[] = []
-    const descChanges: { sceneId: string; newDesc: string }[] = []
+    const descChanges:  { sceneId: string; newDesc: string }[] = []
+    const notesChanges: { sceneId: string; newNotes: string }[] = []
 
     scenes.forEach(scene => {
       const re = () => new RegExp(escaped, 'gi')
@@ -2028,6 +2030,10 @@ export default function SceneOutput({
       }
       const newDesc = scene.description.replace(re(), replaceText)
       if (newDesc !== scene.description) descChanges.push({ sceneId: scene.id, newDesc })
+      if (scene.notes) {
+        const newNotes = scene.notes.replace(re(), replaceText)
+        if (newNotes !== scene.notes) notesChanges.push({ sceneId: scene.id, newNotes })
+      }
       scene.lines.forEach((line, i) => {
         const newText = line.text.replace(re(), replaceText)
         if (newText !== line.text) lineChanges.push({ sceneId: scene.id, lineIndex: i, newText })
@@ -2035,12 +2041,12 @@ export default function SceneOutput({
     })
 
     const lineCount = lineChanges.length
-    const metaCount = titleChanges.length + descChanges.length
+    const metaCount = titleChanges.length + descChanges.length + notesChanges.length
     const total = lineCount + metaCount
 
     if (total > 0) {
       // Single atomic state update — all scenes/lines updated together
-      onBatchReplaceAll({ lines: lineChanges, titles: titleChanges, descs: descChanges })
+      onBatchReplaceAll({ lines: lineChanges, titles: titleChanges, descs: descChanges, notes: notesChanges })
       if (replaceText) setSearchQuery(replaceText)
     }
 
@@ -2053,23 +2059,24 @@ export default function SceneOutput({
     if (replaceMsgTimerRef.current) clearTimeout(replaceMsgTimerRef.current)
     replaceMsgTimerRef.current = setTimeout(() => setReplaceMsg(null), 5000)
   }
-  // Separate counts: how many scenes match by title, description, or lines
-  const { titleMatchCount, descMatchCount, lineMatchCount } = useMemo(() => {
-    if (!searchQuery.trim()) return { titleMatchCount: 0, descMatchCount: 0, lineMatchCount: 0 }
+  // Separate counts: how many scenes match by title, description, lines, or notes
+  const { titleMatchCount, descMatchCount, lineMatchCount, notesMatchCount } = useMemo(() => {
+    if (!searchQuery.trim()) return { titleMatchCount: 0, descMatchCount: 0, lineMatchCount: 0, notesMatchCount: 0 }
     const q = searchQuery.toLowerCase()
-    let titles = 0, desc = 0, lines = 0
+    let titles = 0, desc = 0, lines = 0, notes = 0
     scenes.forEach(s => {
       if (s.title?.toLowerCase().includes(q)) titles++
       if (s.description.toLowerCase().includes(q)) desc++
+      if (s.notes?.toLowerCase().includes(q)) notes++
       lines += s.lines.filter(l =>
         l.text.toLowerCase().includes(q) || l.character_name.toLowerCase().includes(q)
       ).length
     })
-    return { titleMatchCount: titles, descMatchCount: desc, lineMatchCount: lines }
+    return { titleMatchCount: titles, descMatchCount: desc, lineMatchCount: lines, notesMatchCount: notes }
   }, [searchQuery, scenes])
-  const matchCount = titleMatchCount + descMatchCount + lineMatchCount
+  const matchCount = titleMatchCount + descMatchCount + lineMatchCount + notesMatchCount
 
-  // Auto-expand scenes that contain matching title, description, or lines when the query changes
+  // Auto-expand scenes that contain matching title, description, lines, or notes when the query changes
   useEffect(() => {
     if (!searchQuery.trim()) return
     const q = searchQuery.toLowerCase()
@@ -2079,6 +2086,7 @@ export default function SceneOutput({
         const hasMatch =
           s.title?.toLowerCase().includes(q) ||
           s.description.toLowerCase().includes(q) ||
+          s.notes?.toLowerCase().includes(q) ||
           s.lines.some(l =>
             l.text.toLowerCase().includes(q) || l.character_name.toLowerCase().includes(q)
           )
@@ -2303,7 +2311,7 @@ export default function SceneOutput({
               <input
                 type="text"
                 className="scene-search-input"
-                placeholder="搜尋幕次標題、場景描述、台詞或角色..."
+                placeholder="搜尋幕次標題、場景描述、台詞、角色或備註..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 onKeyDown={e => {
@@ -2318,17 +2326,18 @@ export default function SceneOutput({
                       titleMatchCount > 0 ? `${titleMatchCount} 標題` : '',
                       descMatchCount > 0 ? `${descMatchCount} 幕` : '',
                       lineMatchCount > 0 ? `${lineMatchCount} 句` : '',
+                      notesMatchCount > 0 ? `${notesMatchCount} 備註` : '',
                     ].filter(Boolean).join('・')}
                   </span>
                   <button className="scene-search-clear" onClick={() => { setSearchQuery(''); setShowReplace(false) }} title="清除搜尋 (Esc)">×</button>
                 </>
               ) : (
-                <span className="scene-search-hint">可搜尋幕次標題、場景描述、台詞或角色姓名</span>
+                <span className="scene-search-hint">可搜尋幕次標題、場景描述、台詞、角色姓名或導演備註</span>
               )}
               <button
                 className={`scene-replace-toggle${showReplace ? ' active' : ''}`}
                 onClick={() => setShowReplace(v => !v)}
-                title={showReplace ? '隱藏取代功能' : '開啟全文取代（台詞・描述・標題）'}
+                title={showReplace ? '隱藏取代功能' : '開啟全文取代（台詞・描述・標題・備註）'}
               >⇄</button>
             </div>
             {showReplace && (

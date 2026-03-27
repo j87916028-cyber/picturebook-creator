@@ -1274,18 +1274,21 @@ export default function App() {
   // call so that React 18 automatic batching cannot silently drop intermediate updates
   // (the bug that occurred when the old code called onLineEditTextOnly in a loop).
   const handleBatchReplaceAll = useCallback((changes: {
-    lines: { sceneId: string; lineIndex: number; newText: string }[]
+    lines:  { sceneId: string; lineIndex: number; newText: string }[]
     titles: { sceneId: string; newTitle: string }[]
     descs:  { sceneId: string; newDesc: string }[]
+    notes:  { sceneId: string; newNotes: string }[]
   }) => {
     const next = scenes.map(s => {
       const titleUp = changes.titles.find(t => t.sceneId === s.id)
       const descUp  = changes.descs.find(d => d.sceneId === s.id)
+      const notesUp = changes.notes.find(n => n.sceneId === s.id)
       const lineUps = changes.lines.filter(l => l.sceneId === s.id)
-      if (!titleUp && !descUp && lineUps.length === 0) return s
+      if (!titleUp && !descUp && !notesUp && lineUps.length === 0) return s
       let updated = { ...s }
       if (titleUp) updated = { ...updated, title: titleUp.newTitle }
       if (descUp)  updated = { ...updated, description: descUp.newDesc }
+      if (notesUp) updated = { ...updated, notes: notesUp.newNotes }
       if (lineUps.length > 0) {
         const lines = [...s.lines]
         for (const c of lineUps) {
