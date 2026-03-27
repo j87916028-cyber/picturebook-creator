@@ -1996,6 +1996,19 @@ body {
 }
 .btn-new-project:hover:not(:disabled) { opacity: 0.88; }
 .btn-new-project:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-project-sort {
+  background: none;
+  border: 1.5px solid #dde;
+  border-radius: 7px;
+  padding: 3px 8px;
+  font-size: 0.7rem;
+  color: #99a;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s;
+}
+.btn-project-sort:hover { border-color: #667eea; color: #667eea; background: #f0f4ff; }
+.btn-project-sort.active { border-color: #667eea; background: #f0f4ff; color: #667eea; }
 
 .project-panel-error {
   display: flex;

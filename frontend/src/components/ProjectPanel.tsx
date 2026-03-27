@@ -45,6 +45,7 @@ export default function ProjectPanel({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState<'updated' | 'name'>('updated')
   const [panelError, setPanelError] = useState<string | null>(null)
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -202,14 +203,27 @@ export default function ProjectPanel({
     }
   }
 
-  const filteredProjects = searchQuery.trim()
-    ? projects.filter(p => p.name.toLowerCase().includes(searchQuery.trim().toLowerCase()))
-    : projects
+  const filteredProjects = (() => {
+    const base = searchQuery.trim()
+      ? projects.filter(p => p.name.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+      : [...projects]
+    if (sortBy === 'name') base.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'))
+    return base
+  })()
 
   return (
     <div className="project-panel">
       <div className="project-panel-header">
         <span className="project-panel-title">我的作品</span>
+        {projects.length >= 2 && (
+          <button
+            className={`btn-project-sort${sortBy === 'name' ? ' active' : ''}`}
+            onClick={() => setSortBy(s => s === 'updated' ? 'name' : 'updated')}
+            title={sortBy === 'updated' ? '目前依更新時間排序，點擊改為依名稱排序' : '目前依名稱排序，點擊改為依更新時間排序'}
+          >
+            {sortBy === 'updated' ? '🕐 時間' : '🔤 名稱'}
+          </button>
+        )}
         <button
           className="btn-new-project"
           onClick={handleCreate}
