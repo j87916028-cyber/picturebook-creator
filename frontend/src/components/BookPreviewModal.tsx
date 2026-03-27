@@ -49,7 +49,7 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
   // Playback speed — persisted to localStorage so it's remembered across sessions
   const [playSpeed, setPlaySpeed] = useState<number>(() => {
     const saved = parseFloat(localStorage.getItem('book_preview_speed') ?? '')
-    return [0.75, 1, 1.5].includes(saved) ? saved : 1
+    return [0.75, 1, 1.25, 1.5, 2.0].includes(saved) ? saved : 1
   })
   const playSpeedRef = useRef(playSpeed)
   // When autoPlay is active, advance through lines automatically
@@ -375,7 +375,7 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
                 {autoPlaying ? '⏹ 停止' : '▶ 朗讀'}
               </button>
               <div className="book-speed-btns" title="朗讀速度">
-                {([0.75, 1, 1.5] as const).map(s => (
+                {([0.75, 1, 1.25, 1.5, 2.0] as const).map(s => (
                   <button
                     key={s}
                     className={`book-speed-btn${playSpeed === s ? ' active' : ''}`}
