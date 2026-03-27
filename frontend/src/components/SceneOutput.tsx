@@ -624,6 +624,13 @@ function SceneCard({
   }
 
   const [copied, setCopied] = useState(false)
+  const [copiedLineIdx, setCopiedLineIdx] = useState<number | null>(null)
+  const handleCopyLine = useCallback((idx: number, text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedLineIdx(idx)
+      setTimeout(() => setCopiedLineIdx(null), 1500)
+    }).catch(() => {})
+  }, [])
   const handleCopyScript = () => {
     const lines = scene.lines
       .filter(l => l.text)
@@ -1585,6 +1592,13 @@ function SceneCard({
                           title="編輯台詞"
                         >
                           ✏️
+                        </button>
+                        <button
+                          className={`btn-copy-line${copiedLineIdx === i ? ' copied' : ''}`}
+                          onClick={() => handleCopyLine(i, line.text)}
+                          title="複製台詞文字到剪貼簿"
+                        >
+                          {copiedLineIdx === i ? '✓' : '⎘'}
                         </button>
                         <button
                           className="btn-duplicate-line"
