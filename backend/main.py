@@ -3474,10 +3474,17 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
             None, _make_cover_thumbnail, first_scene.image
         )
 
+    # Indexes of scenes being saved — used to prune any scenes the user deleted.
+    saved_idxs = [r[1] for r in resolved]  # r[1] is the `idx` positional field
+
     async with _db_pool.acquire() as conn:
         async with conn.transaction():
-            await conn.execute("DELETE FROM scenes WHERE project_id = $1", project_id)
             if resolved:
+                # UPSERT: insert new scenes or update existing ones in-place.
+                # The UNIQUE(project_id, idx) constraint enables ON CONFLICT.
+                # Rows that already exist are updated rather than deleted and
+                # re-inserted, which avoids unnecessary JSONB blob churn (audio
+                # base64 + scene image) for scenes that haven't changed.
                 # FK constraint on project_id fires here if the project was deleted
                 # between the request arriving and the transaction starting.
                 try:
@@ -3485,6 +3492,19 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
                         """
                         INSERT INTO scenes (project_id, idx, title, description, style, line_length, image_style, mood, age_group, script, lines, image, notes, is_locked)
                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12, $13, $14)
+                        ON CONFLICT (project_id, idx) DO UPDATE SET
+                          title       = EXCLUDED.title,
+                          description = EXCLUDED.description,
+                          style       = EXCLUDED.style,
+                          line_length = EXCLUDED.line_length,
+                          image_style = EXCLUDED.image_style,
+                          mood        = EXCLUDED.mood,
+                          age_group   = EXCLUDED.age_group,
+                          script      = EXCLUDED.script,
+                          lines       = EXCLUDED.lines,
+                          image       = EXCLUDED.image,
+                          notes       = EXCLUDED.notes,
+                          is_locked   = EXCLUDED.is_locked
                         """,
                         resolved,
                     )
@@ -3494,6 +3514,14 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
                     ):
                         raise HTTPException(status_code=404, detail="專案不存在") from exc
                     raise
+            # Prune scenes that were removed on the client side.
+            # When saved_idxs is empty (all scenes deleted) this removes every
+            # scene for the project; otherwise only the missing indexes are pruned.
+            await conn.execute(
+                "DELETE FROM scenes WHERE project_id = $1 AND idx != ALL($2::smallint[])",
+                project_id,
+                saved_idxs,
+            )
             # COALESCE keeps the existing cover when no new image was uploaded
             # (e.g. pure text edit — all scenes had preserve_blobs=True).
             # RETURNING id doubles as the project-existence check — if no row
