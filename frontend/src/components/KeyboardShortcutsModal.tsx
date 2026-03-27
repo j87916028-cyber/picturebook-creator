@@ -9,7 +9,7 @@ const SECTIONS = [
     title: '全域快捷鍵',
     shortcuts: [
       { keys: ['Ctrl', 'S'], desc: '立即儲存專案' },
-      { keys: ['Ctrl', 'Z'], desc: '復原刪除（台詞 / 場景 / 角色）' },
+      { keys: ['Ctrl', 'Z'], desc: '復原（刪除台詞/場景/角色、場景重新生成）' },
       { keys: ['P'], desc: '開啟 / 關閉全書播放器（需有已生成配音）' },
       { keys: ['B'], desc: '開啟 / 關閉繪本閱讀模式' },
       { keys: ['←'], desc: '場景列表：跳至上一幕（無文字輸入框聚焦時）' },

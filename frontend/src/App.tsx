@@ -1161,9 +1161,10 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
-  // Global Ctrl+Z / Cmd+Z: undo the most recent delete (line > scene > character priority)
+  // Global Ctrl+Z / Cmd+Z: undo the most recent action
+  // Priority: line delete > scene delete > character delete > scene regen
   useEffect(() => {
-    if (!undoState && !undoSceneState && !undoCharState) return
+    if (!undoState && !undoSceneState && !undoCharState && !undoRegenState) return
     const onKeyDown = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.key !== 'z') return
       const target = e.target as Element
@@ -1175,11 +1176,12 @@ export default function App() {
       e.preventDefault()
       if (undoState) handleUndoDelete()
       else if (undoSceneState) handleUndoSceneDelete()
-      else handleUndoCharDelete()
+      else if (undoCharState) handleUndoCharDelete()
+      else if (undoRegenState) handleUndoRegen()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [undoState, undoSceneState, undoCharState]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [undoState, undoSceneState, undoCharState, undoRegenState]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Append or insert a new dialogue line and generate its voice.
   // insertAfterIndex: undefined = append; number = insert after that line index.
