@@ -1301,47 +1301,62 @@ def _parse_outline(raw: str, expected_count: int) -> list[dict]:
 
     Returns list of {"title": str, "description": str} dicts.
     Tries JSON first, then falls back to numbered line parsing.
+
+    The previous implementation used ``r'\\{[^{}]*"scenes"[^{}]*\\}'`` which
+    excluded curly braces inside the pattern, so it could never match the actual
+    nested structure ``{"scenes": [{"title": ..., "description": ...}]}``.
+    The new implementation mirrors the robust extraction used by generate-script:
+    code-fence first → greedy ``{.*}`` / ``[.*]`` with DOTALL → text fallback.
     """
     stripped = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
     search_text = stripped if stripped else raw
 
-    # 1. Find JSON {"scenes": [...]}
-    all_json = re.findall(r'\{[^{}]*"scenes"[^{}]*\}', search_text, re.DOTALL)
-    # Also try to find array-wrapped objects with title/description
-    for candidate in reversed(all_json):
+    def _extract_scenes(obj: object) -> list[dict]:
+        """Pull scene dicts from a parsed JSON value (dict or list)."""
+        scenes_raw = obj.get("scenes", []) if isinstance(obj, dict) else obj  # type: ignore[union-attr]
+        if not isinstance(scenes_raw, list):
+            return []
+        scenes: list[dict] = []
+        for s in scenes_raw:
+            if isinstance(s, dict):
+                title = str(s.get("title", "")).strip()
+                desc  = str(s.get("description", "")).strip()
+                if title and desc:
+                    scenes.append({"title": title, "description": desc})
+        return scenes
+
+    # 1. Code-fence block — same pattern as generate-script
+    code_block = re.search(r"```(?:json)?\s*(\{.*\}|\[.*\])\s*```", search_text, re.DOTALL)
+    if code_block:
         try:
-            data = json.loads(candidate)
-            scenes_raw = data.get("scenes", [])
-            scenes = []
-            for s in scenes_raw:
-                if isinstance(s, dict):
-                    title = str(s.get("title", "")).strip()
-                    desc = str(s.get("description", "")).strip()
-                    if title and desc:
-                        scenes.append({"title": title, "description": desc})
+            scenes = _extract_scenes(json.loads(code_block.group(1)))
             if len(scenes) >= 2:
                 return scenes[:expected_count]
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError):
             pass
 
-    # 2. Try to find a top-level array in the text
-    array_match = re.search(r'\[\s*\{.*?\}\s*\]', search_text, re.DOTALL)
-    if array_match:
+    # 2. Greedy outer-brace match — handles {"scenes": [{...}, ...]} correctly
+    #    because .* in DOTALL mode crosses nested { } boundaries.
+    obj_match = re.search(r"\{.*\}", search_text, re.DOTALL)
+    if obj_match:
         try:
-            scenes_raw = json.loads(array_match.group())
-            scenes = []
-            for s in scenes_raw:
-                if isinstance(s, dict):
-                    title = str(s.get("title", "")).strip()
-                    desc = str(s.get("description", "")).strip()
-                    if title and desc:
-                        scenes.append({"title": title, "description": desc})
+            scenes = _extract_scenes(json.loads(obj_match.group(0)))
             if len(scenes) >= 2:
                 return scenes[:expected_count]
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError):
             pass
 
-    # 3. Fall back: extract numbered sections like "第一幕：\n描述..."
+    # 3. Greedy outer-bracket match — handles bare [{...}, ...] responses
+    arr_match = re.search(r"\[.*\]", search_text, re.DOTALL)
+    if arr_match:
+        try:
+            scenes = _extract_scenes(json.loads(arr_match.group(0)))
+            if len(scenes) >= 2:
+                return scenes[:expected_count]
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # 4. Fall back: extract numbered sections like "第一幕：\n描述..."
     scenes = []
     blocks = re.split(r'\n(?=第[一二三四五六七]幕|幕次\s*\d)', search_text)
     for block in blocks:
