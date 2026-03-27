@@ -1991,17 +1991,23 @@ export default function SceneOutput({
     return () => { observer.disconnect(); intersectingIdsRef.current.clear() }
   }, [scenes])
 
-  // Auto-scroll to newly added scene (length increase only, not on initial load)
+  // Auto-scroll to newly added scene and collapse all previous scenes (length increase only)
   const prevSceneCountRef = useRef(scenes.length)
   useEffect(() => {
     if (scenes.length > prevSceneCountRef.current) {
       const lastIdx = scenes.length - 1
+      // Collapse all prior scenes so the new scene gets full attention
+      setCollapsedIds(prev => {
+        const next = new Set(prev)
+        scenes.slice(0, lastIdx).forEach(s => next.add(s.id))
+        return next
+      })
       setTimeout(() => {
         sceneRefs.current[lastIdx]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }, 80)
     }
     prevSceneCountRef.current = scenes.length
-  }, [scenes.length])
+  }, [scenes.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Memoized derived state ──────────────────────────────────
   // activeSceneId changes on every scroll (IntersectionObserver), which
