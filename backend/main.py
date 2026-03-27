@@ -2617,6 +2617,51 @@ def _generate_portrait_pillow(name: str, emoji: str) -> str:
 IMAGE_MAX_BYTES = 4 * 1024 * 1024  # 4 MB
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
+# Magic-byte signatures for each MIME type we accept.
+# Checked against the actual file bytes after reading, so clients cannot spoof
+# the Content-Type header to bypass format restrictions.
+_IMAGE_MAGIC: dict[bytes, str] = {
+    b"\xff\xd8\xff":                    "image/jpeg",  # JPEG
+    b"\x89PNG\r\n\x1a\n":              "image/png",   # PNG
+    b"GIF87a":                          "image/gif",   # GIF 87a
+    b"GIF89a":                          "image/gif",   # GIF 89a
+    # WebP: "RIFF" at offset 0, "WEBP" at offset 8
+}
+
+_AUDIO_MAGIC: dict[bytes, str] = {
+    b"ID3":             "audio/mpeg",  # MP3 with ID3v2 tag
+    b"\xff\xfb":        "audio/mpeg",  # MP3 frame sync (MPEG1 Layer3 CBR)
+    b"\xff\xf3":        "audio/mpeg",  # MP3 frame sync (MPEG1 Layer3 VBR)
+    b"\xff\xfa":        "audio/mpeg",  # MP3 frame sync variant
+    b"RIFF":            "audio/wav",   # WAV (RIFF container; confirmed below)
+    b"\x1a\x45\xdf\xa3": "audio/webm", # WebM EBML header
+}
+
+
+def _detect_image_type(data: bytes) -> str | None:
+    """Return the MIME type inferred from file magic bytes, or None if unknown."""
+    # WebP: RIFF at [0:4] and WEBP at [8:12]
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    for magic, mime in _IMAGE_MAGIC.items():
+        if data[:len(magic)] == magic:
+            return mime
+    return None
+
+
+def _detect_audio_type(data: bytes) -> str | None:
+    """Return the MIME type inferred from audio file magic bytes, or None if unknown."""
+    # WAV: RIFF container + "WAVE" four-cc at offset 8
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WAVE":
+        return "audio/wav"
+    # M4A/MP4: ftyp box often at offset 4 (box length at [0:4], "ftyp" at [4:8])
+    if len(data) >= 12 and data[4:8] == b"ftyp":
+        return "audio/mp4"
+    for magic, mime in _AUDIO_MAGIC.items():
+        if data[:len(magic)] == magic:
+            return mime
+    return None
+
 IMAGE_DESCRIBE_PROMPT = (
     "請用台灣繁體中文描述這張圖片的場景內容，100字以內，符合台灣語言習慣，適合作為兒童繪本的場景描述。"
 )
@@ -2641,6 +2686,16 @@ async def recognize_image(request: Request, file: UploadFile = File(...)):
     data = await file.read()
     if len(data) > IMAGE_MAX_BYTES:
         raise HTTPException(status_code=400, detail="圖片檔案超過 4MB 上限")
+
+    # Magic-bytes validation: confirm file content matches declared MIME type.
+    # This prevents clients from spoofing Content-Type to bypass format restrictions.
+    detected = _detect_image_type(data)
+    if detected is None:
+        raise HTTPException(status_code=400, detail="檔案格式無法辨識，請上傳 JPG、PNG、WebP 或 GIF 圖片")
+    if detected not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail=f"不支援此圖片格式（{detected}），請上傳 JPG、PNG、WebP 或 GIF")
+    # Use the detected type (not the client-supplied one) so the data URI is always correct
+    content_type = detected
 
     # Encode to base64 data URI
     b64 = base64.b64encode(data).decode("utf-8")
@@ -2720,8 +2775,23 @@ async def transcribe_audio(request: Request, file: UploadFile = File(...)):
     if len(data) > AUDIO_MAX_BYTES:
         raise HTTPException(status_code=400, detail="音訊檔案超過 25MB 上限")
 
+    # Magic-bytes validation: confirm file content matches declared MIME type.
+    # Browsers sometimes send "audio/webm" for M4A or misreport the format;
+    # use the detected type so Groq Whisper receives the correct Content-Type.
+    detected_audio = _detect_audio_type(data)
+    if detected_audio is None:
+        raise HTTPException(status_code=400, detail="音訊格式無法辨識，請上傳 MP3、WAV、M4A 或 WebM 檔案")
+    if detected_audio not in ALLOWED_AUDIO_TYPES:
+        raise HTTPException(status_code=400, detail=f"不支援此音訊格式（{detected_audio}），請上傳 MP3、WAV、M4A 或 WebM")
+    content_type = detected_audio
+
     # Determine a safe filename extension for the multipart upload
-    filename = file.filename or "audio.webm"
+    _ext_map = {
+        "audio/mpeg": "mp3", "audio/wav": "wav",
+        "audio/mp4": "m4a", "audio/webm": "webm",
+    }
+    _safe_ext = _ext_map.get(content_type, "webm")
+    filename = file.filename or f"audio.{_safe_ext}"
 
     try:
         resp = await _http_client.post(
