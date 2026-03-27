@@ -11,9 +11,17 @@
     <link rel="icon" type="image/svg+xml" href="/icon-192.svg" />
     <link rel="apple-touch-icon" href="/icon-192.svg" />
     <link rel="manifest" href="/manifest.json" />
+    <style>
+      /* Inline splash — shown until React mounts and replaces #root contents.
+         Keeps the page visually active during JS parse + first render (~0.5-2 s). */
+      .splash{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#f0f4ff;font-family:'Segoe UI','Microsoft JhengHei',sans-serif;color:#667eea}
+      .splash-icon{font-size:3rem;animation:pulse 1.5s ease-in-out infinite}
+      .splash-text{margin-top:12px;font-size:1.1rem;letter-spacing:0.5px}
+      @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.08)}}
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="splash"><span class="splash-icon">📖</span><span class="splash-text">載入中…</span></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
