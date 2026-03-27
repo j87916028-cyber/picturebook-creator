@@ -985,18 +985,6 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
-  // Update a single line's text (inline edit)
-  const handleLineTextChange = (sceneId: string, lineIndex: number, newText: string) => {
-    const next = scenes.map(s => {
-      if (s.id !== sceneId) return s
-      const lines = [...s.lines]
-      lines[lineIndex] = { ...lines[lineIndex], text: newText, audio_base64: undefined, audio_format: undefined }
-      return { ...s, lines }
-    })
-    setScenes(next)
-    if (currentProjectId) autoSave(currentProjectId, next, characters)
-  }
-
   // Update line text only (no voice regen). Useful for typo fixes or bulk edits
   // where the user wants to defer voice regeneration to a later batch pass.
   const handleLineEditTextOnly = useCallback((sceneId: string, lineIndex: number, newText: string) => {
