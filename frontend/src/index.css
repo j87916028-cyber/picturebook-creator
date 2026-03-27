@@ -1038,6 +1038,16 @@ body {
   font-size: 0.78rem; color: #7c6f9f; font-style: italic;
   background: #f8f5ff; border: 1px solid #e8e0ff; border-radius: 20px;
   padding: 3px 12px; margin-top: 10px;
+  cursor: text; transition: border-color 0.15s, background 0.15s;
+}
+.sfx-note:hover:not(.sfx-editing) { border-color: #c5b8f0; background: #f2edff; }
+.sfx-note.sfx-editing { cursor: default; border-color: #a78bfa; background: #eee8ff; border-radius: 8px; }
+.sfx-note-text { cursor: text; }
+.sfx-note-input {
+  font-size: 0.78rem; color: #5a4e8f; font-style: italic;
+  background: transparent; border: none; outline: none;
+  min-width: 180px; max-width: 340px; width: 100%;
+  font-family: inherit;
 }
 
 /* ── Error ───────────────────────────────────── */

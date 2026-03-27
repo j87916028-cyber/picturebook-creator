@@ -813,6 +813,17 @@ export default function App() {
     if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
+  // Edit the AI-generated background sound effect description for a scene
+  const handleSceneSfxUpdate = (sceneId: string, newSfx: string) => {
+    const next = scenes.map(s =>
+      s.id === sceneId
+        ? { ...s, script: { ...s.script, sfx_description: newSfx } }
+        : s
+    )
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
+  }
+
   // Delete a scene (with 5-second undo window)
   const handleSceneDelete = (sceneId: string) => {
     const idx = scenes.findIndex(s => s.id === sceneId)
@@ -2389,6 +2400,7 @@ export default function App() {
               onSceneDescriptionUpdate={handleSceneDescriptionUpdate}
               onSceneTitleUpdate={handleSceneTitleUpdate}
               onSceneNotesUpdate={handleSceneNotesUpdate}
+              onSceneSfxUpdate={handleSceneSfxUpdate}
               onSceneRegen={handleSceneRegen}
               onSceneLockToggle={handleSceneLockToggle}
               onBatchRegenVoice={handleBatchRegenVoice}

@@ -296,6 +296,7 @@ interface Props {
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
   onSceneTitleUpdate: (sceneId: string, newTitle: string) => void
   onSceneNotesUpdate: (sceneId: string, newNotes: string) => void
+  onSceneSfxUpdate: (sceneId: string, newSfx: string) => void
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string, lineCount?: string) => Promise<void>
   onSceneLockToggle: (sceneId: string) => void
   onBatchRegenVoice: () => void
@@ -342,6 +343,7 @@ interface SceneCardProps {
   onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
   onSceneTitleUpdate: (sceneId: string, newTitle: string) => void
   onSceneNotesUpdate: (sceneId: string, newNotes: string) => void
+  onSceneSfxUpdate: (sceneId: string, newSfx: string) => void
   onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string, lineCount?: string) => Promise<void>
   onSceneLockToggle: (sceneId: string) => void
   onSceneRegenAllVoices: (sceneId: string) => Promise<void>
@@ -377,6 +379,7 @@ function SceneCard({
   onSceneDescriptionUpdate,
   onSceneTitleUpdate,
   onSceneNotesUpdate,
+  onSceneSfxUpdate,
   onSceneRegen,
   onSceneLockToggle,
   onSceneRegenAllVoices,
@@ -501,6 +504,17 @@ function SceneCard({
   const [notesText, setNotesText] = useState(scene.notes ?? '')
   useEffect(() => { setNotesText(scene.notes ?? '') }, [scene.notes])
   const commitNotes = () => onSceneNotesUpdate(scene.id, notesText)
+
+  // Inline sfx (background music/sound effect) description edit
+  const [editingSfx, setEditingSfx] = useState(false)
+  const [sfxText, setSfxText] = useState(scene.script.sfx_description ?? '')
+  useEffect(() => { if (!editingSfx) setSfxText(scene.script.sfx_description ?? '') }, [scene.script.sfx_description, editingSfx])
+  const commitSfx = () => {
+    setEditingSfx(false)
+    if (sfxText.trim() !== (scene.script.sfx_description ?? '').trim()) {
+      onSceneSfxUpdate(scene.id, sfxText.trim())
+    }
+  }
 
   // Inline description edit
   const [editingDesc, setEditingDesc] = useState(false)
@@ -1365,8 +1379,34 @@ function SceneCard({
         </div>
       )}
 
-      {scene.script.sfx_description && (
-        <p className="sfx-note">🎵 {scene.script.sfx_description}</p>
+      {scene.lines.length > 0 && (
+        <div
+          className={`sfx-note${editingSfx ? ' sfx-editing' : ''}`}
+          onClick={() => { if (!editingSfx) setEditingSfx(true) }}
+          title={editingSfx ? undefined : '點擊編輯音效建議'}
+        >
+          🎵
+          {editingSfx ? (
+            <input
+              className="sfx-note-input"
+              value={sfxText}
+              onChange={e => setSfxText(e.target.value.slice(0, 100))}
+              onBlur={commitSfx}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); commitSfx() }
+                else if (e.key === 'Escape') { setEditingSfx(false); setSfxText(scene.script.sfx_description ?? '') }
+              }}
+              autoFocus
+              maxLength={100}
+              placeholder="音效描述（如：森林鳥鳴、輕柔鋼琴）"
+              onClick={e => e.stopPropagation()}
+            />
+          ) : (
+            <span className="sfx-note-text">
+              {sfxText || <em style={{ opacity: 0.55 }}>點擊新增音效建議</em>}
+            </span>
+          )}
+        </div>
       )}
 
       {/* 對話劇本 */}
@@ -1921,6 +1961,7 @@ export default function SceneOutput({
   onSceneDescriptionUpdate,
   onSceneTitleUpdate,
   onSceneNotesUpdate,
+  onSceneSfxUpdate,
   onSceneRegen,
   onSceneLockToggle,
   onBatchRegenVoice,
@@ -2514,6 +2555,7 @@ export default function SceneOutput({
               onSceneDescriptionUpdate={onSceneDescriptionUpdate}
               onSceneTitleUpdate={onSceneTitleUpdate}
               onSceneNotesUpdate={onSceneNotesUpdate}
+              onSceneSfxUpdate={onSceneSfxUpdate}
               onSceneRegen={onSceneRegen}
               onSceneLockToggle={onSceneLockToggle}
               onSceneRegenAllVoices={onSceneRegenAllVoices}
