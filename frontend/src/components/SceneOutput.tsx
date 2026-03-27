@@ -2204,6 +2204,27 @@ export default function SceneOutput({
     [scenes]
   )
 
+  // ── Copy all scripts to clipboard ────────────────────────────
+  const [copiedAll, setCopiedAll] = useState(false)
+  const handleCopyAllScripts = () => {
+    const text = scenes.map((s, i) => {
+      const titlePart = s.title ? `《${s.title}》` : ''
+      const header = `第${i + 1}幕${titlePart}：${s.description}`
+      const lines = s.lines
+        .filter(l => l.text)
+        .map(l => {
+          const char = characters.find(c => c.id === l.character_id)
+          return `${char?.emoji || '🎭'}${l.character_name}：「${l.text}」`
+        })
+        .join('\n')
+      return `${header}\n${lines}`
+    }).join('\n\n')
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedAll(true)
+      setTimeout(() => setCopiedAll(false), 2000)
+    }).catch(() => {})
+  }
+
   // ── Cross-scene search & replace ─────────────────────────────
   const [searchQuery, setSearchQuery] = useState('')
   const [showReplace, setShowReplace] = useState(false)
@@ -2479,6 +2500,14 @@ export default function SceneOutput({
                   : `✨ 補齊幕名（${missingTitleCount}）`}
               </button>
             )}
+            <button
+              className="btn-batch-regen btn-copy-all"
+              onClick={handleCopyAllScripts}
+              disabled={totalLines === 0}
+              title="複製全書劇本文字到剪貼簿（方便分享或貼到文件）"
+            >
+              {copiedAll ? '✅ 已複製' : '📋 複製劇本'}
+            </button>
             <span className="playbook-hint">
               {batchRegenStatus
                 ? batchRegenStatus.failed
