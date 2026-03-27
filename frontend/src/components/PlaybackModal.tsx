@@ -97,6 +97,26 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const activeLineRef = useRef<HTMLDivElement | null>(null)
+  const touchStartXRef = useRef<number | null>(null)
+  const touchStartYRef = useRef<number | null>(null)
+
+  // Touch swipe: horizontal swipe navigates lines; ignore vertical (transcript scroll)
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX
+    touchStartYRef.current = e.touches[0].clientY
+  }, [])
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return
+    const dx = e.changedTouches[0].clientX - touchStartXRef.current
+    const dy = e.changedTouches[0].clientY - touchStartYRef.current
+    touchStartXRef.current = null
+    touchStartYRef.current = null
+    // Require minimum 50px horizontal distance and dominantly horizontal direction
+    if (Math.abs(dx) < 50 || Math.abs(dx) <= Math.abs(dy)) return
+    if (dx < 0) goTo(cursor + 1)   // swipe left  → next line
+    else         goTo(cursor - 1)   // swipe right → previous line
+  }, [cursor, goTo])
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -301,7 +321,12 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
   const pct = playlist.length > 1 ? (cursor / (playlist.length - 1)) * 100 : 100
 
   return (
-    <div className="playback-overlay" ref={containerRef}>
+    <div
+      className="playback-overlay"
+      ref={containerRef}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Hidden audio element */}
       <audio ref={audioRef} onEnded={handleEnded} />
 
@@ -343,6 +368,7 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
               </tbody>
             </table>
             <div className="playback-help-tip">💡 點擊字幕列可直接跳至該句</div>
+            <div className="playback-help-tip">📱 左右滑動可切換上／下一句台詞</div>
             <button className="playback-help-close" onClick={() => setShowHelp(false)}>關閉</button>
           </div>
         </div>
