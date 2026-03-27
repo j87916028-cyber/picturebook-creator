@@ -300,10 +300,33 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [savedStatus])
 
-  // ── Auto-init: fetch projects on mount, auto-load most recent ──
+  // ── Sync URL (?project=<id>) whenever the active project changes ──
+  // Allows bookmarking / sharing / refreshing without losing the open project.
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (currentProjectId) {
+      url.searchParams.set('project', currentProjectId)
+    } else {
+      url.searchParams.delete('project')
+    }
+    window.history.replaceState({}, '', url.toString())
+  }, [currentProjectId])
+
+  // ── Auto-init: load project on mount ────────────────────────────
+  // Priority: ?project=<id> in URL → most-recently-updated project.
   useEffect(() => {
     const init = async () => {
       try {
+        const urlProjectId = new URLSearchParams(window.location.search).get('project')
+        if (urlProjectId) {
+          const res = await fetch(`/api/projects/${urlProjectId}`)
+          if (res.ok) {
+            const proj: ProjectDetail = await res.json()
+            loadProjectData(proj)
+            return
+          }
+          // URL project not found (deleted or invalid) — fall through to most-recent
+        }
         const res = await fetch('/api/projects')
         if (!res.ok) return
         const list = await res.json()
