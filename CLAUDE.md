@@ -40,12 +40,12 @@ On Windows, `start.bat` opens both services in separate command windows.
 ## Architecture
 
 ### Stack
-- **Backend:** Python 3.11 / FastAPI / Uvicorn — `backend/main.py`
+- **Backend:** Python 3.11 / FastAPI / Uvicorn — `backend/main.py` + `backend/exports.py`
 - **Frontend:** TypeScript / React 18 / Vite — `frontend/src/`
 - **Database:** PostgreSQL 16 via `asyncpg`; schema created at startup via `CREATE TABLE IF NOT EXISTS`
 - **Serving:** Nginx reverse-proxies `/api/*` to the backend; all other routes serve the SPA
 
-### Backend API (`backend/main.py`)
+### Backend API (`backend/main.py` + `backend/exports.py`)
 
 Key endpoint groups:
 
@@ -63,6 +63,8 @@ Key endpoint groups:
 | `GET/POST/PATCH/DELETE /api/projects` | Project CRUD |
 | `PUT /api/projects/{id}/scenes` | Auto-save scenes + characters + cover thumbnail |
 | `GET /api/projects/{id}/export` | Export as pdf/epub/html/mp3/txt/srt/md/images/json |
+
+**Module split**: `exports.py` contains all 9 `_export_*` functions + helpers (`_safe_css_color`, `_find_cjk_font`, `_hex_to_rgb`, `_parse_audio_duration`). `main.py` imports from it. No circular dependencies.
 
 **Voice synthesis chain** (in priority order):
 1. iFlytek (科大訊飛) — if `XFYUN_*` keys set; best Chinese quality
