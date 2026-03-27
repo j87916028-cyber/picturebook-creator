@@ -4516,6 +4516,7 @@ kbd {
 @media (max-width: 480px) {
   .app-header { padding: 8px 12px; }
   .app-title  { font-size: 1rem; }
+  .app-header-center p { display: none; } /* hide subtitle on small screens */
   .btn-header { padding: 5px 10px; font-size: 0.78rem; }
 
   .app-main { padding: 8px; gap: 8px; }
