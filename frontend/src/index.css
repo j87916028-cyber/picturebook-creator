@@ -22,6 +22,33 @@
   --color-error:         #e53e3e;
 }
 
+/* ── Dark theme ──────────────────────────────────────────────
+   Activated by [data-theme="dark"] on <html>.  The toggle lives
+   in App.tsx header; preference persists to localStorage.
+   Only overrides the design tokens — all 74 var() references
+   update automatically. */
+[data-theme="dark"] {
+  --color-bg:            #0f1729;
+  --color-surface:       #1a2332;
+  --color-accent:        #8b9cf7;
+  --color-accent-end:    #a87bd4;
+  --color-accent-light:  #1e2a40;
+  --color-accent-hover:  #243044;
+  --color-text:          #e2e8f0;
+  --color-text-secondary:#a0aec0;
+  --color-text-muted:    #718096;
+  --color-border:        #2d3748;
+  --color-error:         #fc8181;
+}
+[data-theme="dark"] .scene-card,
+[data-theme="dark"] .project-item,
+[data-theme="dark"] .character-card,
+[data-theme="dark"] .export-menu,
+[data-theme="dark"] .ks-modal,
+[data-theme="dark"] .outline-panel { box-shadow: 0 2px 12px rgba(0,0,0,0.4); }
+[data-theme="dark"] .app-header { background: linear-gradient(135deg, #3a4a8a, #5a3a7a); }
+[data-theme="dark"] img { opacity: 0.92; }
+
 /* ── Accessibility: global keyboard focus ring ────────────── */
 :focus-visible {
   outline: 2px solid var(--color-accent);

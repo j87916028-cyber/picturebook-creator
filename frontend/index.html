@@ -23,7 +23,10 @@
       .splash-icon{font-size:3rem;animation:pulse 1.5s ease-in-out infinite}
       .splash-text{margin-top:12px;font-size:1.1rem;letter-spacing:0.5px}
       @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.08)}}
+      /* Dark splash */
+      [data-theme="dark"] .splash{background:#0f1729;color:#8b9cf7}
     </style>
+    <script>try{if(localStorage.getItem('theme')==='dark')document.documentElement.dataset.theme='dark'}catch(e){}</script>
   </head>
   <body>
     <div id="root"><div class="splash"><span class="splash-icon">📖</span><span class="splash-text">載入中…</span></div></div>

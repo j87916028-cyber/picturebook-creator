@@ -194,6 +194,7 @@ export default function App() {
 
   // Keyboard shortcuts help modal
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
+  const [isDark, setIsDark] = useState(() => document.documentElement.dataset.theme === 'dark')
 
   // Inline title-editing state
   const [editingTitle, setEditingTitle] = useState(false)
@@ -2261,6 +2262,18 @@ export default function App() {
               title={projectPanelOpen ? '收起作品列表' : '展開作品列表'}
             >
               {projectPanelOpen ? '◀' : '▶'}
+            </button>
+            <button
+              className="btn-keyboard-help"
+              onClick={() => {
+                const next = isDark ? '' : 'dark'
+                document.documentElement.dataset.theme = next
+                setIsDark(!isDark)
+                try { localStorage.setItem('theme', next) } catch {}
+              }}
+              title={isDark ? '切換為亮色模式' : '切換為暗色模式'}
+            >
+              {isDark ? '☀️' : '🌙'}
             </button>
             <button
               className="btn-keyboard-help"
