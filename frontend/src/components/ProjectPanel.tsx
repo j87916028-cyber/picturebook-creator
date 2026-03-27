@@ -93,6 +93,14 @@ export default function ProjectPanel({
     fetchProjects()
   }, [fetchProjects])
 
+  // Refresh project list when the tab regains focus so relative times
+  // ("5 分鐘前") stay accurate after the user tabs away and comes back.
+  useEffect(() => {
+    const onVisible = () => { if (!document.hidden) fetchProjects() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [fetchProjects])
+
   // Focus edit input when editing starts
   useEffect(() => {
     if (editingId && editInputRef.current) {

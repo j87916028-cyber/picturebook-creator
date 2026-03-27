@@ -246,7 +246,7 @@ export default function App() {
     if (!document.hidden) return
     if (!('Notification' in window) || Notification.permission !== 'granted') return
     try {
-      const n = new Notification(title, { body, icon: '/favicon.ico' })
+      const n = new Notification(title, { body, icon: '/icon-192.svg' })
       n.onclick = () => { window.focus(); n.close() }
     } catch { /* some browsers throw in sandboxed contexts */ }
   }
