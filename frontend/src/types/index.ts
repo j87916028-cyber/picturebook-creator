@@ -49,6 +49,11 @@ export interface Scene {
   image_style?: string
   /** Private director/author notes — saved to DB but never included in any export */
   notes?: string
+  /** Mood used when the script was generated (e.g. 輕鬆愉快). Persisted per-scene
+   *  so the regeneration form can pre-fill the original setting. */
+  mood?: string
+  /** Age group used when the script was generated. Persisted per-scene. */
+  age_group?: 'toddler' | 'child' | 'preteen'
   script: ScriptResponse
   lines: ScriptLine[]
   image: string
@@ -85,6 +90,8 @@ export interface ProjectDetail extends ProjectMeta {
     style: string
     line_length?: 'short' | 'standard' | 'long'
     image_style?: string
+    mood?: string
+    age_group?: string
     notes?: string
     script: ScriptResponse
     lines: ScriptLine[]

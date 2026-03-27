@@ -564,10 +564,15 @@ function SceneCard({
   const [regenImageStyle, setRegenImageStyle] = useState<string>(
     () => scene.image_style || localStorage.getItem('scene_image_style') || IMAGE_STYLES[0].value
   )
+  // Pre-fill mood from the persisted per-scene value; fall back to localStorage
+  // (the global setting) only when the scene has no stored mood (e.g. old projects).
   const [regenMood, setRegenMood] = useState<string>(
-    () => localStorage.getItem('scene_mood') ?? ''
+    () => scene.mood || localStorage.getItem('scene_mood') || ''
   )
+  // Same for age_group: per-scene value takes precedence over the global setting.
   const [regenAgeGroup, setRegenAgeGroup] = useState<'toddler' | 'child' | 'preteen'>(() => {
+    const perScene = scene.age_group as 'toddler' | 'child' | 'preteen' | undefined
+    if (perScene && ['toddler', 'child', 'preteen'].includes(perScene)) return perScene
     const saved = localStorage.getItem('scene_age_group') as 'toddler' | 'child' | 'preteen' | null
     return saved && ['toddler', 'child', 'preteen'].includes(saved) ? saved : 'child'
   })

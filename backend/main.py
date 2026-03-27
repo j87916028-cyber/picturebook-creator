@@ -229,6 +229,18 @@ ALTER TABLE scenes
   ADD COLUMN IF NOT EXISTS image_style VARCHAR(100) NOT NULL DEFAULT '';
 """
 
+# Migration: persist mood / age_group per scene so the regeneration form can
+# pre-fill the original settings instead of always reading from localStorage.
+_ALTER_SCENES_MOOD = """
+ALTER TABLE scenes
+  ADD COLUMN IF NOT EXISTS mood VARCHAR(20) NOT NULL DEFAULT '';
+"""
+
+_ALTER_SCENES_AGE_GROUP = """
+ALTER TABLE scenes
+  ADD COLUMN IF NOT EXISTS age_group VARCHAR(20) NOT NULL DEFAULT 'child';
+"""
+
 # Indexes: created once at startup; IF NOT EXISTS makes them safe to re-run.
 # idx_scenes_project_id  — speeds up every per-project query (get, save, export, delete)
 #                          PostgreSQL does NOT auto-create an index for FK references.
@@ -261,6 +273,8 @@ async def lifespan(app: FastAPI):
                 await conn.execute(_ALTER_SCENES_NOTES)
                 await conn.execute(_ALTER_SCENES_LOCKED)
                 await conn.execute(_ALTER_SCENES_IMAGE_STYLE)
+                await conn.execute(_ALTER_SCENES_MOOD)
+                await conn.execute(_ALTER_SCENES_AGE_GROUP)
                 await conn.execute(_IDX_SCENES_PROJECT_ID)
                 await conn.execute(_IDX_PROJECTS_UPDATED_AT)
             logger.info("PostgreSQL pool created and schema applied")
@@ -2861,6 +2875,10 @@ class SceneIn(BaseModel):
     # Image style used when the scene was generated; persisted so regeneration
     # can default back to the same style rather than the current global setting.
     image_style: str = Field("", max_length=100)
+    # Mood / age_group used when the script was generated; persisted so the
+    # per-scene regeneration form can pre-fill the original settings.
+    mood: str = Field("", max_length=20)
+    age_group: str = Field("child", max_length=20)
     # Private director/author notes — stored in DB but never included in exports
     notes: str = Field("", max_length=2000)
     script: Dict[str, Any] = {}
@@ -3066,6 +3084,9 @@ async def import_project_json(req: ImportJsonRequest, request: Request):
         # a project with 2+ scenes.
         raw_idx = s.get("idx")
         scene_idx = int(raw_idx) if raw_idx is not None else i
+        age_grp = str(s.get("age_group") or "child")[:20]
+        if age_grp not in ("toddler", "child", "preteen"):
+            age_grp = "child"
         scene_rows.append((
             scene_idx,
             str(s.get("title") or "")[:100],
@@ -3073,6 +3094,8 @@ async def import_project_json(req: ImportJsonRequest, request: Request):
             str(s.get("style") or "溫馨童趣")[:20],
             ll,
             str(s.get("image_style") or "")[:100],   # preserve if present in backup
+            str(s.get("mood") or "")[:20],
+            age_grp,
             str(s.get("notes") or "")[:2000],
             json.dumps(script, ensure_ascii=False),
             json.dumps(clean_lines, ensure_ascii=False),
@@ -3104,8 +3127,8 @@ async def import_project_json(req: ImportJsonRequest, request: Request):
                 await conn.executemany(
                     """
                     INSERT INTO scenes
-                      (project_id, idx, title, description, style, line_length, image_style, notes, script, lines, image, is_locked)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12)
+                      (project_id, idx, title, description, style, line_length, image_style, mood, age_group, notes, script, lines, image, is_locked)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::jsonb, $13, $14)
                     """,
                     [(project_id, *r) for r in scene_rows],
                 )
@@ -3144,7 +3167,7 @@ async def duplicate_project(project_id: str, request: Request):
             raise HTTPException(status_code=404, detail="專案不存在")
 
         scene_rows = await conn.fetch(
-            "SELECT idx, title, description, style, line_length, image_style, notes, is_locked, script, lines, image "
+            "SELECT idx, title, description, style, line_length, image_style, mood, age_group, notes, is_locked, script, lines, image "
             "FROM scenes WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
@@ -3168,8 +3191,8 @@ async def duplicate_project(project_id: str, request: Request):
                 await conn.executemany(
                     """
                     INSERT INTO scenes
-                      (project_id, idx, title, description, style, line_length, image_style, notes, is_locked, script, lines, image)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12)
+                      (project_id, idx, title, description, style, line_length, image_style, mood, age_group, notes, is_locked, script, lines, image)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14)
                     """,
                     [
                         (
@@ -3180,6 +3203,8 @@ async def duplicate_project(project_id: str, request: Request):
                             row["style"],
                             row["line_length"] or "standard",
                             row.get("image_style") or "",
+                            row.get("mood") or "",
+                            row.get("age_group") or "child",
                             row.get("notes") or "",
                             row.get("is_locked") or False,
                             _to_json(row["script"]),
@@ -3214,7 +3239,7 @@ async def get_project(project_id: str, request: Request):
         if proj is None:
             raise HTTPException(status_code=404, detail="專案不存在")
         scenes = await conn.fetch(
-            "SELECT id, idx, title, description, style, line_length, image_style, script, lines, image, notes, is_locked FROM scenes WHERE project_id = $1 ORDER BY idx",
+            "SELECT id, idx, title, description, style, line_length, image_style, mood, age_group, script, lines, image, notes, is_locked FROM scenes WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
     raw_chars = proj["characters"]
@@ -3234,6 +3259,8 @@ async def get_project(project_id: str, request: Request):
                 "style": s["style"],
                 "line_length": s["line_length"] or "standard",
                 "image_style": s["image_style"] or "",
+                "mood":        s["mood"] or "",
+                "age_group":   s["age_group"] or "child",
                 "script": json.loads(s["script"]) if isinstance(s["script"], str) else s["script"],
                 "lines": json.loads(s["lines"]) if isinstance(s["lines"], str) else s["lines"],
                 "image": s["image"],
@@ -3371,6 +3398,8 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
             scene.style,
             scene.line_length or "standard",
             scene.image_style or "",
+            scene.mood or "",
+            scene.age_group or "child",
             json.dumps(scene.script, ensure_ascii=False),
             json.dumps(merged, ensure_ascii=False),
             image,
@@ -3407,8 +3436,8 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
                 try:
                     await conn.executemany(
                         """
-                        INSERT INTO scenes (project_id, idx, title, description, style, line_length, image_style, script, lines, image, notes, is_locked)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $12)
+                        INSERT INTO scenes (project_id, idx, title, description, style, line_length, image_style, mood, age_group, script, lines, image, notes, is_locked)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12, $13, $14)
                         """,
                         resolved,
                     )
@@ -5000,6 +5029,8 @@ def _export_json_backup(project_name: str, scenes: list, characters: list) -> by
                 "style":           s.get("style", ""),
                 "line_length":     s.get("line_length", "standard") or "standard",
                 "image_style":     s.get("image_style", "") or "",
+                "mood":            s.get("mood", "") or "",
+                "age_group":       s.get("age_group", "child") or "child",
                 "notes":           s.get("notes", "") or "",
                 "is_locked":       bool(s.get("is_locked", False)),
                 "scene_prompt":    s.get("scene_prompt", "") or "",
@@ -5051,7 +5082,7 @@ async def export_project(
         if proj is None:
             raise HTTPException(status_code=404, detail="專案不存在")
         scene_rows = await conn.fetch(
-            f"SELECT idx, title, description, style, line_length, image_style, is_locked, notes, script, lines, {_image_col} FROM scenes "
+            f"SELECT idx, title, description, style, line_length, image_style, mood, age_group, is_locked, notes, script, lines, {_image_col} FROM scenes "
             "WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
@@ -5083,6 +5114,8 @@ async def export_project(
             "style":           row["style"],
             "line_length":     row["line_length"] or "standard",
             "image_style":     row["image_style"] or "",
+            "mood":            row["mood"] or "",
+            "age_group":       row["age_group"] or "child",
             "is_locked":       bool(row["is_locked"]),
             "notes":           row["notes"] or "",
             "scene_prompt":    raw_script.get("scene_prompt", ""),
