@@ -4712,11 +4712,15 @@ def _export_srt(project_name: str, scenes: list) -> bytes:
     return "\n\n".join(entries).encode("utf-8") if entries else b""
 
 
-def _export_md(project_name: str, scenes: list) -> bytes:
+def _export_md(project_name: str, scenes: list, characters: list | None = None) -> bytes:
     """Export the full script as a GitHub-Flavored Markdown file.
 
     Format:
         # 《書名》
+        ## 角色介紹（若有角色資料）
+        ### 🐰 角色名
+        **個性**：...
+        **外形**：...
         ---
         ## 第1幕 · 標題（若有）
         > 風格 | 場景描述
@@ -4724,14 +4728,44 @@ def _export_md(project_name: str, scenes: list) -> bytes:
         **角色名**：台詞
         ...
         ---
-        *共 N 幕 · M 句台詞*
+        *共 N 幕 · M 句台詞 · 預估閱讀時長 X 分 Y 秒*
     """
+    if characters is None:
+        characters = []
+
     lines_out: list[str] = [
         f"# 《{project_name}》",
         "",
     ]
 
+    # Character introduction section — mirrors PDF/EPUB/HTML exports
+    eligible_chars = [
+        c for c in characters
+        if c.get("name") and (c.get("personality") or c.get("visual_description"))
+    ]
+    if eligible_chars:
+        lines_out.append("## 角色介紹")
+        lines_out.append("")
+        for c in eligible_chars:
+            emoji       = (c.get("emoji") or "").strip()
+            name        = c.get("name", "").strip()
+            personality = (c.get("personality") or "").strip()
+            visual      = (c.get("visual_description") or "").strip()
+
+            heading = f"### {emoji} {name}" if emoji else f"### {name}"
+            lines_out.append(heading)
+            lines_out.append("")
+            if personality:
+                lines_out.append(f"**個性**：{personality}")
+            if visual:
+                lines_out.append(f"**外形**：{visual}")
+            lines_out.append("")
+
+        lines_out.append("---")
+        lines_out.append("")
+
     total_line_count = 0
+    total_char_count = 0
     for i, scene in enumerate(scenes, 1):
         title  = scene.get("title", "").strip()
         desc   = scene.get("description", "").strip()
@@ -4768,13 +4802,23 @@ def _export_md(project_name: str, scenes: list) -> bytes:
             if text:
                 lines_out.append(f"**{char_name}**：{text}")
                 total_line_count += 1
+                total_char_count += len(text)
 
         lines_out.append("")
         lines_out.append("---")
         lines_out.append("")
 
-    # Footer
-    lines_out.append(f"*共 {len(scenes)} 幕 · {total_line_count} 句台詞*")
+    # Footer with reading time estimate (4 Chinese chars/second heuristic)
+    CHARS_PER_SEC = 4
+    est_secs = max(0, total_char_count // CHARS_PER_SEC)
+    est_min  = est_secs // 60
+    est_sec  = est_secs % 60
+    time_str = f"約 {est_min}:{est_sec:02d}" if est_secs >= 10 else ""
+
+    footer_parts = [f"{len(scenes)} 幕", f"{total_line_count} 句台詞"]
+    if time_str:
+        footer_parts.append(f"預估閱讀時長 {time_str}")
+    lines_out.append(f"*共 {' · '.join(footer_parts)}*")
     lines_out.append("")
     lines_out.append("*由「繪本有聲書創作工坊」匯出*")
     lines_out.append("")
@@ -4997,7 +5041,7 @@ async def export_project(
         media_type = "application/zip"
         filename = f"{project_name}_audio.zip"
     elif format == "md":
-        data = await loop.run_in_executor(None, _export_md, project_name, scenes)
+        data = await loop.run_in_executor(None, _export_md, project_name, scenes, raw_chars)
         media_type = "text/markdown; charset=utf-8"
         filename = f"{project_name}.md"
     elif format == "images":
