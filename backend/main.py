@@ -4064,6 +4064,54 @@ def _export_txt(project_name: str, scenes: list) -> bytes:
     return "\n".join(lines_out).encode("utf-8")
 
 
+def _export_srt(project_name: str, scenes: list) -> bytes:
+    """Export the full script as an SRT subtitle file.
+
+    Timestamps are estimated at 4 Chinese characters per second (the same
+    heuristic the frontend uses for reading-time display).  There is no
+    real audio duration data available at export time, so this is the best
+    approximation we can offer.
+
+    Format per entry:
+        1
+        00:00:01,000 --> 00:00:05,000
+        [角色名] 台詞文字
+    """
+    CHARS_PER_SEC = 4       # rough reading speed
+    GAP_SECS     = 0.5      # pause between consecutive lines
+    MIN_SECS     = 1.5      # minimum display duration per line
+
+    def _fmt(total_secs: float) -> str:
+        """Convert float seconds → SRT timestamp HH:MM:SS,mmm."""
+        total_ms  = int(round(total_secs * 1000))
+        ms        = total_ms % 1000
+        total_s   = total_ms // 1000
+        h         = total_s // 3600
+        m         = (total_s % 3600) // 60
+        s         = total_s % 60
+        return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+    entries: list[str] = []
+    seq      = 1
+    clock    = 1.0          # running position in seconds; start at 1 s not 0
+
+    for scene in scenes:
+        for line in scene.get("lines", []):
+            text = (line.get("text") or "").strip()
+            if not text:
+                continue
+            char_name = (line.get("character_name") or "").strip() or "旁白"
+            duration  = max(MIN_SECS, len(text) / CHARS_PER_SEC)
+            end_time  = clock + duration
+            entries.append(
+                f"{seq}\n{_fmt(clock)} --> {_fmt(end_time)}\n[{char_name}] {text}"
+            )
+            seq   += 1
+            clock  = end_time + GAP_SECS
+
+    return "\n\n".join(entries).encode("utf-8") if entries else b""
+
+
 def _export_md(project_name: str, scenes: list) -> bytes:
     """Export the full script as a GitHub-Flavored Markdown file.
 
@@ -4262,7 +4310,7 @@ def _export_json_backup(project_name: str, scenes: list, characters: list) -> by
 
 
 # ── GET /api/projects/{project_id}/export ────────────────────
-_EXPORT_FORMAT = Literal["pdf", "epub", "html", "mp3", "txt", "md", "images", "json"]
+_EXPORT_FORMAT = Literal["pdf", "epub", "html", "mp3", "txt", "md", "images", "json", "srt"]
 
 @app.get("/api/projects/{project_id}/export")
 async def export_project(
@@ -4359,6 +4407,10 @@ async def export_project(
         data = await loop.run_in_executor(None, _export_json_backup, project_name, scenes, raw_chars)
         media_type = "application/json; charset=utf-8"
         filename = f"{project_name}_備份.json"
+    elif format == "srt":
+        data = await loop.run_in_executor(None, _export_srt, project_name, scenes)
+        media_type = "text/srt; charset=utf-8"
+        filename = f"{project_name}_字幕.srt"
     else:  # "txt"
         data = await loop.run_in_executor(None, _export_txt, project_name, scenes)
         media_type = "text/plain; charset=utf-8"

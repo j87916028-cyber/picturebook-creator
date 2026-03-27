@@ -2083,6 +2083,7 @@ export default function App() {
                   <button onClick={() => handleExport('mp3')}>🎵 MP3 音檔包</button>
                   <button onClick={() => handleExport('md')}>🔖 Markdown（Notion/GitHub）</button>
                   <button onClick={() => handleExport('txt')}>📝 純文字稿本</button>
+                  <button onClick={() => handleExport('srt')} title="SRT 字幕檔（適用 YouTube / 影片剪輯）">🎞 SRT 字幕檔</button>
                   <button onClick={() => handleExport('images')}>🖼️ 插圖包（ZIP）</button>
                   <hr className="export-menu-divider" />
                   <button onClick={() => handleExport('json')} title="匯出完整故事結構為 JSON 備份（不含音檔與插圖）">📦 JSON 備份（可還原文字）</button>
