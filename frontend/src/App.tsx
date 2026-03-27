@@ -356,6 +356,23 @@ export default function App() {
     lastSavedBlobsRef.current = new Map()
     setSavedStatus('idle')
 
+    // Abort any in-flight generation requests (script + voice + image) from the
+    // previous project.  Without this, async callbacks from the old project's
+    // voice/image tasks fire after the switch and update the NEW project's state
+    // with stale data — or show confusing error toasts for the wrong project.
+    abortControllerRef.current?.abort()
+    batchAbortRef.current?.abort()
+    batchOutlineAbortRef.current?.abort()
+    abortControllerRef.current = null
+    batchAbortRef.current = null
+    batchOutlineAbortRef.current = null
+    // Reset generation progress indicators so they don't carry over
+    setGenStatus(null)
+    setBatchRegenStatus(null)
+    setBatchImageStatus(null)
+    setBatchTitleStatus(null)
+    setBatchOutlineStatus(null)
+
     setCurrentProjectId(proj.id)
     setProjectName(proj.name)
     const loaded: Scene[] = proj.scenes.map(s => ({
