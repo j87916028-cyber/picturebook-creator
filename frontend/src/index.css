@@ -1980,6 +1980,15 @@ body {
   transition: transform 0.12s;
 }
 .scene-char-chip:hover { transform: scale(1.2); }
+/* Portrait variant: clip the img to the circle */
+.scene-char-chip-portrait { padding: 0; overflow: hidden; }
+.scene-char-chip-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 50%;
+}
 .scene-char-chip-more {
   display: inline-flex;
   align-items: center;

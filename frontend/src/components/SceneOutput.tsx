@@ -851,12 +851,12 @@ function SceneCard({
   // Unique characters in this scene (ordered by first appearance), for collapsed header chips
   const sceneChars = useMemo(() => {
     const seen = new Set<string>()
-    const result: { id: string; emoji: string; name: string; color: string }[] = []
+    const result: { id: string; emoji: string; name: string; color: string; portrait_url?: string }[] = []
     for (const line of scene.lines) {
       if (line.character_id && !seen.has(line.character_id)) {
         seen.add(line.character_id)
         const char = characters.find(c => c.id === line.character_id)
-        if (char) result.push({ id: char.id, emoji: char.emoji, name: char.name, color: char.color })
+        if (char) result.push({ id: char.id, emoji: char.emoji, name: char.name, color: char.color, portrait_url: char.portrait_url })
       }
     }
     return result
@@ -949,11 +949,13 @@ function SceneCard({
               {sceneChars.slice(0, 5).map(ch => (
                 <span
                   key={ch.id}
-                  className="scene-char-chip"
-                  style={{ borderColor: ch.color, background: `${ch.color}22` }}
+                  className={`scene-char-chip${ch.portrait_url ? ' scene-char-chip-portrait' : ''}`}
+                  style={{ borderColor: ch.color, background: ch.portrait_url ? 'transparent' : `${ch.color}22` }}
                   title={ch.name}
                 >
-                  {ch.emoji}
+                  {ch.portrait_url
+                    ? <img src={ch.portrait_url} alt={ch.name} className="scene-char-chip-img" />
+                    : ch.emoji}
                 </span>
               ))}
               {sceneChars.length > 5 && (
