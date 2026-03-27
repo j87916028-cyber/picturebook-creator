@@ -2044,6 +2044,12 @@ export default function App() {
       a.download = `${projectName || '繪本'}.${ext}`
       a.click()
       URL.revokeObjectURL(url)
+      // Brief success toast — helps users notice the download started,
+      // especially on slow connections where the file may still be saving.
+      const labelMap: Record<string, string> = { pdf: 'PDF', epub: 'EPUB', html: 'HTML', mp3: 'MP3 音檔', md: 'Markdown', txt: '純文字', srt: 'SRT 字幕', images: '插圖包', json: 'JSON 備份' }
+      const successMsg = `✓ ${labelMap[format] || format} 匯出完成，檔案已開始下載`
+      setError(successMsg)
+      setTimeout(() => setError(e => e === successMsg ? '' : e), 3000)
     } catch {
       const msg = '匯出失敗，請確認網路連線'
       setError(msg)
