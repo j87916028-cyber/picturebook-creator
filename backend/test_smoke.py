@@ -132,3 +132,85 @@ def test_security_headers(client: TestClient):
 def test_voices_cache_control(client: TestClient):
     r = client.get("/api/voices")
     assert "max-age" in r.headers.get("Cache-Control", "")
+
+
+# ── Export function output tests (pure functions, no DB/API) ──
+
+_SAMPLE_SCENES = [
+    {
+        "idx": 0,
+        "title": "開場",
+        "description": "兔子在森林裡",
+        "style": "溫馨童趣",
+        "line_length": "standard",
+        "image_style": "",
+        "mood": "",
+        "age_group": "child",
+        "is_locked": False,
+        "notes": "",
+        "scene_prompt": "a rabbit in a forest",
+        "sfx_description": "鳥鳴聲",
+        "lines": [
+            {"character_name": "小白兔", "character_id": "c1", "voice_id": "cn-natural-female", "text": "好暗喔", "emotion": "fearful"},
+            {"character_name": "小狐狸", "character_id": "c2", "voice_id": "cn-natural-male", "text": "別怕！", "emotion": "happy"},
+        ],
+        "image": "",
+    }
+]
+_SAMPLE_CHARS = [
+    {"id": "c1", "name": "小白兔", "personality": "膽小", "emoji": "🐰", "color": "#FF6B6B"},
+    {"id": "c2", "name": "小狐狸", "personality": "勇敢", "emoji": "🦊", "color": "#4ECDC4"},
+]
+
+
+def test_export_txt():
+    from exports import _export_txt
+    data = _export_txt("測試故事", _SAMPLE_SCENES, _SAMPLE_CHARS)
+    assert isinstance(data, bytes)
+    text = data.decode("utf-8")
+    assert "小白兔" in text
+    assert "好暗喔" in text
+    assert "測試故事" in text
+
+
+def test_export_md():
+    from exports import _export_md
+    data = _export_md("測試故事", _SAMPLE_SCENES, _SAMPLE_CHARS)
+    text = data.decode("utf-8")
+    assert "# 《測試故事》" in text
+    assert "小狐狸" in text
+
+
+def test_export_srt():
+    from exports import _export_srt
+    data = _export_srt("測試故事", _SAMPLE_SCENES)
+    text = data.decode("utf-8")
+    assert "-->" in text  # SRT timestamp arrow
+    assert "好暗喔" in text
+
+
+def test_export_json_backup():
+    from exports import _export_json_backup
+    import json
+    data = _export_json_backup("測試故事", _SAMPLE_SCENES, _SAMPLE_CHARS)
+    parsed = json.loads(data)
+    assert parsed["name"] == "測試故事"
+    assert parsed["version"] == 1
+    assert len(parsed["scenes"]) == 1
+    assert len(parsed["characters"]) == 2
+
+
+def test_export_html():
+    from exports import _export_html
+    data = _export_html("測試故事", _SAMPLE_SCENES, characters=_SAMPLE_CHARS)
+    html_str = data.decode("utf-8")
+    assert "<html" in html_str
+    assert "小白兔" in html_str
+    assert "好暗喔" in html_str
+
+
+def test_export_images_zip_empty():
+    from exports import _export_images_zip
+    data = _export_images_zip("測試故事", _SAMPLE_SCENES)
+    assert isinstance(data, bytes)
+    assert len(data) > 0  # should contain at least the README
