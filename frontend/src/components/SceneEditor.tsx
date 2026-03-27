@@ -29,7 +29,7 @@ interface Props {
   focusTrigger?: number  // increment to focus the description textarea
   projectId?: string | null  // scope the description draft to the current project
   generateRateLimitSecs?: number  // countdown from App when generate-script hits 429
-  onBatchOutlineGenerate?: (outlineScenes: Array<{ description: string; title?: string }>, style: string, lineLength: LineLength, imageStyle: string) => void
+  onBatchOutlineGenerate?: (outlineScenes: Array<{ description: string; title?: string }>, style: string, lineLength: LineLength, imageStyle: string, mood?: string, lineCount?: LineCount, ageGroup?: AgeGroup) => void
   onCancelBatchOutline?: () => void
   batchOutlineStatus?: { done: number; total: number } | null
 }
@@ -713,7 +713,7 @@ export default function SceneEditor({
                             type="button"
                             className="btn-batch-outline"
                             disabled={isLoading}
-                            onClick={() => onBatchOutlineGenerate(outlineScenes, style, lineLength, imageStyle)}
+                            onClick={() => onBatchOutlineGenerate(outlineScenes, style, lineLength, imageStyle, mood || undefined, lineCount, ageGroup)}
                             title="依大綱順序逐幕生成完整場景（含劇本、語音、插圖）"
                           >🚀 批次生成全部（{outlineScenes.length} 幕）</button>
                         )}

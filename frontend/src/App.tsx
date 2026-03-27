@@ -548,6 +548,9 @@ export default function App() {
     style: string,
     lineLength: 'short' | 'standard' | 'long',
     imageStyle: string,
+    mood?: string,
+    lineCount?: 'few' | 'standard' | 'many',
+    ageGroup?: 'toddler' | 'child' | 'preteen',
   ) => {
     if (outlineScenes.length === 0 || droppedCharacters.length === 0) return
 
@@ -568,6 +571,9 @@ export default function App() {
         lineLength,
         isLast,   // mark last outline scene as ending
         imageStyle || undefined,
+        mood,
+        lineCount,
+        ageGroup,
       )
       if (!controller.signal.aborted) {
         setBatchOutlineStatus({ done: i + 1, total: outlineScenes.length })
