@@ -190,3 +190,6 @@ Nginx (`frontend/nginx.conf`) and the FastAPI middleware apply:
 - **Reproducible builds**: frontend uses `npm ci` with `package-lock.json`.
 - **Gzip**: Nginx compresses JSON API responses and static assets (`gzip_comp_level 6`).
 - **PWA**: `manifest.json` + meta tags enable "Add to Home Screen" on mobile/desktop.
+- **Dark mode**: CSS custom properties (252 `var()` refs) + `[data-theme="dark"]` override + OS `prefers-color-scheme` auto-detection + localStorage persistence.
+- **CI**: GitHub Actions runs backend pytest (20 tests) + frontend typecheck + build on every push/PR to main.
+- **Tests**: `backend/test_smoke.py` — 20 tests covering health, validation, security headers, and 6 export function output tests. Run: `cd backend && pytest test_smoke.py -v`
