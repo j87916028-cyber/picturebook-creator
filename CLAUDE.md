@@ -82,9 +82,9 @@ All external calls use `httpx` with explicit timeouts (90 s LLM, 60 s image, 30 
 | `_rl_voice` | 60/min | generate-voice, voice preview |
 | `_rl_image` | 10/min | generate-image |
 | `_rl_suggest_char` | 20/min | suggest-personality, suggest-visual-description |
-| `_rl_suggest_scene` | 15/min | suggest-next-scene, suggest-mood, suggest-title, generate-summary |
+| `_rl_suggest_scene` | 15/min | suggest-next-scene, suggest-mood, suggest-title, generate-summary, generate-outline |
 | `_rl_suggest_line` | 20/min | rephrase-line, suggest-line |
-| `_rl_title` | 15/min | generate-title |
+| `_rl_title` | 30/min | generate-title (project book title) |
 | `_rl_recognize` | 10/min | recognize-image |
 | `_rl_transcribe` | 10/min | transcribe |
 | `_rl_export` | 5/min | export |
