@@ -128,6 +128,7 @@ export default function App() {
   const [projectName, setProjectName] = useState('')
   const [titleSparkle, setTitleSparkle] = useState(false)
   const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle')
+  const [savedError, setSavedError] = useState<string | null>(null)
   const [projectPanelOpen, setProjectPanelOpen] = useState(true)
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -355,6 +356,7 @@ export default function App() {
     pendingSaveRef.current = null
     lastSavedBlobsRef.current = new Map()
     setSavedStatus('idle')
+    setSavedError(null)
 
     // Abort any in-flight generation requests (script + voice + image) from the
     // previous project.  Without this, async callbacks from the old project's
@@ -483,14 +485,22 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`
+        try { const b = await res.json(); if (b?.detail) detail = b.detail } catch {}
+        if (res.status === 413) detail = '資料量過大，請減少場景數或壓縮圖片'
+        else if (res.status === 404) detail = '專案已被刪除，請重新建立'
+        throw new Error(detail)
+      }
       // Only update stored checksums after a confirmed successful save.
       lastSavedBlobsRef.current = nextChecksums
       setSavedStatus('saved')
+      setSavedError(null)
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
       savedTimerRef.current = setTimeout(() => setSavedStatus('idle'), 2500)
-    } catch {
+    } catch (err) {
       setSavedStatus('failed')
+      setSavedError(err instanceof Error ? err.message : '儲存失敗，請確認網路連線')
     }
   }, [])
 
@@ -2166,8 +2176,8 @@ export default function App() {
             {savedStatus === 'saving' && <span className="save-indicator saving">儲存中...</span>}
             {savedStatus === 'saved'  && <span className="save-indicator saved">✓ 已儲存</span>}
             {savedStatus === 'failed' && (
-              <button className="save-indicator failed save-retry" onClick={handleRetrySave} title="點擊重新儲存">
-                ⚠️ 儲存失敗 · 重試
+              <button className="save-indicator failed save-retry" onClick={handleRetrySave} title={savedError || '點擊重新儲存'}>
+                ⚠️ {savedError ? `${savedError} · 重試` : '儲存失敗 · 重試'}
               </button>
             )}
             {currentProjectId && projectName && (
