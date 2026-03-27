@@ -1103,6 +1103,7 @@ export default function SceneEditor({
                 <button
                   className="btn-reset"
                   onClick={() => {
+                    if (!window.confirm(`確定要清除全部 ${sceneCount} 幕嗎？此操作無法復原。`)) return
                     setDescription('')
                     localStorage.removeItem(draftKey)
                     onReset()
