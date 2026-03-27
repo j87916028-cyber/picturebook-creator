@@ -844,7 +844,7 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
           onCancel={() => setShowAddForm(false)}
         />
       ) : (
-        <button className="btn-add-character" onClick={() => { setShowAddForm(true); setEditingId(null) }}>
+        <button className={`btn-add-character${characters.length === 0 ? ' pulse-hint' : ''}`} onClick={() => { setShowAddForm(true); setEditingId(null) }}>
           ＋ 自訂角色
         </button>
       )}
