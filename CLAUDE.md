@@ -24,6 +24,7 @@ cd frontend
 npm install
 npm run dev            # Dev server on http://localhost:5173
 npm run build          # Production build → dist/
+npm run typecheck      # Type-check only (no build output)
 npm run preview        # Preview production build
 ```
 
