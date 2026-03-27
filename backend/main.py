@@ -258,6 +258,7 @@ async def lifespan(app: FastAPI):
             max_keepalive_connections=20,
             keepalive_expiry=30,
         ),
+        timeout=90,  # default safety net; per-call timeouts override this
     )
     logger.info("Shared httpx.AsyncClient created (limits: max_conn=100, keepalive=20)")
 
