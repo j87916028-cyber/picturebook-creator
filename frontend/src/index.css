@@ -1690,6 +1690,13 @@ body {
 
 .dialogue-speaker { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .speaker-emoji { font-size: 1.3rem; }
+.dialogue-speaker-portrait {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1.5px solid #ddd;
+}
 .speaker-name { font-weight: 700; font-size: 0.9rem; }
 .emotion-badge {
   font-size: 0.72rem; background: #f0f4ff;
@@ -3498,6 +3505,13 @@ body {
   flex-shrink: 0;
   font-size: 0.85rem;
   line-height: 1.4;
+}
+.storyboard-char-portrait {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid #ddd;
 }
 .storyboard-text {
   font-size: 0.74rem;

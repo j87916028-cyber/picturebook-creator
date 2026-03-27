@@ -235,7 +235,9 @@ function StoryboardCard({
               const char = characters.find(c => c.id === line.character_id)
               return (
                 <div key={i} className="storyboard-line" style={{ borderLeftColor: char?.color || '#ccc' }}>
-                  <span className="storyboard-char">{char?.emoji || '🎭'}</span>
+                  {char?.portrait_url
+                    ? <img src={char.portrait_url} alt={char.name} className="storyboard-char-portrait" />
+                    : <span className="storyboard-char">{char?.emoji || '🎭'}</span>}
                   <span className="storyboard-text">{line.text}</span>
                 </div>
               )
@@ -1520,7 +1522,9 @@ function SceneCard({
                       style={{ borderLeftColor: color }}
                 >
                   <div className="dialogue-speaker">
-                    <span className="speaker-emoji">{char?.emoji || '🎭'}</span>
+                    {char?.portrait_url
+                      ? <img src={char.portrait_url} alt={char.name} className="dialogue-speaker-portrait" />
+                      : <span className="speaker-emoji">{char?.emoji || '🎭'}</span>}
                     <span className="speaker-name" style={{ color }}>{highlightText(line.character_name, searchQuery)}</span>
                     {emotionRegenIndex === i ? (
                       <span className="emotion-badge emotion-regen-badge">
