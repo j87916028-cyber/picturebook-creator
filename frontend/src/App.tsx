@@ -158,6 +158,11 @@ export default function App() {
   const [undoCharState, setUndoCharState] = useState<UndoCharState | null>(null)
   const undoCharTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Undo-regen state: remembers the scene before regeneration for 10 seconds
+  type UndoRegenState = { sceneId: string; oldScene: Scene }
+  const [undoRegenState, setUndoRegenState] = useState<UndoRegenState | null>(null)
+  const undoRegenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Voice-regen hint: shown when a character voice change cleared existing audio lines
   const [voiceRegenCount, setVoiceRegenCount] = useState(0)
   const voiceRegenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -374,6 +379,8 @@ export default function App() {
     setBatchImageStatus(null)
     setBatchTitleStatus(null)
     setBatchOutlineStatus(null)
+    if (undoRegenTimerRef.current) clearTimeout(undoRegenTimerRef.current)
+    setUndoRegenState(null)
 
     setCurrentProjectId(proj.id)
     setProjectName(proj.name)
@@ -1013,6 +1020,16 @@ export default function App() {
     next.splice(index, 0, char)    // re-insert at original position
     setCharacters(next)
     if (currentProjectId) saveCharacters(currentProjectId, next)
+  }
+
+  const handleUndoRegen = () => {
+    if (!undoRegenState) return
+    if (undoRegenTimerRef.current) clearTimeout(undoRegenTimerRef.current)
+    const { sceneId, oldScene } = undoRegenState
+    setUndoRegenState(null)
+    const next = scenes.map(s => s.id === sceneId ? oldScene : s)
+    setScenes(next)
+    if (currentProjectId) autoSave(currentProjectId, next, characters)
   }
 
   // Reorder scenes by new ID order (from drag-and-drop)
@@ -1882,6 +1899,14 @@ export default function App() {
         setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, prev, characters) }, 0)
         return prev
       })
+
+      // Arm undo-regen toast — allows user to restore the old scene within 10 s
+      // if the regenerated version is worse than the original.
+      if (oldScene.lines.length > 0) {
+        setUndoRegenState({ sceneId, oldScene })
+        if (undoRegenTimerRef.current) clearTimeout(undoRegenTimerRef.current)
+        undoRegenTimerRef.current = setTimeout(() => setUndoRegenState(null), 10000)
+      }
     } catch (e) {
       // Restore old scene so the user doesn't lose their existing content
       setScenes(prev => prev.map(s => s.id === sceneId ? oldScene : s))
@@ -2110,6 +2135,8 @@ export default function App() {
     setBatchImageStatus(null)
     setBatchTitleStatus(null)
     setBatchOutlineStatus(null)
+    if (undoRegenTimerRef.current) clearTimeout(undoRegenTimerRef.current)
+    setUndoRegenState(null)
 
     setCurrentProjectId(id || null)
     setProjectName(name)
@@ -2632,6 +2659,15 @@ export default function App() {
           <span className="undo-toast-msg">👤 角色「{undoCharState.char.emoji} {undoCharState.char.name}」已刪除</span>
           <button className="undo-toast-btn" onClick={handleUndoCharDelete}>復原 (Ctrl+Z)</button>
           <button className="undo-toast-dismiss" onClick={() => { if (undoCharTimerRef.current) clearTimeout(undoCharTimerRef.current); setUndoCharState(null) }} title="關閉">✕</button>
+        </div>
+      )}
+
+      {/* Undo-regen toast: shown after a scene is regenerated */}
+      {undoRegenState && (
+        <div className="undo-toast undo-toast-regen" role="status">
+          <span className="undo-toast-msg">🔄 場景已重新生成</span>
+          <button className="undo-toast-btn" onClick={handleUndoRegen}>還原舊版本</button>
+          <button className="undo-toast-dismiss" onClick={() => { if (undoRegenTimerRef.current) clearTimeout(undoRegenTimerRef.current); setUndoRegenState(null) }} title="關閉">✕</button>
         </div>
       )}
 
