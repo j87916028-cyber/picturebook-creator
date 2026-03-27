@@ -44,6 +44,9 @@ export interface Scene {
   description: string
   style: string
   line_length?: 'short' | 'standard' | 'long'
+  /** Image style (English value) used when generating this scene's illustration.
+   *  Persisted per-scene so regeneration defaults to the original style. */
+  image_style?: string
   /** Private director/author notes — saved to DB but never included in any export */
   notes?: string
   script: ScriptResponse
@@ -81,6 +84,7 @@ export interface ProjectDetail extends ProjectMeta {
     description: string
     style: string
     line_length?: 'short' | 'standard' | 'long'
+    image_style?: string
     notes?: string
     script: ScriptResponse
     lines: ScriptLine[]

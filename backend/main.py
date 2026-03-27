@@ -221,6 +221,14 @@ ALTER TABLE scenes
   ADD COLUMN IF NOT EXISTS is_locked BOOLEAN NOT NULL DEFAULT FALSE;
 """
 
+# Migration: add image_style column to scenes so regeneration can default to
+# the same style that was used when the scene was first generated, even if the
+# user has since changed the global image-style selector.
+_ALTER_SCENES_IMAGE_STYLE = """
+ALTER TABLE scenes
+  ADD COLUMN IF NOT EXISTS image_style VARCHAR(100) NOT NULL DEFAULT '';
+"""
+
 # Indexes: created once at startup; IF NOT EXISTS makes them safe to re-run.
 # idx_scenes_project_id  — speeds up every per-project query (get, save, export, delete)
 #                          PostgreSQL does NOT auto-create an index for FK references.
@@ -252,6 +260,7 @@ async def lifespan(app: FastAPI):
                 await conn.execute(_ALTER_SCENES_TITLE)
                 await conn.execute(_ALTER_SCENES_NOTES)
                 await conn.execute(_ALTER_SCENES_LOCKED)
+                await conn.execute(_ALTER_SCENES_IMAGE_STYLE)
                 await conn.execute(_IDX_SCENES_PROJECT_ID)
                 await conn.execute(_IDX_PROJECTS_UPDATED_AT)
             logger.info("PostgreSQL pool created and schema applied")
@@ -2830,6 +2839,9 @@ class SceneIn(BaseModel):
     description: str = Field("", max_length=500)
     style: str = Field("溫馨童趣", max_length=20)
     line_length: str = Field("standard", max_length=20)
+    # Image style used when the scene was generated; persisted so regeneration
+    # can default back to the same style rather than the current global setting.
+    image_style: str = Field("", max_length=100)
     # Private director/author notes — stored in DB but never included in exports
     notes: str = Field("", max_length=2000)
     script: Dict[str, Any] = {}
@@ -3181,7 +3193,7 @@ async def get_project(project_id: str, request: Request):
         if proj is None:
             raise HTTPException(status_code=404, detail="專案不存在")
         scenes = await conn.fetch(
-            "SELECT id, idx, title, description, style, line_length, script, lines, image, notes, is_locked FROM scenes WHERE project_id = $1 ORDER BY idx",
+            "SELECT id, idx, title, description, style, line_length, image_style, script, lines, image, notes, is_locked FROM scenes WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
     raw_chars = proj["characters"]
@@ -3200,6 +3212,7 @@ async def get_project(project_id: str, request: Request):
                 "description": s["description"],
                 "style": s["style"],
                 "line_length": s["line_length"] or "standard",
+                "image_style": s["image_style"] or "",
                 "script": json.loads(s["script"]) if isinstance(s["script"], str) else s["script"],
                 "lines": json.loads(s["lines"]) if isinstance(s["lines"], str) else s["lines"],
                 "image": s["image"],
@@ -3336,6 +3349,7 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
             scene.description,
             scene.style,
             scene.line_length or "standard",
+            scene.image_style or "",
             json.dumps(scene.script, ensure_ascii=False),
             json.dumps(merged, ensure_ascii=False),
             image,
@@ -3372,8 +3386,8 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
                 try:
                     await conn.executemany(
                         """
-                        INSERT INTO scenes (project_id, idx, title, description, style, line_length, script, lines, image, notes, is_locked)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11)
+                        INSERT INTO scenes (project_id, idx, title, description, style, line_length, image_style, script, lines, image, notes, is_locked)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $12)
                         """,
                         resolved,
                     )

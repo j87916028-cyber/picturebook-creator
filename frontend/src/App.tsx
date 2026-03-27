@@ -318,6 +318,7 @@ export default function App() {
       description: s.description,
       style: s.style,
       line_length: s.line_length ?? 'standard',
+      image_style: s.image_style ?? '',
       notes: s.notes ?? '',
       script: s.script,
       lines: s.lines.map((l: ScriptLine) => l.id ? l : { ...l, id: _lid() }),
@@ -391,6 +392,7 @@ export default function App() {
             description: s.description,
             style: s.style,
             line_length: s.line_length ?? 'standard',
+            image_style: s.image_style ?? '',
             notes: s.notes ?? '',
             is_locked: s.is_locked ?? false,
             script: s.script,
@@ -565,6 +567,7 @@ export default function App() {
       description,
       style,
       line_length: lineLength,
+      image_style: imageStyle,
       script: { lines: [], scene_prompt: '', sfx_description: '' },
       lines: [],
       image: '',
@@ -1600,9 +1603,10 @@ export default function App() {
     // fall back to the scene's stored value, then 'standard' as the global default.
     const effectiveLineLength = lineLength ?? oldScene.line_length ?? 'standard'
 
+    const effectiveImageStyle = imageStyle ?? oldScene.image_style ?? localStorage.getItem('scene_image_style') ?? undefined
     setScenes(prev => prev.map(s =>
       s.id === sceneId
-        ? { ...s, description: newDescription, style, line_length: effectiveLineLength as Scene['line_length'], lines: [], image: '', script: { lines: [], scene_prompt: '', sfx_description: '' } }
+        ? { ...s, description: newDescription, style, line_length: effectiveLineLength as Scene['line_length'], image_style: effectiveImageStyle, lines: [], image: '', script: { lines: [], scene_prompt: '', sfx_description: '' } }
         : s
     ))
 
@@ -1632,7 +1636,7 @@ export default function App() {
           story_context: storyContext,
           line_length: effectiveLineLength,
           line_count: lineCount ?? localStorage.getItem('scene_line_count') ?? 'standard',
-          image_style: imageStyle ?? localStorage.getItem('scene_image_style') ?? undefined,
+          image_style: effectiveImageStyle,
           mood: mood || undefined,
           age_group: ageGroup ?? localStorage.getItem('scene_age_group') ?? 'child',
         }),

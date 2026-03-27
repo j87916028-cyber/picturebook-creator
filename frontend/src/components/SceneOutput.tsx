@@ -560,7 +560,7 @@ function SceneCard({
     (scene.line_length as 'short' | 'standard' | 'long') || 'standard'
   )
   const [regenImageStyle, setRegenImageStyle] = useState<string>(
-    () => localStorage.getItem('scene_image_style') || IMAGE_STYLES[0].value
+    () => scene.image_style || localStorage.getItem('scene_image_style') || IMAGE_STYLES[0].value
   )
   const [regenMood, setRegenMood] = useState<string>(
     () => localStorage.getItem('scene_mood') ?? ''
