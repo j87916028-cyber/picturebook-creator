@@ -2,6 +2,8 @@ import { useRef, useState, useEffect, useCallback } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { Character } from '../types'
 
+interface OutlineScene { title: string; description: string }
+
 interface GenStatus {
   step: string   // 'script' | 'media' | 'done'
   done: number
@@ -180,6 +182,14 @@ export default function SceneEditor({
   const [rateLimitSecs, setRateLimitSecs] = useState(0)
   const rateLimitTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Outline generation state
+  const [showOutlinePanel, setShowOutlinePanel] = useState(false)
+  const [outlineTheme, setOutlineTheme] = useState('')
+  const [outlineSceneCount, setOutlineSceneCount] = useState(5)
+  const [outlineLoading, setOutlineLoading] = useState(false)
+  const [outlineScenes, setOutlineScenes] = useState<OutlineScene[]>([])
+  const [outlineError, setOutlineError] = useState<string | null>(null)
+
   const imageInputRef = useRef<HTMLInputElement>(null)
   const audioInputRef = useRef<HTMLInputElement>(null)
   const descriptionRef = useRef<HTMLTextAreaElement>(null)
@@ -235,6 +245,41 @@ export default function SceneEditor({
       setSuggestLoading(false)
     }
   }, [storyContext, droppedCharacters, style, suggestLoading, rateLimitSecs])
+
+  const handleGenerateOutline = async () => {
+    if (!outlineTheme.trim() || outlineLoading || suggestChars.length === 0) return
+    setOutlineLoading(true)
+    setOutlineError(null)
+    setOutlineScenes([])
+    try {
+      const res = await fetch('/api/generate-outline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          characters: suggestChars,
+          theme: outlineTheme.trim(),
+          style,
+          scene_count: outlineSceneCount,
+        }),
+      })
+      if (res.status === 429) {
+        const wait = parseInt(res.headers.get('Retry-After') ?? '10', 10)
+        setOutlineError(`請求過於頻繁，請 ${wait} 秒後再試`)
+        setTimeout(() => setOutlineError(null), wait * 1000)
+      } else if (res.ok) {
+        const data = await res.json()
+        setOutlineScenes(data.scenes ?? [])
+        if (!data.scenes?.length) setOutlineError('大綱生成失敗，請重試')
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setOutlineError(data.detail || '大綱生成失敗，請重試')
+      }
+    } catch {
+      setOutlineError('網路錯誤，請稍後再試')
+    } finally {
+      setOutlineLoading(false)
+    }
+  }
 
   const handleSuggestMood = async () => {
     if (!description.trim() || suggestingMood) return
@@ -579,6 +624,89 @@ export default function SceneEditor({
                     </div>
                   )
                 })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 🗺️ 故事大綱生成 */}
+        {suggestChars.length > 0 && (
+          <div className="outline-section">
+            <button
+              className={`btn-outline-toggle${showOutlinePanel ? ' active' : ''}`}
+              type="button"
+              onClick={() => { setShowOutlinePanel(v => !v); setOutlineError(null) }}
+              title="AI 一次規劃整本繪本的幕次結構"
+            >
+              🗺️ 生成故事大綱{showOutlinePanel ? ' ▲' : ' ▼'}
+            </button>
+
+            {showOutlinePanel && (
+              <div className="outline-panel">
+                <div className="outline-theme-row">
+                  <input
+                    className="outline-theme-input"
+                    type="text"
+                    placeholder="故事主題或靈感（例如：小兔子在森林裡迷路，遇到新朋友的故事）"
+                    value={outlineTheme}
+                    onChange={e => setOutlineTheme(e.target.value.slice(0, 200))}
+                    onKeyDown={e => { if (e.key === 'Enter') handleGenerateOutline() }}
+                    maxLength={200}
+                  />
+                </div>
+                <div className="outline-controls">
+                  <span className="outline-label">幕數</span>
+                  {[3, 4, 5, 6, 7].map(n => (
+                    <button
+                      key={n}
+                      type="button"
+                      className={`outline-count-btn${outlineSceneCount === n ? ' active' : ''}`}
+                      onClick={() => setOutlineSceneCount(n)}
+                    >{n} 幕</button>
+                  ))}
+                  <button
+                    type="button"
+                    className="btn-outline-gen"
+                    onClick={handleGenerateOutline}
+                    disabled={outlineLoading || !outlineTheme.trim() || suggestChars.length === 0}
+                    title={suggestChars.length === 0 ? '請先建立角色' : ''}
+                  >
+                    {outlineLoading
+                      ? <><span className="spinner spinner-sm" />生成中...</>
+                      : '✨ 生成大綱'}
+                  </button>
+                </div>
+                {outlineError && <div className="suggest-error">{outlineError}</div>}
+                {outlineScenes.length > 0 && (
+                  <div className="outline-scenes">
+                    {outlineScenes.map((scene, i) => (
+                      <div key={i} className="outline-scene-card">
+                        <div className="outline-scene-header">
+                          <span className="outline-scene-num">第 {i + 1} 幕</span>
+                          <span className="outline-scene-title">《{scene.title}》</span>
+                          <button
+                            type="button"
+                            className="outline-scene-use"
+                            onClick={() => setDescription(scene.description)}
+                            title="將此描述填入場景編輯器"
+                          >使用</button>
+                          {droppedCharacters.length > 0 && !isLoading && (generateRateLimitSecs ?? 0) <= 0 && (
+                            <button
+                              type="button"
+                              className="outline-scene-gen"
+                              onClick={() => {
+                                setDescription(scene.description)
+                                onGenerate(scene.description, style, lineLength, false, imageStyle, mood || undefined, lineCount)
+                              }}
+                              title="填入描述並立即生成此場景"
+                            >⚡ 立即生成</button>
+                          )}
+                        </div>
+                        <p className="outline-scene-desc">{scene.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

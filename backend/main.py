@@ -1082,6 +1082,18 @@ class SuggestNextSceneRequest(BaseModel):
     story_context: Optional[str] = Field(None, max_length=5000)  # None = first scene
     style: Optional[str] = Field("溫馨童趣", max_length=20)
 
+
+class GenerateOutlineRequest(BaseModel):
+    characters: Annotated[List[Character], Field(min_length=1, max_length=6)]
+    theme: str = Field(..., min_length=1, max_length=200)
+    style: str = Field("溫馨童趣", max_length=20)
+    scene_count: int = Field(5, ge=3, le=7)
+
+    @field_validator("theme", mode="before")
+    @classmethod
+    def strip_theme(cls, v: str) -> str:
+        return v.strip() if isinstance(v, str) else v
+
 def _is_chinese_text(s: str) -> bool:
     """Return True if the string is predominantly Chinese (>40% CJK characters)."""
     if not s:
@@ -1250,6 +1262,154 @@ async def suggest_next_scene(req: SuggestNextSceneRequest, request: Request):
     if suggestions:
         return {"suggestions": suggestions}
     raise HTTPException(status_code=502, detail="靈感生成失敗")
+
+
+# ── 端點：故事大綱生成 ────────────────────────────────────────
+def _parse_outline(raw: str, expected_count: int) -> list[dict]:
+    """Extract outline scenes from LLM response.
+
+    Returns list of {"title": str, "description": str} dicts.
+    Tries JSON first, then falls back to numbered line parsing.
+    """
+    stripped = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+    search_text = stripped if stripped else raw
+
+    # 1. Find JSON {"scenes": [...]}
+    all_json = re.findall(r'\{[^{}]*"scenes"[^{}]*\}', search_text, re.DOTALL)
+    # Also try to find array-wrapped objects with title/description
+    for candidate in reversed(all_json):
+        try:
+            data = json.loads(candidate)
+            scenes_raw = data.get("scenes", [])
+            scenes = []
+            for s in scenes_raw:
+                if isinstance(s, dict):
+                    title = str(s.get("title", "")).strip()
+                    desc = str(s.get("description", "")).strip()
+                    if title and desc:
+                        scenes.append({"title": title, "description": desc})
+            if len(scenes) >= 2:
+                return scenes[:expected_count]
+        except json.JSONDecodeError:
+            pass
+
+    # 2. Try to find a top-level array in the text
+    array_match = re.search(r'\[\s*\{.*?\}\s*\]', search_text, re.DOTALL)
+    if array_match:
+        try:
+            scenes_raw = json.loads(array_match.group())
+            scenes = []
+            for s in scenes_raw:
+                if isinstance(s, dict):
+                    title = str(s.get("title", "")).strip()
+                    desc = str(s.get("description", "")).strip()
+                    if title and desc:
+                        scenes.append({"title": title, "description": desc})
+            if len(scenes) >= 2:
+                return scenes[:expected_count]
+        except json.JSONDecodeError:
+            pass
+
+    # 3. Fall back: extract numbered sections like "第一幕：\n描述..."
+    scenes = []
+    blocks = re.split(r'\n(?=第[一二三四五六七]幕|幕次\s*\d)', search_text)
+    for block in blocks:
+        title_m = re.search(r'[「『【]?([^」』】\n]{2,12})[」』】]?', block[:40])
+        desc_m = re.search(r'描述[：:]?\s*(.{10,100})', block)
+        if not desc_m:
+            lines = [l.strip() for l in block.split('\n') if len(l.strip()) >= 10]
+            if len(lines) >= 2:
+                desc_m_text = lines[1]
+            elif len(lines) == 1:
+                desc_m_text = lines[0]
+            else:
+                continue
+        else:
+            desc_m_text = desc_m.group(1).strip()
+        if title_m and desc_m_text:
+            scenes.append({"title": title_m.group(1).strip(), "description": desc_m_text})
+
+    return scenes[:expected_count]
+
+
+@app.post("/api/generate-outline")
+async def generate_outline(req: GenerateOutlineRequest, request: Request):
+    """Generate a complete N-scene story outline from a theme + characters."""
+    ip = _client_ip(request)
+    if not _rl_suggest_scene.is_allowed(ip):
+        raise _rl_429(_rl_suggest_scene, ip)
+    if not MINIMAX_API_KEY and not GROQ_API_KEY:
+        raise HTTPException(status_code=503, detail="服務未設定")
+
+    char_desc = "、".join(f"{c.name}（{c.personality}）" for c in req.characters)
+    prompt = f"""你是台灣繪本故事作家。請根據以下設定，為整本繪本規劃 {req.scene_count} 幕的完整故事大綱。
+
+角色：{char_desc}
+故事主題或靈感：{req.theme}
+故事風格：{req.style}
+
+請提供 {req.scene_count} 幕的大綱，每幕包含「title」（幕次標題，4-8字）和「description」（場景描述，20-50字）。
+
+直接輸出 JSON，格式如下，不要任何多餘說明：
+{{"scenes": [{{"title": "幕次標題", "description": "場景描述"}}, ...]}}
+
+注意：
+- 使用台灣繁體中文
+- 每幕描述要具體生動，包含角色名字和主要動作
+- 故事要有起承轉合：第一幕吸引人，中間有衝突或驚喜，最後一幕圓滿收場
+- 簡潔易懂，適合兒童繪本"""
+
+    raw_content: str | None = None
+
+    if MINIMAX_API_KEY:
+        try:
+            resp = await _http_client.post(
+                f"{MINIMAX_BASE}/chat/completions",
+                headers=MINIMAX_HEADERS,
+                json={
+                    "model": "MiniMax-M2.7",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.8,
+                    "max_tokens": 800,
+                },
+                timeout=45,
+            )
+            resp.raise_for_status()
+            content = resp.json()["choices"][0]["message"].get("content", "")
+            if isinstance(content, list):
+                content = " ".join(b.get("text", "") for b in content if b.get("type") == "text")
+            raw_content = str(content)
+            logger.info("generate-outline via MiniMax")
+        except Exception as e:
+            logger.warning("generate-outline MiniMax failed: %s", e)
+
+    if not raw_content and GROQ_API_KEY:
+        try:
+            resp = await _http_client.post(
+                GROQ_CHAT_URL,
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+                json={
+                    "model": GROQ_QUALITY_MODEL,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.8,
+                    "max_tokens": 800,
+                },
+                timeout=35,
+            )
+            resp.raise_for_status()
+            raw_content = str(resp.json()["choices"][0]["message"].get("content", ""))
+            logger.info("generate-outline via Groq fallback")
+        except Exception as e:
+            logger.warning("generate-outline Groq failed: %s", e)
+
+    if not raw_content:
+        raise HTTPException(status_code=502, detail="大綱生成失敗，請重試")
+
+    scenes = _parse_outline(raw_content, req.scene_count)
+    if not scenes:
+        raise HTTPException(status_code=502, detail="大綱解析失敗，請重試")
+
+    return {"scenes": scenes}
 
 
 # ── 端點：AI 情感基調建議 ────────────────────────────────────
