@@ -4169,18 +4169,27 @@ def _export_html(
     if characters:
         char_cards = ""
         for c in characters:
-            name       = html.escape(str(c.get("name", "")))
-            emoji      = html.escape(str(c.get("emoji", "🎭")))
+            name        = html.escape(str(c.get("name", "")))
+            emoji       = html.escape(str(c.get("emoji", "🎭")))
             personality = html.escape(str(c.get("personality", "")))
-            color      = _safe_css_color(c.get("color", ""), fallback="#667eea")
-            line_count = char_line_counts.get(c.get("name", ""), 0)
-            line_badge = (
+            color       = _safe_css_color(c.get("color", ""), fallback="#667eea")
+            portrait_url = c.get("portrait_url", "") or ""
+            line_count  = char_line_counts.get(c.get("name", ""), 0)
+            line_badge  = (
                 f'<div class="char-intro-lines" style="color:{color}">{line_count} 句</div>'
                 if line_count > 0 else ""
             )
+            # Show portrait if it's a safe data URI; otherwise fall back to emoji.
+            # _safe_data_uri is checked via startswith("data:image/") to allow only
+            # image data URIs — prevents arbitrary data: URLs from leaking.
+            if portrait_url.startswith("data:image/"):
+                safe_src = html.escape(portrait_url, quote=True)
+                avatar_html = f'<img class="char-intro-portrait" src="{safe_src}" alt="{name}"/>'
+            else:
+                avatar_html = f'<div class="char-intro-emoji">{emoji}</div>'
             char_cards += f"""
       <div class="char-intro-card" style="border-top-color:{color}">
-        <div class="char-intro-emoji">{emoji}</div>
+        {avatar_html}
         <div class="char-intro-name" style="color:{color}">{name}</div>
         {f'<div class="char-intro-personality">{personality}</div>' if personality else ''}
         {line_badge}
@@ -4318,6 +4327,7 @@ def _export_html(
       box-shadow: 0 1px 6px rgba(0,0,0,0.06);
     }}
     .char-intro-emoji {{ font-size: 2rem; line-height: 1.2; margin-bottom: 4px; }}
+    .char-intro-portrait {{ width: 64px; height: 64px; border-radius: 50%; object-fit: cover; display: block; margin: 0 auto 6px; border: 2px solid #e0e0e0; }}
     .char-intro-name {{ font-weight: 800; font-size: 0.95rem; margin-bottom: 4px; }}
     .char-intro-personality {{ font-size: 0.75rem; color: #888; line-height: 1.4; max-width: 120px; }}
     .char-intro-lines {{ font-size: 0.72rem; font-weight: 700; margin-top: 5px; opacity: 0.85; }}
