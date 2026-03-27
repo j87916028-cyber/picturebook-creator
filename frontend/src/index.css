@@ -4005,6 +4005,12 @@ kbd {
   font-size: 2rem; line-height: 1;
   animation: speaker-bounce 0.4s ease-out both;
 }
+.playback-speaker-portrait {
+  width: 48px; height: 48px; border-radius: 50%;
+  object-fit: cover; flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,0.25);
+  animation: speaker-bounce 0.4s ease-out both;
+}
 @keyframes speaker-bounce {
   0%   { transform: scale(0.7); }
   60%  { transform: scale(1.18); }
@@ -4085,6 +4091,12 @@ kbd {
 .transcript-char {
   font-size: 0.8rem; font-weight: 700;
   display: flex; align-items: center; gap: 6px;
+}
+.transcript-char-portrait {
+  width: 20px; height: 20px; border-radius: 50%;
+  object-fit: cover; flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.2);
+  vertical-align: middle;
 }
 .transcript-emotion {
   font-size: 0.68rem; color: rgba(255,255,255,0.45);

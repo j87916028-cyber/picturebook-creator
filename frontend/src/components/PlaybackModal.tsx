@@ -405,7 +405,10 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
         {/* Speaking character indicator */}
         {currentChar && playing && (
           <div className="playback-speaker-bar">
-            <span className="playback-speaker-emoji" key={cursor}>{currentChar.emoji}</span>
+            {currentChar.portrait_url
+              ? <img key={cursor} src={currentChar.portrait_url} alt={currentChar.name}
+                     className="playback-speaker-portrait" />
+              : <span className="playback-speaker-emoji" key={cursor}>{currentChar.emoji}</span>}
             <span className="playback-speaker-name" style={{ color: currentChar.color }}>
               {currentChar.name}
             </span>
@@ -441,7 +444,9 @@ export default function PlaybackModal({ scenes, characters, onClose, initialScen
                 title={hasAudio && !isActive ? '點擊跳至此句' : undefined}
               >
                 <span className="transcript-char" style={{ color: char?.color }}>
-                  {char?.emoji} {line.character_name}
+                  {char?.portrait_url
+                    ? <img src={char.portrait_url} alt={char.name} className="transcript-char-portrait" />
+                    : char?.emoji}{' '}{line.character_name}
                   {emotion && <span className="transcript-emotion">{emotion}</span>}
                 </span>
                 <span className="transcript-text">{line.text}</span>
