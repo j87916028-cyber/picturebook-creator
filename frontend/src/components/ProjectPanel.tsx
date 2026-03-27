@@ -9,9 +9,24 @@ interface Props {
   onProjectNameChange: (name: string) => void
 }
 
-function formatDate(iso: string): string {
+function formatDateAbsolute(iso: string): string {
   const d = new Date(iso)
   return d.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function formatDate(iso: string): string {
+  const now = Date.now()
+  const diff = now - new Date(iso).getTime()
+  if (diff < 0) return formatDateAbsolute(iso)
+  const secs = Math.floor(diff / 1000)
+  if (secs < 60) return '剛剛'
+  const mins = Math.floor(secs / 60)
+  if (mins < 60) return `${mins} 分鐘前`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs} 小時前`
+  const days = Math.floor(hrs / 24)
+  if (days < 7) return `${days} 天前`
+  return formatDateAbsolute(iso)
 }
 
 /** Format estimated audio duration from total dialogue character count.
@@ -295,7 +310,7 @@ export default function ProjectPanel({
                   title="雙擊重新命名"
                 >{p.name}</span>
               )}
-              <span className="project-meta">
+              <span className="project-meta" title={formatDateAbsolute(p.updated_at)}>
                 {(() => {
                   const dur = formatDuration(p.total_chars)
                   return `${p.scene_count} 幕${p.line_count ? `・${p.line_count} 句` : ''}${dur ? `・🎙 ${dur}` : ''}・${formatDate(p.updated_at)}`
