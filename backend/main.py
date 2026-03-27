@@ -381,6 +381,9 @@ VOICES = [
 ]
 
 VALID_VOICE_IDS = {v["id"] for v in VOICES}
+VALID_EMOTIONS: frozenset[str] = frozenset(
+    {"happy", "sad", "angry", "surprised", "fearful", "disgusted", "neutral"}
+)
 
 # MiniMax voice ID → Groq Orpheus voice
 VOICE_TO_GROQ = {
@@ -695,6 +698,18 @@ class GenerateVoiceRequest(BaseModel):
         if v not in VALID_VOICE_IDS:
             raise ValueError("無效的 voice_id")
         return v
+
+    @field_validator("emotion", mode="before")
+    @classmethod
+    def emotion_must_be_valid(cls, v: object) -> Optional[str]:
+        if v is None:
+            return None
+        s = str(v).strip().lower()
+        if not s:
+            return None
+        if s not in VALID_EMOTIONS:
+            raise ValueError(f"無效的情緒值：{v!r}，允許值：{sorted(VALID_EMOTIONS)}")
+        return s
 
 class GenerateImageRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=1000)
@@ -2335,11 +2350,6 @@ class CreateProjectRequest(BaseModel):
 class RenameProjectRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
 
-_VALID_EMOTIONS: frozenset[str] = frozenset(
-    {"happy", "sad", "angry", "surprised", "fearful", "disgusted", "neutral"}
-)
-
-
 class SceneLineIn(BaseModel):
     """Typed representation of a single dialogue line stored in a scene."""
     character_id: str = Field("", max_length=64)
@@ -2364,7 +2374,7 @@ class SceneLineIn(BaseModel):
         if v is None:
             return "neutral"
         s = str(v).lower().strip()
-        return s if s in _VALID_EMOTIONS else "neutral"
+        return s if s in VALID_EMOTIONS else "neutral"
 
     @field_validator("audio_format", mode="before")
     @classmethod
@@ -2623,7 +2633,7 @@ async def import_project_json(req: ImportJsonRequest, request: Request):
             if not text:
                 continue
             emotion = str(ln.get("emotion") or "neutral")
-            if emotion not in _VALID_EMOTIONS:
+            if emotion not in VALID_EMOTIONS:
                 emotion = "neutral"
             v_id = str(ln.get("voice_id") or _DEFAULT_VOICE)
             if v_id not in VALID_VOICE_IDS:
