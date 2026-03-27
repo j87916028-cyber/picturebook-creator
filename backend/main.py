@@ -5523,8 +5523,11 @@ async def export_project(
             detail=f"匯出失敗（{type(exc).__name__}），請重試或改用其他格式",
         )
 
-    # URL-encode filename for Content-Disposition (RFC 5987)
-    encoded_filename = urllib.parse.quote(filename)
+    # URL-encode filename for Content-Disposition (RFC 5987).
+    # safe='' encodes ALL characters including / (default safe='/'),
+    # so project names like "小兔/冒險" don't produce a bare slash
+    # that some browsers interpret as a directory separator.
+    encoded_filename = urllib.parse.quote(filename, safe='')
     # `inline=True` is intended for HTML previews opened in a new browser tab;
     # the browser renders the document instead of triggering a download.
     disposition = "inline" if (inline and format == "html") else "attachment"
