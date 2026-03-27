@@ -3644,6 +3644,12 @@ body {
   font-size: 0.8rem; font-weight: 700; letter-spacing: 0.02em;
   display: flex; align-items: center; gap: 5px;
 }
+.book-line-portrait {
+  width: 22px; height: 22px; border-radius: 50%;
+  object-fit: cover; flex-shrink: 0;
+  border: 1.5px solid currentColor;
+  opacity: 0.92;
+}
 .book-line-emotion {
   font-size: 0.85rem; opacity: 0.75; margin-left: 1px;
 }

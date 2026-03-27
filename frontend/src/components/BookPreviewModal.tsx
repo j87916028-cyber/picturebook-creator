@@ -545,7 +545,9 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
                     title={hasAudio ? (isPlaying ? '點擊停止' : '點擊播放此句配音') : undefined}
                   >
                     <div className="book-line-speaker" style={{ color: char?.color ?? '#555' }}>
-                      {char?.emoji ?? '🎭'} {line.character_name}
+                      {char?.portrait_url
+                        ? <img src={char.portrait_url} alt={char.name} className="book-line-portrait" />
+                        : (char?.emoji ?? '🎭')}{' '}{line.character_name}
                       {line.emotion && line.emotion !== 'neutral' && EMOTION_LABELS[line.emotion] && (
                         <span className="book-line-emotion" title={line.emotion}>
                           {EMOTION_LABELS[line.emotion]}

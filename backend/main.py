@@ -4691,6 +4691,7 @@ def _export_json_backup(project_name: str, scenes: list, characters: list) -> by
                 "description":     s.get("description", ""),
                 "style":           s.get("style", ""),
                 "line_length":     s.get("line_length", "standard") or "standard",
+                "image_style":     s.get("image_style", "") or "",
                 "notes":           s.get("notes", "") or "",
                 "is_locked":       bool(s.get("is_locked", False)),
                 "scene_prompt":    s.get("scene_prompt", "") or "",
@@ -4742,7 +4743,7 @@ async def export_project(
         if proj is None:
             raise HTTPException(status_code=404, detail="專案不存在")
         scene_rows = await conn.fetch(
-            f"SELECT idx, title, description, style, line_length, notes, script, lines, {_image_col} FROM scenes "
+            f"SELECT idx, title, description, style, line_length, image_style, notes, script, lines, {_image_col} FROM scenes "
             "WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
