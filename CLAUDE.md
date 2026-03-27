@@ -61,7 +61,7 @@ Key endpoint groups:
 | `POST /api/suggest-*` | AI suggestions: personality, visual, next-scene, title, line, rephrase |
 | `GET/POST/PATCH/DELETE /api/projects` | Project CRUD |
 | `PUT /api/projects/{id}/scenes` | Auto-save scenes + characters + cover thumbnail |
-| `GET /api/projects/{id}/export` | Export as pdf/epub/html/mp3/txt |
+| `GET /api/projects/{id}/export` | Export as pdf/epub/html/mp3/txt/srt/md/images/json |
 
 **Voice synthesis chain** (in priority order):
 1. iFlytek (科大訊飛) — if `XFYUN_*` keys set; best Chinese quality
@@ -93,16 +93,19 @@ All external calls use `httpx` with explicit timeouts (90 s LLM, 60 s image, 30 
 ### Frontend Components (`frontend/src/`)
 
 ```
-App.tsx               — State root; orchestrates the full generation flow
-types/index.ts        — Shared TypeScript interfaces (Character, ScriptLine, Scene, etc.)
+App.tsx                      — State root; orchestrates the full generation flow
+types/index.ts               — Shared TypeScript interfaces (Character, ScriptLine, Scene, etc.)
 components/
-  CharacterPanel.tsx  — Character creation form (emoji, name, personality, voice, color)
-  CharacterCard.tsx   — Single character display card
-  SceneEditor.tsx     — Drop-zone, description textarea, style/length selectors, Generate button
-  SceneOutput.tsx     — Scene cards with script, per-line audio, image, inline editing
-  PlaybackModal.tsx   — Full-screen cross-scene audio playback (speed, volume, loop, keyboard shortcuts)
-  ProjectPanel.tsx    — Project list, create/load/rename/delete/duplicate
-index.css             — All styling (CSS custom properties, responsive grid)
+  CharacterPanel.tsx         — Character creation form (emoji, name, personality, voice, color)
+  CharacterCard.tsx          — Single character display card
+  SceneEditor.tsx            — Drop-zone, description textarea, style/length selectors, Generate button
+  SceneOutput.tsx            — Scene cards with script, per-line audio, image, inline editing
+  PlaybackModal.tsx          — Full-screen cross-scene audio playback (speed, volume, loop, keyboard shortcuts)
+  BookPreviewModal.tsx       — Fullscreen page-flip reading mode with per-scene narration
+  ProjectPanel.tsx           — Project list, create/load/rename/delete/duplicate
+  KeyboardShortcutsModal.tsx — Keyboard shortcut reference (? key)
+  ErrorBoundary.tsx          — Top-level crash recovery screen
+index.css                    — All styling (CSS custom properties, responsive grid)
 ```
 
 State lives in `App.tsx`; no external state library. Drag-and-drop uses `@dnd-kit`. Generation requests support cancellation via `AbortController`. Voice tasks run with `throttled()` (max 4 concurrent).
@@ -144,11 +147,36 @@ Copy `backend/.env.example` to `backend/.env`:
 
 ## Key Implementation Notes
 
-- Export formats (pdf/epub/html/mp3/txt) all run via `loop.run_in_executor()` — they are CPU-bound and must not block the event loop.
+- Export formats (pdf/epub/html/mp3/txt/srt/md/images/json) run via `loop.run_in_executor()` with `asyncio.wait_for(timeout=300)` — CPU-bound and must not block the event loop; Nginx export route has a matching 310 s `proxy_read_timeout`.
 - The TTS LRU cache key is a `(voice_id, emotion, text)` tuple — not a string — to prevent false hits when `text` contains `:`.
 - `_client_ip()` reads `X-Real-IP` (set by Nginx) first; never uses the first entry of `X-Forwarded-For` (client-spoofable).
 - `list_projects` caps results at `LIMIT 200` to bound the expensive JOIN + thumbnail payload.
 - All `suggest-*` AI endpoints accept a `style` parameter; frontend reads it from `localStorage['scene_style']`.
 - Voice text is capped at 200 chars; scene description at 500 chars; image prompt at 1000 chars — all validated with Pydantic.
 - `_validate_uuid()` is called on every path parameter that accepts a project UUID.
+- `recognize-image` and `transcribe` endpoints validate file content via magic bytes (not just Content-Type header).
+- `GET /api/projects/{id}` returns `ETag` + `Cache-Control: no-cache`; on `If-None-Match` match returns 304 (skips scenes query).
+- `asyncpg.create_pool(command_timeout=30)` prevents hung queries from exhausting the 5-connection pool.
 - Nginx `client_max_body_size` is 50 MB.
+
+## Security Headers
+
+Nginx (`frontend/nginx.conf`) and the FastAPI middleware apply:
+
+| Header | Value |
+|---|---|
+| `Content-Security-Policy` | `script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' data: blob:; object-src 'none'; frame-ancestors 'none'` |
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `DENY` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` |
+| `server_tokens` | `off` (hides Nginx version) |
+
+## Infrastructure
+
+- **Docker healthcheck**: backend checks `/api/health`; frontend waits for `condition: service_healthy`.
+- **Log rotation**: all services use `json-file` driver with size caps (backend 20 MB × 5, postgres 10 MB × 3, frontend 5 MB × 3).
+- **Non-root**: backend Dockerfile runs uvicorn as `appuser`, not root.
+- **Reproducible builds**: frontend uses `npm ci` with `package-lock.json`.
+- **Gzip**: Nginx compresses JSON API responses and static assets (`gzip_comp_level 6`).
+- **PWA**: `manifest.json` + meta tags enable "Add to Home Screen" on mobile/desktop.
