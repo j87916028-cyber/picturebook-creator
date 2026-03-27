@@ -104,6 +104,9 @@ async function throttled<T>(
   await Promise.all(Array.from({ length: Math.min(concurrency, total) }, run))
 }
 
+/** Generate a short stable ID for a ScriptLine (7 random base-36 chars). */
+const _lid = () => Math.random().toString(36).slice(2, 9)
+
 export default function App() {
   const [characters, setCharacters] = useState<Character[]>([])
   const [droppedCharacters, setDroppedCharacters] = useState<Character[]>([])
@@ -317,7 +320,7 @@ export default function App() {
       line_length: s.line_length ?? 'standard',
       notes: s.notes ?? '',
       script: s.script,
-      lines: s.lines,
+      lines: s.lines.map((l: ScriptLine) => l.id ? l : { ...l, id: _lid() }),
       image: s.image,
       voices_attempted: true,  // scenes from DB are fully generated
       is_locked: s.is_locked ?? false,
@@ -618,7 +621,7 @@ export default function App() {
       updateScene(s => ({
         ...s,
         script,
-        lines: script.lines.map(l => ({ ...l })),
+        lines: script.lines.map(l => ({ ...l, id: _lid() })),
         // Apply LLM-suggested title only if user hasn't set one (preserves manual edits)
         title: s.title || llmTitle,
       }))
@@ -896,13 +899,17 @@ export default function App() {
   const handleLineEditConfirm = useCallback(async (sceneId: string, lineIndex: number, newText: string) => {
     const scene = scenes.find(s => s.id === sceneId)
     if (!scene) return
-    const { voice_id, emotion } = scene.lines[lineIndex]
+    const line = scene.lines[lineIndex]
+    const { voice_id, emotion } = line
+    const lineId = line.id
 
     // 1. Commit new text + clear stale audio immediately
     const next = scenes.map(s => {
       if (s.id !== sceneId) return s
       const lines = [...s.lines]
-      lines[lineIndex] = { ...lines[lineIndex], text: newText, audio_base64: undefined, audio_format: undefined }
+      const idx = lineId ? lines.findIndex(l => l.id === lineId) : lineIndex
+      if (idx === -1) return s
+      lines[idx] = { ...lines[idx], text: newText, audio_base64: undefined, audio_format: undefined }
       return { ...s, lines }
     })
     setScenes(next)
@@ -921,7 +928,9 @@ export default function App() {
         const updated = prev.map(s => {
           if (s.id !== sceneId) return s
           const lines = [...s.lines]
-          lines[lineIndex] = { ...lines[lineIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+          const idx = lineId ? lines.findIndex(l => l.id === lineId) : lineIndex
+          if (idx === -1) return s
+          lines[idx] = { ...lines[idx], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
           return { ...s, lines }
         })
         setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, updated, characters) }, 0)
@@ -1010,6 +1019,7 @@ export default function App() {
 
     const insertAt = insertAfterIndex !== undefined ? insertAfterIndex + 1 : scene.lines.length
     const newLine = {
+      id: _lid(),
       character_name: character.name,
       character_id: character.id,
       voice_id: character.voice_id,
@@ -1033,10 +1043,10 @@ export default function App() {
       setScenes(prev => {
         const next = prev.map(s => {
           if (s.id !== sceneId) return s
+          const idx = s.lines.findIndex(l => l.id === newLine.id)
+          if (idx === -1) return s
           const lines = [...s.lines]
-          if (lines[insertAt]) {
-            lines[insertAt] = { ...lines[insertAt], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
-          }
+          lines[idx] = { ...lines[idx], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
           return { ...s, lines }
         })
         setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
@@ -1051,6 +1061,7 @@ export default function App() {
     if (!scene) return
     const src = scene.lines[lineIndex]
     const clone = {
+      id: _lid(),  // new ID — clone is a distinct line, not the same as the source
       character_name: src.character_name,
       character_id: src.character_id,
       voice_id: src.voice_id,
@@ -1075,10 +1086,10 @@ export default function App() {
       setScenes(prev => {
         const next = prev.map(s => {
           if (s.id !== sceneId) return s
+          const idx = s.lines.findIndex(l => l.id === clone.id)
+          if (idx === -1) return s
           const lines = [...s.lines]
-          if (lines[insertAt]) {
-            lines[insertAt] = { ...lines[insertAt], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
-          }
+          lines[idx] = { ...lines[idx], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
           return { ...s, lines }
         })
         setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
@@ -1092,21 +1103,26 @@ export default function App() {
     const scene = scenes.find(s => s.id === sceneId)
     if (!scene) return
     const line = scene.lines[lineIndex]
-    // Snapshot old audio so we can restore it if the request fails
+    // Snapshot stable ID + old audio for restore-on-failure
+    const lineId     = line.id
     const prevAudio  = line.audio_base64
     const prevFormat = line.audio_format
-    // Mark as loading (clear audio)
+    // Mark as loading (clear audio) — use ID if available, fall back to index
     setScenes(prev => prev.map(s => {
       if (s.id !== sceneId) return s
       const lines = [...s.lines]
-      lines[lineIndex] = { ...lines[lineIndex], audio_base64: undefined, audio_format: undefined }
+      const idx = lineId ? lines.findIndex(l => l.id === lineId) : lineIndex
+      if (idx === -1) return s
+      lines[idx] = { ...lines[idx], audio_base64: undefined, audio_format: undefined }
       return { ...s, lines }
     }))
     const restoreOldAudio = () => {
       setScenes(prev => prev.map(s => {
         if (s.id !== sceneId) return s
         const lines = [...s.lines]
-        lines[lineIndex] = { ...lines[lineIndex], audio_base64: prevAudio, audio_format: prevFormat }
+        const idx = lineId ? lines.findIndex(l => l.id === lineId) : lineIndex
+        if (idx === -1) return s
+        lines[idx] = { ...lines[idx], audio_base64: prevAudio, audio_format: prevFormat }
         return { ...s, lines }
       }))
     }
@@ -1122,7 +1138,9 @@ export default function App() {
         const next = prev.map(s => {
           if (s.id !== sceneId) return s
           const lines = [...s.lines]
-          lines[lineIndex] = { ...lines[lineIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+          const idx = lineId ? lines.findIndex(l => l.id === lineId) : lineIndex
+          if (idx === -1) return s
+          lines[idx] = { ...lines[idx], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
           return { ...s, lines }
         })
         setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
@@ -1136,20 +1154,25 @@ export default function App() {
     const scene = scenes.find(s => s.id === sceneId)
     if (!scene) return
     const line = scene.lines[lineIndex]
+    const lineId     = line.id
     const prevAudio  = line.audio_base64
     const prevFormat = line.audio_format
     // Update emotion + clear stale audio immediately
     setScenes(prev => prev.map(s => {
       if (s.id !== sceneId) return s
       const lines = [...s.lines]
-      lines[lineIndex] = { ...lines[lineIndex], emotion: newEmotion, audio_base64: undefined, audio_format: undefined }
+      const idx = lineId ? lines.findIndex(l => l.id === lineId) : lineIndex
+      if (idx === -1) return s
+      lines[idx] = { ...lines[idx], emotion: newEmotion, audio_base64: undefined, audio_format: undefined }
       return { ...s, lines }
     }))
     const restoreOldAudio = () => {
       setScenes(prev => prev.map(s => {
         if (s.id !== sceneId) return s
         const lines = [...s.lines]
-        lines[lineIndex] = { ...lines[lineIndex], audio_base64: prevAudio, audio_format: prevFormat }
+        const idx = lineId ? lines.findIndex(l => l.id === lineId) : lineIndex
+        if (idx === -1) return s
+        lines[idx] = { ...lines[idx], audio_base64: prevAudio, audio_format: prevFormat }
         return { ...s, lines }
       }))
     }
@@ -1165,7 +1188,9 @@ export default function App() {
         const next = prev.map(s => {
           if (s.id !== sceneId) return s
           const lines = [...s.lines]
-          lines[lineIndex] = { ...lines[lineIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+          const idx = lineId ? lines.findIndex(l => l.id === lineId) : lineIndex
+          if (idx === -1) return s
+          lines[idx] = { ...lines[idx], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
           return { ...s, lines }
         })
         setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)
@@ -1180,6 +1205,7 @@ export default function App() {
     const newChar = characters.find(c => c.id === newCharacterId)
     if (!scene || !newChar) return
     const line = scene.lines[lineIndex]
+    const lineId = line.id
     // Snapshot old character state for rollback on failure
     const prevCharId   = line.character_id
     const prevCharName = line.character_name
@@ -1190,8 +1216,10 @@ export default function App() {
     setScenes(prev => prev.map(s => {
       if (s.id !== sceneId) return s
       const lines = [...s.lines]
-      lines[lineIndex] = {
-        ...lines[lineIndex],
+      const idx = lineId ? lines.findIndex(l => l.id === lineId) : lineIndex
+      if (idx === -1) return s
+      lines[idx] = {
+        ...lines[idx],
         character_id: newChar.id,
         character_name: newChar.name,
         voice_id: newChar.voice_id,
@@ -1204,8 +1232,10 @@ export default function App() {
       setScenes(prev => prev.map(s => {
         if (s.id !== sceneId) return s
         const lines = [...s.lines]
-        lines[lineIndex] = {
-          ...lines[lineIndex],
+        const idx = lineId ? lines.findIndex(l => l.id === lineId) : lineIndex
+        if (idx === -1) return s
+        lines[idx] = {
+          ...lines[idx],
           character_id: prevCharId,
           character_name: prevCharName,
           voice_id: prevVoiceId,
@@ -1227,7 +1257,9 @@ export default function App() {
         const next = prev.map(s => {
           if (s.id !== sceneId) return s
           const lines = [...s.lines]
-          lines[lineIndex] = { ...lines[lineIndex], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+          const idx = lineId ? lines.findIndex(l => l.id === lineId) : lineIndex
+          if (idx === -1) return s
+          lines[idx] = { ...lines[idx], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
           return { ...s, lines }
         })
         setTimeout(() => { if (currentProjectId) autoSave(currentProjectId, next, characters) }, 0)

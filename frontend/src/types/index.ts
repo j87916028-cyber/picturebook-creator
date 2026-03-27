@@ -16,6 +16,10 @@ export interface Character {
 }
 
 export interface ScriptLine {
+  /** Stable client-side ID assigned when the line is first created.
+   *  Used to correctly route async voice results back to the right line
+   *  even if the user reorders lines while a voice request is in flight. */
+  id?: string
   character_name: string
   character_id: string
   voice_id: string
