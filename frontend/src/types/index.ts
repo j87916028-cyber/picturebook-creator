@@ -64,6 +64,18 @@ export interface Scene {
   is_locked?: boolean
 }
 
+/** Canonical emotion metadata used by SceneOutput, PlaybackModal, BookPreviewModal, and App.
+ *  Single source of truth — add / rename emotions here only. */
+export const EMOTION_META: Record<string, { emoji: string; label: string; color: string }> = {
+  happy:     { emoji: '😄', label: '開心', color: '#4caf50' },
+  sad:       { emoji: '😢', label: '難過', color: '#5c9bd6' },
+  angry:     { emoji: '😠', label: '生氣', color: '#e53935' },
+  surprised: { emoji: '😲', label: '驚訝', color: '#ff9800' },
+  fearful:   { emoji: '😨', label: '害怕', color: '#7c4dff' },
+  disgusted: { emoji: '🤢', label: '厭惡', color: '#78909c' },
+  neutral:   { emoji: '😐', label: '平靜', color: '#bdbdbd' },
+}
+
 export const CHARACTER_COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
   '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F',

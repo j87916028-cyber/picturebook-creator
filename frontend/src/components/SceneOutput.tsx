@@ -6,7 +6,7 @@ import {
   SortableContext, useSortable, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Scene, Character, ScriptLine } from '../types'
+import { Scene, Character, ScriptLine, EMOTION_META } from '../types'
 import PlaybackModal from './PlaybackModal'
 import BookPreviewModal from './BookPreviewModal'
 
@@ -44,25 +44,13 @@ const IMAGE_STYLES = [
   { label: '3D 卡通',  value: '3D render cartoon, Pixar style, vibrant colors' },
 ]
 
-const EMOTION_LABELS: Record<string, string> = {
-  happy:     '😄 開心',
-  sad:       '😢 難過',
-  angry:     '😠 生氣',
-  surprised: '😲 驚訝',
-  fearful:   '😨 害怕',
-  disgusted: '🤢 厭惡',
-  neutral:   '😐 平靜',
-}
+const EMOTION_LABELS = Object.fromEntries(
+  Object.entries(EMOTION_META).map(([k, v]) => [k, `${v.emoji} ${v.label}`])
+) as Record<string, string>
 
-const EMOTION_COLORS: Record<string, string> = {
-  happy:     '#4caf50',
-  sad:       '#5c9bd6',
-  angry:     '#e53935',
-  surprised: '#ff9800',
-  fearful:   '#7c4dff',
-  disgusted: '#78909c',
-  neutral:   '#bdbdbd',
-}
+const EMOTION_COLORS = Object.fromEntries(
+  Object.entries(EMOTION_META).map(([k, v]) => [k, v.color])
+) as Record<string, string>
 
 /** Return the most-frequent non-neutral emotion across a scene's lines, or 'neutral'. */
 function dominantEmotion(lines: { emotion?: string }[]): string {

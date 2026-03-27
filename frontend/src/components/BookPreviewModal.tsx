@@ -1,14 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Scene, Character } from '../types'
+import { Scene, Character, EMOTION_META } from '../types'
 
-const EMOTION_LABELS: Record<string, string> = {
-  happy:     '😄',
-  sad:       '😢',
-  angry:     '😠',
-  surprised: '😲',
-  fearful:   '😨',
-  disgusted: '🤢',
-}
+// emoji-only labels for the compact book preview display
+const EMOTION_LABELS = Object.fromEntries(
+  Object.entries(EMOTION_META).map(([k, v]) => [k, v.emoji])
+) as Record<string, string>
 
 interface Props {
   scenes: Scene[]

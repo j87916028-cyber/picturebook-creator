@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { DndContext, DragEndEvent } from '@dnd-kit/core'
-import { Character, ScriptLine, ScriptResponse, Scene, ProjectDetail } from './types'
+import { Character, ScriptLine, ScriptResponse, Scene, ProjectDetail, EMOTION_META } from './types'
 import CharacterPanel from './components/CharacterPanel'
 import SceneEditor from './components/SceneEditor'
 import SceneOutput from './components/SceneOutput'
@@ -2455,15 +2455,6 @@ export default function App() {
 
                   {/* Emotion arc — dominant emotion per scene as coloured dots */}
                   {scenes.length >= 2 && (() => {
-                    const _emotionMeta: Record<string, { emoji: string; label: string; color: string }> = {
-                      happy:     { emoji: '😄', label: '開心',  color: '#48bb78' },
-                      sad:       { emoji: '😢', label: '難過',  color: '#4299e1' },
-                      angry:     { emoji: '😠', label: '生氣',  color: '#fc8181' },
-                      surprised: { emoji: '😲', label: '驚訝',  color: '#ed8936' },
-                      fearful:   { emoji: '😨', label: '害怕',  color: '#9f7aea' },
-                      disgusted: { emoji: '🤢', label: '厭惡',  color: '#b794f4' },
-                      neutral:   { emoji: '😐', label: '平靜',  color: '#a0aec0' },
-                    }
                     const arc = scenes.map(s => {
                       if (s.lines.length === 0) return null
                       const counts: Record<string, number> = {}
@@ -2482,7 +2473,7 @@ export default function App() {
                             if (!emotion) return (
                               <span key={i} className="emotion-arc-empty" title={`第${i + 1}幕（尚無台詞）`} />
                             )
-                            const meta = _emotionMeta[emotion] ?? _emotionMeta.neutral
+                            const meta = EMOTION_META[emotion] ?? EMOTION_META.neutral
                             return (
                               <span
                                 key={i}
@@ -2494,7 +2485,7 @@ export default function App() {
                           })}
                         </div>
                         <span className="emotion-arc-legend">
-                          {Object.entries(_emotionMeta)
+                          {Object.entries(EMOTION_META)
                             .filter(([k]) => arc.some(e => e === k))
                             .map(([, v]) => (
                               <span key={v.label} className="emotion-arc-legend-item">

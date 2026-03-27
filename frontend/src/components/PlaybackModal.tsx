@@ -1,15 +1,10 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { Scene, Character } from '../types'
+import { Scene, Character, EMOTION_META } from '../types'
 
-const EMOTION_LABELS: Record<string, string> = {
-  happy:     '😄 開心',
-  sad:       '😢 難過',
-  angry:     '😠 生氣',
-  surprised: '😲 驚訝',
-  fearful:   '😨 害怕',
-  disgusted: '🤢 厭惡',
-  neutral:   '',   // don't show neutral in playback — it's the default
-}
+// neutral is intentionally empty in playback — it's the default state
+const EMOTION_LABELS = Object.fromEntries(
+  Object.entries(EMOTION_META).map(([k, v]) => [k, k === 'neutral' ? '' : `${v.emoji} ${v.label}`])
+) as Record<string, string>
 
 const SPEED_OPTIONS = [0.75, 1.0, 1.25, 1.5, 2.0]
 
