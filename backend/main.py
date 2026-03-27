@@ -372,6 +372,21 @@ async def _validation_error_handler(request: Request, exc: RequestValidationErro
     return JSONResponse(status_code=422, content={"detail": detail})
 
 
+# ── Friendly handler for database connection errors ──────────────
+# When postgres crashes or restarts mid-session, asyncpg raises
+# InterfaceError / ConnectionDoesNotExistError.  Without this handler
+# the user sees a raw 500 traceback.
+if _asyncpg_available:
+    @app.exception_handler(asyncpg.PostgresError)
+    @app.exception_handler(asyncpg.InterfaceError)
+    async def _db_error_handler(request: Request, exc: Exception) -> JSONResponse:
+        logger.error("Database error [%s %s]: %s", request.method, request.url.path, exc)
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "資料庫暫時無法連線，請稍後再試"},
+        )
+
+
 MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY")
 MINIMAX_BASE = "https://api.minimax.io/v1"
 MINIMAX_HEADERS = {
