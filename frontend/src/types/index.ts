@@ -77,7 +77,7 @@ export const EMOTION_META: Record<string, { emoji: string; label: string; color:
 }
 
 /** Story style options — shared by SceneEditor and SceneOutput. */
-export const STORY_STYLES = ['溫馨童趣', '奇幻冒險', '搞笑幽默', '感動溫情', '懸疑神秘'] as const
+export const STORY_STYLES: string[] = ['溫馨童趣', '奇幻冒險', '搞笑幽默', '感動溫情', '懸疑神秘']
 
 /** Image style options — shared by SceneEditor and SceneOutput. */
 export interface ImageStyleOption {
