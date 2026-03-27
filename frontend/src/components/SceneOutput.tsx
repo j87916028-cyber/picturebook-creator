@@ -1,9 +1,9 @@
 import { useRef, useState, useCallback, useEffect, useMemo, Fragment } from 'react'
 import {
-  DndContext, DragEndEvent, PointerSensor, useSensor, useSensors, closestCenter,
+  DndContext, DragEndEvent, PointerSensor, KeyboardSensor, useSensor, useSensors, closestCenter,
 } from '@dnd-kit/core'
 import {
-  SortableContext, useSortable, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove,
+  SortableContext, useSortable, sortableKeyboardCoordinates, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Scene, Character, ScriptLine, EMOTION_META, STORY_STYLES, IMAGE_STYLES } from '../types'
@@ -684,7 +684,10 @@ function SceneCard({
   const isGenerating = scene.lines.length === 0
 
   // Drag-to-reorder for dialogue lines
-  const lineSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
+  const lineSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
   const isDragDisabled = isGenerating || regenLoading || editingLineIndex !== null || showAddLine ||
     regenVoiceIndex !== null || emotionRegenIndex !== null || charChangeIndex !== null
   const handleLineDragEnd = (event: DragEndEvent) => {
@@ -2073,7 +2076,10 @@ export default function SceneOutput({
     )
   }
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([])
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
   // Track which scene card is currently in view to highlight the nav chip
   const [activeSceneId, setActiveSceneId] = useState<string | null>(null)
