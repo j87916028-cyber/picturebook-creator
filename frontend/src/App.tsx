@@ -2187,8 +2187,8 @@ export default function App() {
             <p>建立角色 → 描述場景 → 一鍵生成故事、配音、插圖</p>
           </div>
           <div className="app-header-right">
-            {savedStatus === 'saving' && <span className="save-indicator saving">儲存中...</span>}
-            {savedStatus === 'saved'  && <span className="save-indicator saved">✓ 已儲存</span>}
+            {savedStatus === 'saving' && <span className="save-indicator saving" role="status">儲存中...</span>}
+            {savedStatus === 'saved'  && <span className="save-indicator saved" role="status">✓ 已儲存</span>}
             {savedStatus === 'failed' && (
               <button className="save-indicator failed save-retry" onClick={handleRetrySave} title={savedError || '點擊重新儲存'}>
                 ⚠️ {savedError ? `${savedError} · 重試` : '儲存失敗 · 重試'}
@@ -2415,13 +2415,13 @@ export default function App() {
             </div>
 
             {serviceWarning && (
-              <div className="service-warning">
+              <div className="service-warning" role="alert">
                 <span>⚠️ {serviceWarning}</span>
                 <button className="service-warning-close" onClick={() => setServiceWarning(null)} title="關閉">✕</button>
               </div>
             )}
 
-            {error && <div className="error-box">⚠️ {error}</div>}
+            {error && <div className="error-box" role="alert">⚠️ {error}</div>}
 
             {planWarning && (
               <div className="plan-warning">

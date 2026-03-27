@@ -1120,7 +1120,7 @@ export default function SceneEditor({
 
         {/* 生成進度指示器 */}
         {isLoading && genStatus && (
-          <div className="gen-progress">
+          <div className="gen-progress" role="status" aria-live="polite">
             {genStatus.step === 'script' && (
               <>
                 <div className="gen-step">
