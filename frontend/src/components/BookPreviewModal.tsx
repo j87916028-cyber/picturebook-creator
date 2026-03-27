@@ -357,6 +357,22 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
+        {/* ── Reading progress bar ── thin accent at top, only when >1 scene */}
+        {scenes.length > 1 && (
+          <div
+            className="book-reading-progress"
+            role="progressbar"
+            aria-valuenow={Math.round((page / (scenes.length - 1)) * 100)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            title={`閱讀進度：第 ${page + 1} 幕 / 共 ${scenes.length} 幕（${Math.round((page / (scenes.length - 1)) * 100)}%）`}
+          >
+            <div
+              className="book-reading-progress-fill"
+              style={{ width: `${(page / (scenes.length - 1)) * 100}%` }}
+            />
+          </div>
+        )}
 
         {/* ── Header ── */}
         <div className="book-preview-header">

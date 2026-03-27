@@ -3251,6 +3251,7 @@ body {
   padding: 16px;
 }
 .book-preview-modal {
+  position: relative;
   background: #fff;
   border-radius: 18px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.5);
@@ -3258,6 +3259,20 @@ body {
   max-height: 92vh;
   display: flex; flex-direction: column;
   overflow: hidden;
+}
+.book-reading-progress {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: rgba(102, 126, 234, 0.15);
+  overflow: hidden;
+  z-index: 1;
+}
+.book-reading-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  transition: width 0.3s ease;
+  border-radius: 0 2px 2px 0;
 }
 .book-preview-modal:fullscreen {
   max-width: 100%; max-height: 100%; border-radius: 0;
