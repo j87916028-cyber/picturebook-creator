@@ -2998,34 +2998,45 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
         )
 
     async with _db_pool.acquire() as conn:
-        proj = await conn.fetchrow("SELECT id FROM projects WHERE id = $1", project_id)
-        if proj is None:
-            raise HTTPException(status_code=404, detail="專案不存在")
-
         async with conn.transaction():
             await conn.execute("DELETE FROM scenes WHERE project_id = $1", project_id)
             if resolved:
-                await conn.executemany(
-                    """
-                    INSERT INTO scenes (project_id, idx, title, description, style, line_length, script, lines, image, notes, is_locked)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11)
-                    """,
-                    resolved,
-                )
+                # FK constraint on project_id fires here if the project was deleted
+                # between the request arriving and the transaction starting.
+                try:
+                    await conn.executemany(
+                        """
+                        INSERT INTO scenes (project_id, idx, title, description, style, line_length, script, lines, image, notes, is_locked)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11)
+                        """,
+                        resolved,
+                    )
+                except Exception as exc:
+                    if _asyncpg_available and isinstance(
+                        exc, asyncpg.exceptions.ForeignKeyViolationError
+                    ):
+                        raise HTTPException(status_code=404, detail="專案不存在") from exc
+                    raise
             # COALESCE keeps the existing cover when no new image was uploaded
             # (e.g. pure text edit — all scenes had preserve_blobs=True).
-            await conn.execute(
+            # RETURNING id doubles as the project-existence check — if no row
+            # is returned the project was deleted and we raise 404 after the
+            # transaction commits (it only deleted orphaned scenes, so no harm).
+            updated = await conn.fetchrow(
                 """
                 UPDATE projects
                 SET updated_at = NOW(),
                     characters = $1::jsonb,
                     cover_image = COALESCE($3, cover_image)
                 WHERE id = $2
+                RETURNING id
                 """,
                 json.dumps([c.model_dump() for c in req.characters], ensure_ascii=False),
                 project_id,
                 cover_thumb,
             )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="專案不存在")
     return {"ok": True}
 
 
