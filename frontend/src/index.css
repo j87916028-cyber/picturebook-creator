@@ -4736,3 +4736,41 @@ kbd {
   font-family: monospace; font-weight: 600;
 }
 .btn-keyboard-help:hover { background: rgba(255,255,255,0.28); color: #fff; }
+
+/* ── Print stylesheet ──────────────────────────────────────────
+   Ctrl+P prints only the story content: scene descriptions, dialogue,
+   and illustrations.  All interactive chrome (buttons, panels, inputs,
+   nav strips, modals, toasts) is hidden. */
+@media print {
+  /* Hide all non-content UI */
+  .app-header, .project-panel, .character-panel,
+  .scene-editor, .scene-input-toolbar, .generate-row,
+  .scene-nav-strip, .story-stats-bar, .story-arc-bar,
+  .continue-story-bar, .btn-scene-action, .btn-play,
+  .scene-header-right, .scene-actions-row, .insert-line-divider,
+  .undo-toast, .undo-toast-regen, .voice-regen-toast,
+  .error-box, .service-warning, .save-indicator,
+  .playback-overlay, .book-preview-overlay, .ks-overlay,
+  .scene-notes-area, .prompt-edit-panel, .export-dropdown-wrap,
+  .btn-batch-regen, .btn-copy-all, .playbook-hint,
+  .no-audio, .line-audio-controls, .scene-regen-panel,
+  .scene-search-bar, .btn-view-toggle, .stats-chars,
+  .splash { display: none !important; }
+
+  /* Reset layout: single column, no background */
+  body { background: white; color: #222; }
+  .app { display: block; }
+  .app-main { display: block; padding: 0; max-width: 100%; }
+  .right-panel, .main-content, .scene-output { display: block; width: 100%; }
+
+  /* Scene cards: clean print layout */
+  .scene-card { break-inside: avoid; border: none; box-shadow: none; margin: 0 0 24pt; padding: 0; }
+  .scene-card-collapsed .scene-card-body { display: block !important; }
+  .scene-card-header { border-bottom: 1px solid #ccc; padding-bottom: 6pt; margin-bottom: 8pt; }
+  .scene-img { max-width: 100%; height: auto; max-height: 400pt; }
+  .dialogue-text { font-size: 11pt; line-height: 1.6; }
+  .speaker-name { font-weight: bold; }
+
+  /* Page setup */
+  @page { margin: 2cm; }
+}
