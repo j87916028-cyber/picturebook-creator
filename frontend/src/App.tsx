@@ -1797,7 +1797,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: script.scene_prompt,
-          seed: stableImageSeed(characters, localStorage.getItem('scene_image_style') ?? ''),
+          seed: stableImageSeed(characters, effectiveImageStyle ?? ''),
         }),
       }).then(async r => {
         if (!r.ok) { setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: 'error' } : s)); return }
