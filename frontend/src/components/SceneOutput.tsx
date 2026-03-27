@@ -1120,25 +1120,23 @@ function SceneCard({
           </button>
         )}
         {scene.script.scene_prompt && (
-          <>
-            <button
-              className="btn-scene-action"
-              onClick={() => handleImageRegen()}
-              disabled={regenImage || isGenerating}
-              title="用原始提示詞重新生成插圖"
-            >
-              {regenImage && !showPromptEdit ? <><span className="spinner-sm" /> 生成中...</> : '🔄 重新生成插圖'}
-            </button>
-            <button
-              className={`btn-scene-action${showPromptEdit ? ' active' : ''}`}
-              onClick={() => setShowPromptEdit(v => !v)}
-              disabled={regenImage || isGenerating}
-              title="檢視並編輯插圖提示詞"
-            >
-              ✏️ 編輯提示詞
-            </button>
-          </>
+          <button
+            className="btn-scene-action"
+            onClick={() => handleImageRegen()}
+            disabled={regenImage || isGenerating}
+            title="用原始提示詞重新生成插圖"
+          >
+            {regenImage && !showPromptEdit ? <><span className="spinner-sm" /> 生成中...</> : '🔄 重新生成插圖'}
+          </button>
         )}
+        <button
+          className={`btn-scene-action${showPromptEdit ? ' active' : ''}`}
+          onClick={() => setShowPromptEdit(v => !v)}
+          disabled={regenImage || isGenerating}
+          title={scene.script.scene_prompt ? '檢視並編輯插圖提示詞' : '自訂插圖提示詞（手動輸入英文描述後生成插圖）'}
+        >
+          ✏️ {scene.script.scene_prompt ? '編輯提示詞' : '自訂插圖'}
+        </button>
         <button
           className="btn-scene-action btn-regen-all-voices"
           onClick={async () => {
@@ -1214,7 +1212,7 @@ function SceneCard({
             onChange={e => setEditedPrompt(e.target.value.slice(0, 1000))}
             rows={4}
             maxLength={1000}
-            placeholder="描述插圖內容與風格..."
+            placeholder={scene.script.scene_prompt ? '描述插圖內容與風格...' : '用英文輸入插圖描述，例如：A white rabbit in a forest, watercolor children\'s book illustration style, warm colors'}
           />
           <div className="prompt-edit-actions">
             <button
