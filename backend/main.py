@@ -4622,22 +4622,61 @@ def _export_mp3_zip(project_name: str, scenes: list) -> bytes:
     return buf.getvalue()
 
 
-def _export_txt(project_name: str, scenes: list) -> bytes:
+def _export_txt(project_name: str, scenes: list, characters: list | None = None) -> bytes:
     """Export the full script as a plain UTF-8 text file.
 
     Format:
         《書名》完整劇本
         ========
+        ◆ 角色介紹（若有角色資料）
+        ────────
+        角色名（個性）外形描述
+        ...
+        ========
         【第1幕】場景描述（風格）
         ────────
         角色名：台詞
         ...
+        ========
+        共 N 幕 · M 句台詞 · 預估閱讀時長 X:XX
     """
+    if characters is None:
+        characters = []
+
     lines_out: list[str] = [
         f"《{project_name}》完整劇本",
         "=" * 40,
         "",
     ]
+
+    # Character introduction section — mirrors PDF/EPUB/HTML/MD exports
+    eligible_chars = [
+        c for c in characters
+        if c.get("name") and (c.get("personality") or c.get("visual_description"))
+    ]
+    if eligible_chars:
+        lines_out.append("◆ 角色介紹")
+        lines_out.append("─" * 30)
+        for c in eligible_chars:
+            emoji       = (c.get("emoji") or "").strip()
+            name        = c.get("name", "").strip()
+            personality = (c.get("personality") or "").strip()
+            visual      = (c.get("visual_description") or "").strip()
+            label = f"{emoji} {name}" if emoji else name
+            detail_parts = []
+            if personality:
+                detail_parts.append(f"個性：{personality}")
+            if visual:
+                detail_parts.append(f"外形：{visual}")
+            lines_out.append(label)
+            if detail_parts:
+                lines_out.append("  " + "　".join(detail_parts))
+        lines_out.append("")
+        lines_out.append("=" * 40)
+        lines_out.append("")
+
+    total_line_count = 0
+    total_char_count = 0
     for i, scene in enumerate(scenes, 1):
         desc = scene.get("description", "").strip()
         style = scene.get("style", "").strip()
@@ -4658,9 +4697,17 @@ def _export_txt(project_name: str, scenes: list) -> bytes:
             text = line.get("text", "").strip()
             if text:
                 lines_out.append(f"{char_name}：{text}")
+                total_line_count += 1
+                total_char_count += len(text)
         lines_out.append("")
 
-    lines_out += ["=" * 40, f"共 {len(scenes)} 幕", ""]
+    # Footer with reading time estimate (4 Chinese chars/second heuristic)
+    CHARS_PER_SEC = 4
+    est_secs = max(0, total_char_count // CHARS_PER_SEC)
+    est_min  = est_secs // 60
+    est_sec  = est_secs % 60
+    time_str = f"　預估閱讀時長 約 {est_min}:{est_sec:02d}" if est_secs >= 10 else ""
+    lines_out += ["=" * 40, f"共 {len(scenes)} 幕　{total_line_count} 句台詞{time_str}", ""]
     return "\n".join(lines_out).encode("utf-8")
 
 
@@ -5059,7 +5106,7 @@ async def export_project(
         media_type = "text/srt; charset=utf-8"
         filename = f"{project_name}_字幕.srt"
     else:  # "txt"
-        data = await loop.run_in_executor(None, _export_txt, project_name, scenes)
+        data = await loop.run_in_executor(None, _export_txt, project_name, scenes, raw_chars)
         media_type = "text/plain; charset=utf-8"
         filename = f"{project_name}_劇本.txt"
 
