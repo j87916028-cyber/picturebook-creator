@@ -2220,7 +2220,7 @@ export default function SceneOutput({
   // ── Copy all scripts to clipboard ────────────────────────────
   const [copiedAll, setCopiedAll] = useState(false)
   const handleCopyAllScripts = () => {
-    const text = scenes.map((s, i) => {
+    const body = scenes.map((s, i) => {
       const titlePart = s.title ? `《${s.title}》` : ''
       const header = `第${i + 1}幕${titlePart}：${s.description}`
       const lines = s.lines
@@ -2232,6 +2232,10 @@ export default function SceneOutput({
         .join('\n')
       return `${header}\n${lines}`
     }).join('\n\n')
+    const allLines = scenes.reduce((n, s) => n + s.lines.filter(l => l.text).length, 0)
+    const allChars = scenes.reduce((n, s) => n + s.lines.reduce((m, l) => m + l.text.length, 0), 0)
+    const footer = `\n\n——\n共 ${scenes.length} 幕 · ${allLines} 句台詞 · ${allChars} 字`
+    const text = body + footer
     navigator.clipboard.writeText(text).then(() => {
       setCopiedAll(true)
       setTimeout(() => setCopiedAll(false), 2000)
