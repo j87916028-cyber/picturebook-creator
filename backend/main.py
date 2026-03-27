@@ -2763,6 +2763,10 @@ class RenameProjectRequest(BaseModel):
 
 class SceneLineIn(BaseModel):
     """Typed representation of a single dialogue line stored in a scene."""
+    # Stable client-side ID assigned when the line is first created.
+    # Persisted to the DB so IDs survive save/reload cycles and allow the
+    # preserve_blobs audio merge to match by identity rather than position.
+    id: Optional[str] = Field(None, max_length=20)
     character_id: str = Field("", max_length=64)
     character_name: str = Field("", max_length=30)
     voice_id: str = Field("", max_length=64)
@@ -3410,12 +3414,25 @@ async def save_scenes(project_id: str, req: SaveScenesRequest, request: Request)
             ex = existing_blobs[scene.idx]
             image = ex["image"]
             ex_lines: list[dict] = ex["lines"]
+            # Build an ID-based lookup for robust audio merge.
+            # Lines with a stable `id` are matched by identity; lines without
+            # an id (legacy DB records saved before this field was added) fall
+            # back to the previous positional merge.
+            ex_by_id: dict[str, dict] = {
+                ln["id"]: ln for ln in ex_lines if ln.get("id")
+            }
             merged: list[dict] = []
             for i, ln in enumerate(scene.lines):
                 ld = ln.model_dump()
-                if i < len(ex_lines) and not ld.get("audio_base64"):
-                    ld["audio_base64"] = ex_lines[i].get("audio_base64")
-                    ld["audio_format"] = ex_lines[i].get("audio_format")
+                if not ld.get("audio_base64"):
+                    line_id = ld.get("id")
+                    # Prefer ID match (stable); fall back to position for legacy rows
+                    ex_ln = ex_by_id.get(line_id) if line_id else None
+                    if ex_ln is None and i < len(ex_lines):
+                        ex_ln = ex_lines[i]
+                    if ex_ln:
+                        ld["audio_base64"] = ex_ln.get("audio_base64")
+                        ld["audio_format"] = ex_ln.get("audio_format")
                 merged.append(ld)
         else:
             image = scene.image

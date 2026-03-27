@@ -152,4 +152,4 @@ Copy `backend/.env.example` to `backend/.env`:
 - All `suggest-*` AI endpoints accept a `style` parameter; frontend reads it from `localStorage['scene_style']`.
 - Voice text is capped at 200 chars; scene description at 500 chars; image prompt at 1000 chars — all validated with Pydantic.
 - `_validate_uuid()` is called on every path parameter that accepts a project UUID.
-- Nginx `client_max_body_size` is 2 MB.
+- Nginx `client_max_body_size` is 50 MB.
