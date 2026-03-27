@@ -2644,8 +2644,16 @@ async def import_project_json(req: ImportJsonRequest, request: Request):
         ll = str(s.get("line_length") or "standard")
         if ll not in ("short", "standard", "long"):
             ll = "standard"
+        # Use the exported idx directly when present; fall back to the loop
+        # counter (0-based).  Must NOT use `s.get("idx") or fallback` because
+        # idx=0 (the first scene) is falsy in Python — that pattern would
+        # silently replace 0 with 1, collide with the second scene (also idx=1),
+        # and trigger the UNIQUE(project_id, idx) constraint on every import of
+        # a project with 2+ scenes.
+        raw_idx = s.get("idx")
+        scene_idx = int(raw_idx) if raw_idx is not None else i
         scene_rows.append((
-            int(s.get("idx") or i + 1),
+            scene_idx,
             str(s.get("title") or "")[:100],
             str(s.get("description") or "")[:500],
             str(s.get("style") or "溫馨童趣")[:20],
