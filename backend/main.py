@@ -29,7 +29,7 @@ from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, Response
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Annotated, Any, Dict, Literal
 from dotenv import load_dotenv
@@ -3311,6 +3311,7 @@ async def get_project(project_id: str, request: Request):
         raise _rl_429(_rl_project, ip)
     _db_required()
     _validate_uuid(project_id)
+
     async with _db_pool.acquire() as conn:
         proj = await conn.fetchrow(
             "SELECT id, name, characters, created_at, updated_at FROM projects WHERE id = $1",
@@ -3318,13 +3319,33 @@ async def get_project(project_id: str, request: Request):
         )
         if proj is None:
             raise HTTPException(status_code=404, detail="專案不存在")
+
+        # ── ETag-based caching ──────────────────────────────────────────────
+        # Project payloads can be many MB (embedded audio base64 + images).
+        # The ETag is derived from `updated_at` (authoritative — always the DB
+        # value, not the client's clock).  Cache-Control: no-cache instructs the
+        # browser to cache the response but always revalidate with If-None-Match
+        # before reuse.  On a hit the browser transparently returns the cached
+        # 200 body to JavaScript, so no frontend code changes are needed.
+        #
+        # On ETag match: return 304 after just 1 DB query (no scenes SELECT).
+        # On ETag miss:  fall through to the scenes SELECT (2 queries total —
+        #                same as before this change).
+        etag = f'"{proj["updated_at"].isoformat()}"'
+        if request.headers.get("If-None-Match") == etag:
+            return Response(
+                status_code=304,
+                headers={"ETag": etag, "Cache-Control": "no-cache"},
+            )
+
         scenes = await conn.fetch(
             "SELECT id, idx, title, description, style, line_length, image_style, mood, age_group, script, lines, image, notes, is_locked FROM scenes WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
+
     raw_chars = proj["characters"]
     characters = json.loads(raw_chars) if isinstance(raw_chars, str) else (raw_chars or [])
-    return {
+    body = {
         "id": str(proj["id"]),
         "name": proj["name"],
         "characters": characters,
@@ -3350,6 +3371,10 @@ async def get_project(project_id: str, request: Request):
             for s in scenes
         ],
     }
+    return JSONResponse(
+        content=body,
+        headers={"ETag": etag, "Cache-Control": "no-cache"},
+    )
 
 
 # ── PUT /api/projects/{project_id}/characters ────────────────
