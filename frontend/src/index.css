@@ -1,5 +1,17 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ── Accessibility: global keyboard focus ring ──────────────
+   :focus-visible fires only on keyboard navigation (Tab), not on mouse
+   clicks.  Replaces the many `outline: none` declarations scattered
+   throughout the stylesheet — they suppress the browser default for both
+   keyboard AND mouse, which makes the app unusable for keyboard-only users.
+   This single rule restores a visible, high-contrast ring whenever a user
+   Tabs to any interactive element, without annoying mouse/touch users. */
+:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
 body {
   font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
   background: #f0f4ff;
