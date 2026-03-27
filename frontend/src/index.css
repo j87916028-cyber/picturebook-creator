@@ -4623,6 +4623,45 @@ kbd {
   border: 1.5px solid #d4c8f8;
 }
 
+/* ── Quick jump-to-scene dialog (G key) ─────────────────────── */
+.jump-scene-overlay {
+  position: fixed; inset: 0; z-index: 1200;
+  background: rgba(0,0,0,0.22);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding-top: 18vh;
+}
+.jump-scene-dialog {
+  background: var(--surface, #fff);
+  border: 1.5px solid var(--border, #e0e0e0);
+  border-radius: 12px;
+  padding: 14px 20px;
+  display: flex; align-items: center; gap: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  animation: jump-dialog-in 0.12s ease;
+}
+@keyframes jump-dialog-in {
+  from { opacity: 0; transform: translateY(-12px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+.jump-scene-label { font-size: 1rem; color: var(--text, #333); white-space: nowrap; }
+.jump-scene-input {
+  width: 68px; text-align: center; font-size: 1.15rem; font-weight: 600;
+  border: 1.5px solid var(--border, #e0e0e0); border-radius: 8px;
+  padding: 5px 8px;
+  background: var(--surface, #fff); color: var(--text, #333);
+  -moz-appearance: textfield;
+}
+.jump-scene-input::-webkit-outer-spin-button,
+.jump-scene-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.jump-scene-input:focus { outline: none; border-color: var(--accent, #667eea); }
+.jump-scene-btn {
+  padding: 6px 16px; border-radius: 8px;
+  background: var(--accent, #667eea); color: #fff;
+  border: none; cursor: pointer; font-size: 0.88rem; font-weight: 600;
+  transition: filter 0.15s;
+}
+.jump-scene-btn:hover { filter: brightness(1.1); }
+
 /* ── Keyboard shortcuts modal ────────────────────────────────── */
 .ks-overlay {
   position: fixed; inset: 0; z-index: 9900;

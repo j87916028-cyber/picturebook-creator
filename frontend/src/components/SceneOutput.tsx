@@ -2048,6 +2048,11 @@ export default function SceneOutput({
   const [viewMode, setViewMode] = useState<'detail' | 'storyboard'>('detail')
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set())
 
+  // Quick jump-to-scene dialog state (triggered by pressing G)
+  const [jumpOpen, setJumpOpen] = useState(false)
+  const [jumpInput, setJumpInput] = useState('')
+  const jumpInputRef = useRef<HTMLInputElement>(null)
+
   const toggleCollapse = (sceneId: string) =>
     setCollapsedIds(prev => {
       const next = new Set(prev)
@@ -2360,6 +2365,43 @@ export default function SceneOutput({
     return () => window.removeEventListener('keydown', handler)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // G key: open quick jump-to-scene dialog.
+  // Uses the same ref pattern as arrow-nav so the handler is registered once.
+  const _jumpNavRef = useRef<{
+    scenes: Scene[]
+    viewMode: 'detail' | 'storyboard'
+    showPlayback: boolean
+    showBookPreview: boolean
+    jumpOpen: boolean
+  } | null>(null)
+  _jumpNavRef.current = { scenes, viewMode, showPlayback, showBookPreview, jumpOpen }
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'g' && e.key !== 'G') return
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const nav = _jumpNavRef.current
+      if (!nav || nav.jumpOpen || nav.showPlayback || nav.showBookPreview) return
+      if (nav.viewMode !== 'detail' || nav.scenes.length < 2) return
+      const tag = (e.target as HTMLElement)?.tagName
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || (e.target as HTMLElement).isContentEditable) return
+      e.preventDefault()
+      setJumpInput('')
+      setJumpOpen(true)
+      // Focus the number input after React has rendered it
+      requestAnimationFrame(() => jumpInputRef.current?.focus())
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleJumpConfirm = () => {
+    const n = parseInt(jumpInput.trim(), 10)
+    if (!isNaN(n) && n >= 1 && n <= scenes.length) {
+      scrollToScene(n - 1)
+    }
+    setJumpOpen(false)
+  }
+
   const handlePlayFromScene = (sceneIndex: number) => {
     setPlaybackStartScene(sceneIndex)
     setShowPlayback(true)
@@ -2635,6 +2677,34 @@ export default function SceneOutput({
           </div>
         )}
       </div>
+
+      {/* Quick jump-to-scene dialog (triggered by G key) */}
+      {jumpOpen && (
+        <div
+          className="jump-scene-overlay"
+          onMouseDown={() => setJumpOpen(false)}
+        >
+          <div className="jump-scene-dialog" onMouseDown={e => e.stopPropagation()}>
+            <span className="jump-scene-label">跳至第</span>
+            <input
+              ref={jumpInputRef}
+              className="jump-scene-input"
+              type="number"
+              min={1}
+              max={scenes.length}
+              value={jumpInput}
+              onChange={e => setJumpInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleJumpConfirm()
+                if (e.key === 'Escape') setJumpOpen(false)
+              }}
+              placeholder={`1–${scenes.length}`}
+            />
+            <span className="jump-scene-label">幕</span>
+            <button className="jump-scene-btn" onClick={handleJumpConfirm}>確認</button>
+          </div>
+        </div>
+      )}
 
       {showPlayback && (
         <PlaybackModal
