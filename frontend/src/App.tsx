@@ -265,11 +265,15 @@ export default function App() {
     lastSavedBlobsRef.current = new Map()
   }, [currentProjectId])
 
-  // ── Service-availability check: warn if critical API keys are missing ──
-  useEffect(() => {
+  // ── Service-availability check ──────────────────────────────
+  // Runs on mount AND whenever the tab regains focus (visibilitychange).
+  // Detects: missing API keys, DB down, or backend completely unreachable.
+  const [offline, setOffline] = useState(false)
+  const checkHealth = useCallback(() => {
     fetch('/api/health')
       .then(r => r.ok ? r.json() : null)
       .then(data => {
+        setOffline(false)
         if (!data?.services) return
         const s = data.services
         if (!s.llm) {
@@ -278,10 +282,21 @@ export default function App() {
           )
         } else if (!s.database) {
           setServiceWarning('資料庫未連線，專案儲存功能暫時無法使用。')
+        } else {
+          setServiceWarning(null)
         }
       })
-      .catch(() => {/* ignore network errors */})
+      .catch(() => { setOffline(true) })
   }, [])
+
+  useEffect(() => { checkHealth() }, [checkHealth])
+
+  // Re-check when the tab regains focus — catches backend restarts while user was away
+  useEffect(() => {
+    const onVisible = () => { if (!document.hidden) checkHealth() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [checkHealth])
 
   // Clear rate-limit countdown timer on unmount to prevent setState on dead component
   useEffect(() => () => {
@@ -2452,7 +2467,14 @@ export default function App() {
               />
             </div>
 
-            {serviceWarning && (
+            {offline && (
+              <div className="service-warning offline-warning" role="alert">
+                <span>🔴 無法連線至伺服器 — 請檢查網路連線或確認服務是否正在執行</span>
+                <button className="service-warning-close" onClick={checkHealth} title="重新檢查連線">🔄</button>
+              </div>
+            )}
+
+            {serviceWarning && !offline && (
               <div className="service-warning" role="alert">
                 <span>⚠️ {serviceWarning}</span>
                 <button className="service-warning-close" onClick={() => setServiceWarning(null)} title="關閉">✕</button>
