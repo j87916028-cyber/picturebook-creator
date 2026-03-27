@@ -1614,13 +1614,19 @@ export default function App() {
       }
       const script = await scriptRes.json()
 
+      // Assign stable IDs to all lines NOW, before state is set and before voice
+      // tasks are created.  This mirrors the handleGenerate pattern and prevents
+      // the race condition where a user reorders lines between the two setScenes
+      // calls, causing audio to be applied to the wrong line via positional index.
+      const linesWithIds: ScriptLine[] = script.lines.map((l: ScriptLine) => ({ ...l, id: _lid() }))
+
       const regenLlmTitle = (script.scene_title || '').trim().slice(0, 30)
       setScenes(prev => prev.map(s => {
         if (s.id !== sceneId) return s
         return {
           ...s,
           script,
-          lines: script.lines.map((l: ScriptLine) => ({ ...l })),
+          lines: linesWithIds,
           // Preserve user-set title; apply LLM title only when scene had none (oldScene snapshot)
           title: oldScene.title || regenLlmTitle,
         }
@@ -1641,7 +1647,8 @@ export default function App() {
       }).catch(() => { setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, image: 'error' } : s)) })
 
       let regenVoiceFailCount = 0
-      const voiceTs = script.lines.map((line: ScriptLine, index: number) => async () => {
+      const voiceTs = linesWithIds.map((line: ScriptLine, index: number) => async () => {
+        const lineId = line.id   // snapshot stable ID before any async gap
         try {
           const res = await fetch('/api/generate-voice', {
             method: 'POST',
@@ -1655,7 +1662,9 @@ export default function App() {
             const next = prev.map(s => {
               if (s.id !== sceneId) return s
               const lines = [...s.lines] as ScriptLine[]
-              lines[index] = { ...lines[index], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
+              const idx = lineId ? lines.findIndex(l => l.id === lineId) : index
+              if (idx === -1) return s
+              lines[idx] = { ...lines[idx], audio_base64: data.audio_base64, audio_format: data.format || 'wav' }
               return { ...s, lines }
             })
             return next
