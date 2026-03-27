@@ -311,7 +311,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "If-None-Match"],
+    expose_headers=["ETag", "X-Response-Time", "Retry-After"],
 )
 
 # Compress JSON responses ≥ 1 kB.  Starlette's GZipMiddleware skips responses
