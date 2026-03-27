@@ -288,23 +288,23 @@ export default function App() {
     if (generateRateLimitTimerRef.current) clearInterval(generateRateLimitTimerRef.current)
   }, [])
 
-  // ── Warn before unload when there is unsaved data ──────────────
-  // Guards against accidental tab close / refresh when autosave failed
-  // or when a save is still pending in the debounce queue.
+  // ── Warn before unload when there is unsaved data or generation in progress ──
+  // Guards against accidental tab close / refresh when autosave failed,
+  // a save is pending in the debounce queue, or voice/image generation
+  // is still running (losing all in-flight progress).
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      const hasPending  = pendingSaveRef.current !== null
-      const hasFailed   = savedStatus === 'failed'
-      if (hasPending || hasFailed) {
+      const hasPending    = pendingSaveRef.current !== null
+      const hasFailed     = savedStatus === 'failed'
+      const isGenerating  = isLoading
+      if (hasPending || hasFailed || isGenerating) {
         e.preventDefault()
-        // Modern browsers ignore the custom string, but setting returnValue
-        // still triggers the native "Leave site?" dialog.
         e.returnValue = ''
       }
     }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [savedStatus])
+  }, [savedStatus, isLoading])
 
   // ── Sync URL (?project=<id>) whenever the active project changes ──
   // Allows bookmarking / sharing / refreshing without losing the open project.
