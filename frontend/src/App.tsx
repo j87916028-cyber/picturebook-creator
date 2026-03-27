@@ -2337,21 +2337,21 @@ export default function App() {
               </button>
               {exportOpen && (
                 <div className="export-menu">
-                  <button onClick={() => handleExport('pdf')}>📄 PDF（印刷/Gumroad）</button>
-                  <button onClick={() => handleExport('epub')}>📚 EPUB 3（Apple Books/Kobo）</button>
+                  <button onClick={() => handleExport('pdf')} title="含插圖＋角色介紹＋台詞的 A4 文件，可列印或上架 Gumroad 販售">📄 PDF（印刷/Gumroad）</button>
+                  <button onClick={() => handleExport('epub')} title="含內嵌音訊的電子書，可用 Apple Books、Kobo、Google Play 圖書開啟">📚 EPUB 3（Apple Books/Kobo）</button>
                   <div className="export-menu-row">
-                    <button className="export-menu-row-main" onClick={() => handleExport('html')}>🌐 HTML（互動網頁版）</button>
+                    <button className="export-menu-row-main" onClick={() => handleExport('html')} title="獨立 HTML 檔案，含互動播放器、插圖和所有配音，可離線開啟">🌐 HTML（互動網頁版）</button>
                     <button
                       className="export-menu-preview-btn"
                       onClick={() => { setExportOpen(false); window.open(`/api/projects/${currentProjectId}/export?format=html&inline=true`, '_blank') }}
                       title="在新分頁預覽互動網頁版（不下載）"
                     >預覽</button>
                   </div>
-                  <button onClick={() => handleExport('mp3')}>🎵 MP3 音檔包</button>
-                  <button onClick={() => handleExport('md')}>🔖 Markdown（Notion/GitHub）</button>
-                  <button onClick={() => handleExport('txt')}>📝 純文字稿本</button>
-                  <button onClick={() => handleExport('srt')} title="SRT 字幕檔（適用 YouTube / 影片剪輯）">🎞 SRT 字幕檔</button>
-                  <button onClick={() => handleExport('images')}>🖼️ 插圖包（ZIP）</button>
+                  <button onClick={() => handleExport('mp3')} title="所有配音打包為 ZIP，含 M3U 播放清單，可匯入音樂播放器">🎵 MP3 音檔包</button>
+                  <button onClick={() => handleExport('md')} title="Markdown 格式劇本，含角色介紹，可直接貼上 Notion、HackMD 或 GitHub">🔖 Markdown（Notion/GitHub）</button>
+                  <button onClick={() => handleExport('txt')} title="純文字劇本，不含圖片/音訊，適合列印或文字編輯">📝 純文字稿本</button>
+                  <button onClick={() => handleExport('srt')} title="SRT 字幕檔，時間軸依音訊時長或字數估算，適用 YouTube/影片剪輯">🎞 SRT 字幕檔</button>
+                  <button onClick={() => handleExport('images')} title="所有場景插圖打包為 ZIP，可用於簡報或社群貼文">🖼️ 插圖包（ZIP）</button>
                   <hr className="export-menu-divider" />
                   <button onClick={() => handleExport('json')} title="匯出完整故事結構為 JSON 備份（不含音檔與插圖）">📦 JSON 備份（可還原文字）</button>
                 </div>
