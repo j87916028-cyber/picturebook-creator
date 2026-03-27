@@ -2091,6 +2091,13 @@ body {
   box-shadow: 0 1px 4px rgba(0,0,0,0.12);
 }
 .scene-header-thumb:hover { opacity: 1; transform: scale(1.05); }
+.scene-collapsed-line-preview {
+  display: flex; align-items: center; gap: 4px; cursor: pointer;
+  font-size: 0.8rem; color: #666; margin-top: 2px;
+  max-width: 300px; overflow: hidden; white-space: nowrap;
+}
+.collapsed-char { flex-shrink: 0; }
+.collapsed-text { overflow: hidden; text-overflow: ellipsis; font-style: italic; }
 .scene-char-chips {
   display: inline-flex;
   align-items: center;

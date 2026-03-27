@@ -967,6 +967,13 @@ function SceneCard({
             title="點擊展開此幕"
           />
         )}
+        {/* First dialogue line preview — shown only when collapsed, helps identify scenes without expanding */}
+        {isCollapsed && scene.lines.length > 0 && scene.lines[0].text && (
+          <div className="scene-collapsed-line-preview" title="點擊展開檢視完整台詞" onClick={() => onToggleCollapse(scene.id)}>
+            <span className="collapsed-char">{characters.find(c => c.id === scene.lines[0].character_id)?.emoji || '🎭'}</span>
+            <span className="collapsed-text">「{scene.lines[0].text.slice(0, 40)}{scene.lines[0].text.length > 40 ? '…' : ''}」</span>
+          </div>
+        )}
         {editingDesc ? (
           <input
             className="scene-desc-edit-input"
