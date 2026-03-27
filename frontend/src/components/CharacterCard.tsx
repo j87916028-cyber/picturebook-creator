@@ -93,7 +93,15 @@ export default function CharacterCard({ character, onDelete, onEdit, onDuplicate
       {...attributes}
     >
       <div className="card-drag-handle" {...listeners}>
-        <span className="card-emoji">{character.emoji}</span>
+        {character.portrait_url ? (
+          <img
+            src={character.portrait_url}
+            alt={character.name}
+            className="card-portrait"
+          />
+        ) : (
+          <span className="card-emoji">{character.emoji}</span>
+        )}
         <div className="card-info">
           <div className="card-name-row">
             <span className="card-name" style={{ color: character.color }}>{character.name}</span>

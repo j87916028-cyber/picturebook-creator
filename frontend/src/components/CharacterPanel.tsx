@@ -77,6 +77,7 @@ interface FormState {
   voice_id: string
   emoji: string
   color: string
+  portrait_url?: string
 }
 
 function VoicePicker({
@@ -188,6 +189,8 @@ function CharacterForm({
   const [suggestingPersonality, setSuggestingPersonality] = useState(false)
   const [personalityError, setPersonalityError] = useState<string | null>(null)
   const [visualError, setVisualError] = useState<string | null>(null)
+  const [generatingPortrait, setGeneratingPortrait] = useState(false)
+  const [portraitError, setPortraitError] = useState<string | null>(null)
 
   const handleSuggestPersonality = async () => {
     if (!form.name.trim() || suggestingPersonality) return
@@ -255,6 +258,41 @@ function CharacterForm({
       setTimeout(() => setVisualError(null), 5000)
     } finally {
       setSuggestingVisual(false)
+    }
+  }
+
+  const handleGeneratePortrait = async () => {
+    if (!form.visual_description.trim() || generatingPortrait) return
+    setGeneratingPortrait(true)
+    setPortraitError(null)
+    try {
+      const res = await fetch('/api/generate-character-portrait', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name.trim() || '角色',
+          visual_description: form.visual_description.trim(),
+          emoji: form.emoji,
+          image_style: localStorage.getItem('scene_image_style') || undefined,
+        }),
+      })
+      if (res.status === 429) {
+        const wait = parseInt(res.headers.get('Retry-After') ?? '10', 10)
+        setPortraitError(`請求過於頻繁，請 ${wait} 秒後再試`)
+        setTimeout(() => setPortraitError(null), wait * 1000)
+      } else if (res.ok) {
+        const data = await res.json()
+        if (data.url) setForm(f => ({ ...f, portrait_url: data.url }))
+        else setPortraitError('肖像生成失敗，請重試')
+      } else {
+        setPortraitError('肖像生成失敗，請稍後再試')
+        setTimeout(() => setPortraitError(null), 5000)
+      }
+    } catch {
+      setPortraitError('網路錯誤，請稍後再試')
+      setTimeout(() => setPortraitError(null), 5000)
+    } finally {
+      setGeneratingPortrait(false)
     }
   }
 
@@ -341,6 +379,40 @@ function CharacterForm({
         </div>
         {visualError && <div className="suggest-error">{visualError}</div>}
       </div>
+
+      {/* Portrait generation */}
+      <div className="form-row portrait-row">
+        <label>
+          角色肖像
+          <span style={{ fontSize: '0.7rem', color: '#aaa', marginLeft: 4 }}>（選填，AI 生成）</span>
+        </label>
+        <div className="portrait-controls">
+          {form.portrait_url && (
+            <div className="portrait-preview-wrap">
+              <img src={form.portrait_url} alt="角色肖像" className="portrait-preview" />
+              <button
+                type="button"
+                className="portrait-clear-btn"
+                onClick={() => setForm(f => ({ ...f, portrait_url: undefined }))}
+                title="移除肖像"
+              >×</button>
+            </div>
+          )}
+          <button
+            type="button"
+            className="btn-generate-portrait"
+            onClick={handleGeneratePortrait}
+            disabled={generatingPortrait || !form.visual_description.trim()}
+            title={form.visual_description.trim() ? 'AI 根據外形描述生成角色肖像' : '請先填寫外形描述'}
+          >
+            {generatingPortrait
+              ? <><span className="spinner spinner-sm" />生成中...</>
+              : form.portrait_url ? '🎨 重新生成' : '🎨 生成肖像'}
+          </button>
+        </div>
+        {portraitError && <div className="suggest-error">{portraitError}</div>}
+      </div>
+
       <div className="form-row">
         <label>角色顏色</label>
         <div className="color-picker-wrap">
@@ -420,6 +492,7 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
       voice_id: form.voice_id,
       color: form.color,
       emoji: form.emoji,
+      portrait_url: form.portrait_url || undefined,
     }
     onChange([...characters, newChar])
     setShowAddForm(false)
@@ -428,7 +501,7 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
   const handleEditSave = (id: string, form: FormState) => {
     onChange(characters.map(c =>
       c.id === id
-        ? { ...c, name: form.name.trim(), personality: form.personality.trim() || '開朗活潑', visual_description: form.visual_description.trim() || undefined, voice_id: form.voice_id, emoji: form.emoji, color: form.color }
+        ? { ...c, name: form.name.trim(), personality: form.personality.trim() || '開朗活潑', visual_description: form.visual_description.trim() || undefined, voice_id: form.voice_id, emoji: form.emoji, color: form.color, portrait_url: form.portrait_url ?? c.portrait_url }
         : c
     ))
     setEditingId(null)
@@ -591,7 +664,7 @@ export default function CharacterPanel({ characters, onChange, lineCountsByCharI
             />
             {editingId === c.id && (
               <CharacterForm
-                initial={{ name: c.name, personality: c.personality, visual_description: c.visual_description ?? '', voice_id: c.voice_id, emoji: c.emoji, color: c.color }}
+                initial={{ name: c.name, personality: c.personality, visual_description: c.visual_description ?? '', voice_id: c.voice_id, emoji: c.emoji, color: c.color, portrait_url: c.portrait_url }}
                 voices={voices}
                 submitLabel="儲存變更"
                 onSubmit={form => handleEditSave(c.id, form)}

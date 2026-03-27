@@ -13,6 +13,8 @@ export interface Character {
   voice_id: string
   color: string
   emoji: string
+  /** AI-generated character portrait (data URI). Optional, stored in project characters. */
+  portrait_url?: string
 }
 
 export interface ScriptLine {

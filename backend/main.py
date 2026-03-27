@@ -643,6 +643,9 @@ class Character(BaseModel):
     voice_id: str = Field(..., max_length=64)
     color: str = Field(..., max_length=20)
     emoji: str = Field(..., max_length=10)
+    # Optional AI-generated character portrait (data URI); not validated for length
+    # because it can be a full-size base64 image (~50-150 kB).
+    portrait_url: Optional[str] = None
 
     @field_validator("name", mode="before")
     @classmethod
@@ -2367,6 +2370,141 @@ async def generate_image(req: GenerateImageRequest, request: Request):
         logger.warning("Pillow image generation failed: %s", e)
 
     raise HTTPException(status_code=502, detail="插圖生成失敗，請點「重新生成插圖」再試一次")
+
+
+# ── 端點：角色肖像生成 ────────────────────────────────────────
+class GeneratePortraitRequest(BaseModel):
+    name: str = Field(..., max_length=30)
+    visual_description: str = Field(..., min_length=1, max_length=200)
+    emoji: Optional[str] = Field(None, max_length=10)
+    image_style: Optional[str] = Field(None, max_length=80)
+
+
+@app.post("/api/generate-character-portrait")
+async def generate_character_portrait(req: GeneratePortraitRequest, request: Request):
+    """Generate a square character portrait using the same image chain as generate_image."""
+    ip = _client_ip(request)
+    if not _rl_image.is_allowed(ip):
+        raise _rl_429(_rl_image, ip)
+
+    style_hint = req.image_style or "watercolor children's book illustration"
+    _seed = random.randint(1, 2147483647)
+    full_prompt = (
+        f"character portrait of {req.name}, {req.visual_description}, "
+        f"{style_hint}, centered composition, plain soft background, "
+        f"square format, child-friendly, expressive face, high quality"
+    )
+
+    # ── HuggingFace ────────────────────────────────────────────
+    if HUGGINGFACE_API_KEY:
+        try:
+            resp = await _http_client.post(
+                HF_INFERENCE_URL,
+                headers={"Authorization": f"Bearer {HUGGINGFACE_API_KEY}", "Content-Type": "application/json"},
+                json={
+                    "inputs": full_prompt,
+                    "parameters": {
+                        "seed": _seed,
+                        "num_inference_steps": 4,
+                        "guidance_scale": 0.0,
+                        "width": 512,
+                        "height": 512,
+                    },
+                },
+                timeout=60,
+            )
+            if resp.status_code == 200 and resp.content:
+                b64 = base64.b64encode(resp.content).decode("utf-8")
+                mime = resp.headers.get("content-type", "image/jpeg").split(";")[0]
+                logger.info("HF portrait OK seed=%d size=%d bytes", _seed, len(resp.content))
+                return {"url": f"data:{mime};base64,{b64}"}
+            logger.warning("HF portrait error %s: %s", resp.status_code, resp.text[:200])
+        except Exception as e:
+            logger.warning("HF portrait exception: %s", e)
+
+    # ── Pollinations ───────────────────────────────────────────
+    if POLLINATIONS_API_KEY:
+        encoded = urllib.parse.quote(full_prompt)
+        seed_p = _seed % 99999 + 1
+        portrait_url = (
+            f"https://gen.pollinations.ai/image/{encoded}"
+            f"?width=512&height=512&nologo=true&seed={seed_p}&model=flux"
+        )
+        try:
+            img_resp = await _http_client.get(
+                portrait_url,
+                headers={"Authorization": f"Bearer {POLLINATIONS_API_KEY}"},
+                timeout=90,
+                follow_redirects=True,
+            )
+            if img_resp.status_code == 200 and img_resp.content:
+                mime = img_resp.headers.get("content-type", "image/jpeg").split(";")[0]
+                if not mime.startswith("image/"):
+                    mime = "image/jpeg"
+                b64 = base64.b64encode(img_resp.content).decode("utf-8")
+                return {"url": f"data:{mime};base64,{b64}"}
+            logger.warning("Pollinations portrait returned status %s", img_resp.status_code)
+        except Exception as e:
+            logger.warning("Pollinations portrait failed: %s", e)
+
+    # ── Pillow fallback: simple emoji-centred placeholder ──────
+    try:
+        b64 = await asyncio.get_running_loop().run_in_executor(
+            None, lambda: _generate_portrait_pillow(req.name, req.emoji or "👤")
+        )
+        return {"url": f"data:image/jpeg;base64,{b64}"}
+    except Exception as e:
+        logger.warning("Pillow portrait fallback failed: %s", e)
+
+    raise HTTPException(status_code=502, detail="肖像生成失敗，請稍後再試")
+
+
+def _generate_portrait_pillow(name: str, emoji: str) -> str:
+    """Minimal Pillow portrait: solid gradient background + large emoji + name label."""
+    from PIL import Image, ImageDraw, ImageFont  # type: ignore
+    size = 512
+    img = Image.new("RGB", (size, size))
+    draw = ImageDraw.Draw(img)
+
+    # Soft radial-ish gradient background using two blended solid fills
+    for y in range(size):
+        t = y / size
+        r = int(180 + 60 * t)
+        g = int(200 + 40 * t)
+        b = int(230 - 30 * t)
+        draw.line([(0, y), (size, y)], fill=(r, g, b))
+
+    # Large emoji / placeholder circle
+    cx, cy = size // 2, size // 2 - 40
+    r = 120
+    draw.ellipse([(cx - r, cy - r), (cx + r, cy + r)], fill=(255, 255, 255, 220))
+
+    # Name text at bottom
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", 36)
+        small_font = ImageFont.truetype("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", 24)
+    except Exception:
+        font = ImageFont.load_default()
+        small_font = font
+
+    # Draw name
+    bbox = draw.textbbox((0, 0), name, font=font)
+    tw = bbox[2] - bbox[0]
+    draw.text(((size - tw) // 2, size - 80), name, fill=(60, 60, 80), font=font)
+
+    # Draw emoji hint text (just the first char)
+    hint = emoji[:2] if emoji else "👤"
+    try:
+        bbox2 = draw.textbbox((0, 0), hint, font=font)
+        tw2 = bbox2[2] - bbox2[0]
+        draw.text(((size - tw2) // 2, cy - 25), hint, fill=(80, 80, 100), font=font)
+    except Exception:
+        pass
+
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=85, optimize=True)
+    return base64.b64encode(buf.getvalue()).decode()
+
 
 # ── 端點：圖片辨識（Groq Vision → 繁體中文場景描述）────────────
 IMAGE_MAX_BYTES = 4 * 1024 * 1024  # 4 MB
