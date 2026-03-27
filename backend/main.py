@@ -3443,7 +3443,12 @@ def _find_cjk_font() -> str | None:
     return None
 
 
-def _export_pdf(project_name: str, scenes: list, char_color_map: dict | None = None) -> bytes:
+def _export_pdf(
+    project_name: str,
+    scenes: list,
+    char_color_map: dict | None = None,
+    characters: list | None = None,
+) -> bytes:
     try:
         from fpdf import FPDF
     except ImportError:
@@ -3451,18 +3456,25 @@ def _export_pdf(project_name: str, scenes: list, char_color_map: dict | None = N
 
     if char_color_map is None:
         char_color_map = {}
+    if characters is None:
+        characters = []
 
     font_path = _find_cjk_font()
     _use_cjk = font_path is not None
 
+    # Determine how many front-matter pages (cover ± character intro) precede the story.
+    # Updated below after deciding whether to emit the character page.
+    _front_pages = 1  # default: cover only
+
     class _PicturebookPDF(FPDF):
         """FPDF subclass that adds centered page numbers in the footer.
 
-        Page 1 is the cover — we skip its footer so it stays clean.
-        Scene pages are numbered starting from 1.
+        Front-matter pages (cover, character intro) have no footer.
+        Scene pages are numbered starting from "第 1 頁".
         """
         def footer(self) -> None:
-            if self.page <= 1:   # cover page — no footer
+            nonlocal _front_pages
+            if self.page <= _front_pages:   # front-matter — no footer
                 return
             self.set_y(-10)
             # Footer always uses regular weight to keep it subtle.
@@ -3471,8 +3483,8 @@ def _export_pdf(project_name: str, scenes: list, char_color_map: dict | None = N
             else:
                 self.set_font("Helvetica", style="", size=8)
             self.set_text_color(160, 160, 160)
-            # page_no() counts from 1; subtract 1 so scene pages start at "第 1 頁".
-            self.cell(0, 5, f"— 第 {self.page_no() - 1} 頁 —", align="C")
+            # page_no() counts from 1; subtract front-matter pages so scenes start at 1.
+            self.cell(0, 5, f"— 第 {self.page_no() - _front_pages} 頁 —", align="C")
             self.set_text_color(0, 0, 0)
 
     pdf = _PicturebookPDF(orientation="P", unit="mm", format="A4")
@@ -3588,6 +3600,93 @@ def _export_pdf(project_name: str, scenes: list, char_color_map: dict | None = N
     pdf.set_y(-20)
     pdf.cell(0, 5, "由「繪本有聲書創作工坊」匯出", align="C")
     pdf.set_text_color(0, 0, 0)
+
+    # ── Character introduction page ──────────────────────────────────────
+    # Only emit when at least one character has a name + personality.
+    chars_with_info = [
+        c for c in characters
+        if c.get("name") and (c.get("personality") or c.get("portrait_url"))
+    ][:6]  # cap at 6 to keep the page uncluttered
+
+    if chars_with_info:
+        _front_pages = 2  # cover + character intro
+        pdf.add_page()
+        set_font_safe(18, "B")
+        pdf.set_y(18)
+        pdf.cell(0, 12, "登場角色", align="C", new_x="LMARGIN", new_y="NEXT")
+
+        portrait_size = 28   # mm — portrait thumbnail width/height
+        row_h        = 34    # mm — total row height (portrait + some padding)
+        left_margin  = 18    # mm
+        text_x       = left_margin + portrait_size + 6   # mm — start of text column
+        text_w       = 210 - text_x - left_margin        # available width for text
+
+        current_y = pdf.get_y() + 4
+
+        for char in chars_with_info:
+            raw_name        = char.get("name", "")
+            raw_personality = char.get("personality", "")
+            portrait_url    = char.get("portrait_url", "") or ""
+            color_hex       = _safe_css_color(char_color_map.get(raw_name, ""), fallback="")
+            char_rgb        = _hex_to_rgb(color_hex) if color_hex else None
+
+            # Check page overflow before drawing each character
+            if current_y + row_h > 280:
+                pdf.add_page()
+                _front_pages += 1
+                current_y = 20
+
+            # Try to render portrait thumbnail
+            portrait_ok = False
+            if portrait_url.startswith("data:"):
+                try:
+                    hdr, b64data = portrait_url.split(",", 1)
+                    img_ext = hdr.split("/")[1].split(";")[0]
+                    if img_ext == "jpeg":
+                        img_ext = "jpg"
+                    img_bytes = base64.b64decode(b64data)
+                    with tempfile.NamedTemporaryFile(suffix=f".{img_ext}", delete=False) as tmp:
+                        tmp.write(img_bytes)
+                        tmp_path = tmp.name
+                    try:
+                        pdf.image(tmp_path, x=left_margin, y=current_y, w=portrait_size, h=portrait_size)
+                        portrait_ok = True
+                    finally:
+                        os.unlink(tmp_path)
+                except Exception:
+                    pass  # fall through to emoji placeholder
+
+            if not portrait_ok:
+                # Draw a colored rectangle as placeholder, with emoji text centred in it
+                if char_rgb:
+                    pdf.set_fill_color(*char_rgb)
+                else:
+                    pdf.set_fill_color(220, 220, 220)
+                pdf.rect(left_margin, current_y, portrait_size, portrait_size, style="F")
+                pdf.set_fill_color(255, 255, 255)
+                emoji_char = char.get("emoji", "")
+                if emoji_char:
+                    set_font_safe(14)
+                    pdf.set_xy(left_margin, current_y + portrait_size / 2 - 5)
+                    pdf.cell(portrait_size, 10, emoji_char, align="C")
+
+            # Character name
+            pdf.set_xy(text_x, current_y + 4)
+            set_font_safe(13, "B")
+            if char_rgb:
+                pdf.set_text_color(*char_rgb)
+            pdf.multi_cell(text_w, 8, raw_name)
+            pdf.set_text_color(0, 0, 0)
+
+            # Personality description
+            if raw_personality:
+                set_font_safe(10)
+                pdf.set_xy(text_x, pdf.get_y() + 1)
+                pdf.set_text_color(80, 80, 80)
+                pdf.multi_cell(text_w, 6, raw_personality)
+                pdf.set_text_color(0, 0, 0)
+
+            current_y += row_h + 2
 
     # Scene pages
     for i, scene in enumerate(scenes):
@@ -4785,7 +4884,7 @@ async def export_project(
     # the async event loop (PDF rendering / EPUB serialisation can take >1 s)
     loop = asyncio.get_running_loop()
     if format == "pdf":
-        data = await loop.run_in_executor(None, _export_pdf, project_name, scenes, char_color_map)
+        data = await loop.run_in_executor(None, _export_pdf, project_name, scenes, char_color_map, raw_chars)
         media_type = "application/pdf"
         filename = f"{project_name}.pdf"
     elif format == "epub":
