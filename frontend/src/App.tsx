@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { DndContext, DragEndEvent } from '@dnd-kit/core'
 import { Character, ScriptLine, ScriptResponse, Scene, ProjectDetail, EMOTION_META } from './types'
+import { stableImageSeed, blobChecksum, buildStoryContext, throttled, lineId as _lid } from './utils'
 import CharacterPanel from './components/CharacterPanel'
 import SceneEditor from './components/SceneEditor'
 import SceneOutput from './components/SceneOutput'
@@ -13,100 +14,6 @@ import KeyboardShortcutsModal from './components/KeyboardShortcutsModal'
  * visually consistent character appearances and lighting across all illustrations.
  * djb2 variant — result in [1, 2_147_483_647].
  */
-function stableImageSeed(characters: Character[], imageStyle: string): number {
-  const key = [...characters]
-    .sort((a, b) => a.id.localeCompare(b.id))
-    .map(c => c.id)
-    .join('|') + '|' + imageStyle
-  let h = 5381
-  for (let i = 0; i < key.length; i++) {
-    h = (Math.imul(h, 31) + key.charCodeAt(i)) | 0
-  }
-  return (Math.abs(h) % 2147483647) + 1
-}
-
-/**
- * Cheap fingerprint of a scene's media blobs (image + all audio).
- * Uses only the tail of each base64 string — enough to detect any change
- * without spending time hashing megabytes of data.
- * Returns a stable string that only changes when image or audio changes.
- */
-function blobChecksum(s: { image?: string; lines?: Array<{ audio_base64?: string }> }): string {
-  const img = s.image ? s.image.slice(-24) : ''
-  const audio = (s.lines ?? []).map(l => l.audio_base64 ? l.audio_base64.slice(-12) : '-').join('')
-  return `${img}|${audio}`
-}
-
-/**
- * Build a compact story context from all scenes up to (but not including) endIndex.
- * Each scene contributes: scene number, title (if set), description, and first + last dialogue line.
- * This keeps every scene in context for long stories while staying under the
- * backend's 5000-char limit (~200 chars × 25 scenes = ~5000 chars worst case).
- */
-function buildStoryContext(scenes: Scene[], endIndex?: number): string | undefined {
-  const relevant = endIndex !== undefined ? scenes.slice(0, endIndex) : scenes
-  if (relevant.length === 0) return undefined
-
-  // All `story_context` backend fields are capped at 5000 chars (Pydantic max_length).
-  // For long stories, including every scene can exceed this limit and cause 422 errors.
-  // Strategy: always include scene 1 (story setup — world, characters, tone) + the last
-  // MAX_SCENES-1 scenes (continuity).  Sending only the tail loses the opening context
-  // that anchors the AI's understanding of the story; scene 1 costs only one slot.
-  const MAX_SCENES = 8
-
-  let selected: Array<{ scene: Scene; num: number }>
-  if (relevant.length <= MAX_SCENES) {
-    selected = relevant.map((s, i) => ({ scene: s, num: i + 1 }))
-  } else {
-    const tailStart = relevant.length - (MAX_SCENES - 1)
-    selected = [
-      { scene: relevant[0], num: 1 },
-      ...relevant.slice(tailStart).map((s, i) => ({ scene: s, num: tailStart + i + 1 })),
-    ]
-  }
-
-  const context = selected.map(({ scene: s, num }) => {
-    const lines = s.lines.filter(l => l.text)
-    const first = lines[0]
-    const last  = lines.length > 1 ? lines[lines.length - 1] : null
-    const snippets = [first, last]
-      .filter((l): l is NonNullable<typeof l> => l != null)
-      .map(l => `${l.character_name}：「${l.text}」`)
-      .join('…')
-    const titlePart = s.title ? `《${s.title}》` : ''
-    return `第${num}幕${titlePart}（${s.description}）：${snippets || '（生成中）'}`
-  }).join('\n')
-
-  // Hard safety cap: description / line text can be long; truncate rather than 422.
-  return context.length > 4800 ? context.slice(0, 4800) : context
-}
-
-/**
- * Run `tasks` with at most `concurrency` running simultaneously.
- * Calls `onProgress(done, total)` after each task completes.
- */
-async function throttled<T>(
-  tasks: (() => Promise<T>)[],
-  concurrency: number,
-  onProgress?: (done: number, total: number) => void,
-): Promise<void> {
-  let nextIdx = 0
-  let done = 0
-  const total = tasks.length
-  const run = async () => {
-    while (nextIdx < total) {
-      const i = nextIdx++
-      await tasks[i]()
-      done++
-      onProgress?.(done, total)
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(concurrency, total) }, run))
-}
-
-/** Generate a short stable ID for a ScriptLine (7 random base-36 chars). */
-const _lid = () => Math.random().toString(36).slice(2, 9)
-
 export default function App() {
   const [characters, setCharacters] = useState<Character[]>([])
   const [droppedCharacters, setDroppedCharacters] = useState<Character[]>([])
