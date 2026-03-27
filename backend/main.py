@@ -3057,6 +3057,7 @@ async def import_project_json(req: ImportJsonRequest, request: Request):
             str(s.get("description") or "")[:500],
             str(s.get("style") or "溫馨童趣")[:20],
             ll,
+            str(s.get("image_style") or "")[:100],   # preserve if present in backup
             str(s.get("notes") or "")[:2000],
             json.dumps(script, ensure_ascii=False),
             json.dumps(clean_lines, ensure_ascii=False),
@@ -3088,8 +3089,8 @@ async def import_project_json(req: ImportJsonRequest, request: Request):
                 await conn.executemany(
                     """
                     INSERT INTO scenes
-                      (project_id, idx, title, description, style, line_length, notes, script, lines, image, is_locked)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11)
+                      (project_id, idx, title, description, style, line_length, image_style, notes, script, lines, image, is_locked)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12)
                     """,
                     [(project_id, *r) for r in scene_rows],
                 )
@@ -3128,7 +3129,7 @@ async def duplicate_project(project_id: str, request: Request):
             raise HTTPException(status_code=404, detail="專案不存在")
 
         scene_rows = await conn.fetch(
-            "SELECT idx, title, description, style, line_length, notes, is_locked, script, lines, image "
+            "SELECT idx, title, description, style, line_length, image_style, notes, is_locked, script, lines, image "
             "FROM scenes WHERE project_id = $1 ORDER BY idx",
             project_id,
         )
@@ -3152,8 +3153,8 @@ async def duplicate_project(project_id: str, request: Request):
                 await conn.executemany(
                     """
                     INSERT INTO scenes
-                      (project_id, idx, title, description, style, line_length, notes, is_locked, script, lines, image)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11)
+                      (project_id, idx, title, description, style, line_length, image_style, notes, is_locked, script, lines, image)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12)
                     """,
                     [
                         (
@@ -3163,6 +3164,7 @@ async def duplicate_project(project_id: str, request: Request):
                             row["description"],
                             row["style"],
                             row["line_length"] or "standard",
+                            row.get("image_style") or "",
                             row.get("notes") or "",
                             row.get("is_locked") or False,
                             _to_json(row["script"]),
