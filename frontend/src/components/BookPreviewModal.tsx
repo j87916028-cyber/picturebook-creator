@@ -38,6 +38,10 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
   const modalRef = useRef<HTMLDivElement>(null)
   const activeLineRef = useRef<HTMLDivElement | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [showThumbnails, setShowThumbnails] = useState(() =>
+    localStorage.getItem('book_preview_show_thumbnails') === 'true'
+  )
+  const thumbnailStripRef = useRef<HTMLDivElement>(null)
 
   // Touch/swipe state — tracked in refs to avoid re-renders on every touchmove
   const touchStartXRef = useRef<number | null>(null)
@@ -298,6 +302,23 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
     localStorage.setItem('book_preview_auto_advance', autoAdvanceSecs === null ? '' : String(autoAdvanceSecs))
   }, [autoAdvanceSecs])
 
+  // Persist thumbnail strip toggle
+  useEffect(() => {
+    localStorage.setItem('book_preview_show_thumbnails', String(showThumbnails))
+  }, [showThumbnails])
+
+  // Auto-scroll thumbnail strip to keep the active thumbnail visible
+  useEffect(() => {
+    if (!showThumbnails || !thumbnailStripRef.current) return
+    const strip = thumbnailStripRef.current
+    const activeThumb = strip.querySelector<HTMLElement>('.book-thumb-item.active')
+    if (!activeThumb) return
+    const stripRect = strip.getBoundingClientRect()
+    const thumbRect = activeThumb.getBoundingClientRect()
+    const scrollLeft = strip.scrollLeft + (thumbRect.left - stripRect.left) - stripRect.width / 2 + thumbRect.width / 2
+    strip.scrollTo({ left: scrollLeft, behavior: 'smooth' })
+  }, [page, showThumbnails])
+
   // Auto-advance timer: restart on every page change or settings change
   useEffect(() => {
     if (!autoAdvanceSecs || isLast || autoPlaying) {
@@ -438,6 +459,13 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
               📋 備註
             </button>
           )}
+          {scenes.length > 1 && (
+            <button
+              className={`book-thumb-toggle${showThumbnails ? ' active' : ''}`}
+              onClick={() => setShowThumbnails(v => !v)}
+              title={showThumbnails ? '隱藏場景縮圖列' : '顯示場景縮圖列（快速跳幕）'}
+            >🎞 縮圖</button>
+          )}
           <button
             className={`book-fullscreen-btn${isFullscreen ? ' active' : ''}`}
             onClick={toggleFullscreen}
@@ -536,6 +564,33 @@ export default function BookPreviewModal({ scenes, characters, initialScene = 0,
             </div>
           </div>
         </div>
+
+        {/* ── Thumbnail strip ── */}
+        {showThumbnails && scenes.length > 1 && (
+          <div className="book-thumb-strip" ref={thumbnailStripRef} role="tablist" aria-label="場景縮圖列">
+            {scenes.map((s, i) => {
+              const thumbSrc = s.image ? resolveImgSrc(s.image) : ''
+              return (
+                <button
+                  key={s.id}
+                  role="tab"
+                  aria-selected={i === page}
+                  aria-label={`第 ${i + 1} 幕${s.title ? `：${s.title}` : ''}`}
+                  className={`book-thumb-item${i === page ? ' active' : ''}`}
+                  onClick={() => setPage(i)}
+                  title={`第 ${i + 1} 幕${s.title ? `：${s.title}` : ''}`}
+                >
+                  {thumbSrc ? (
+                    <img src={thumbSrc} alt={`第 ${i + 1} 幕`} className="book-thumb-img" loading="lazy" />
+                  ) : (
+                    <div className="book-thumb-placeholder">🎨</div>
+                  )}
+                  <span className="book-thumb-label">{i + 1}{s.title ? ` ${s.title}` : ''}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         {/* ── Navigation ── */}
         <div className="book-preview-nav">

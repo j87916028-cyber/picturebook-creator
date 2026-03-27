@@ -3750,6 +3750,57 @@ body {
   text-align: center; font-size: 0.72rem; color: #bbb;
   margin: 0; padding: 4px 0 8px; flex-shrink: 0;
 }
+/* Thumbnail strip toggle button */
+.book-thumb-toggle {
+  background: #f0f4ff; color: #667eea;
+  border: 1px solid #c5cae9; border-radius: 8px;
+  padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.book-thumb-toggle:hover { background: #e8eaf6; }
+.book-thumb-toggle.active { background: #667eea; color: #fff; border-color: #667eea; }
+/* Thumbnail strip */
+.book-thumb-strip {
+  display: flex; flex-direction: row;
+  overflow-x: auto; overflow-y: hidden;
+  gap: 8px; padding: 8px 14px;
+  border-top: 1px solid #eee;
+  background: #f8f9ff;
+  flex-shrink: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #c5cae9 transparent;
+}
+.book-thumb-strip::-webkit-scrollbar { height: 4px; }
+.book-thumb-strip::-webkit-scrollbar-thumb { background: #c5cae9; border-radius: 2px; }
+.book-thumb-item {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px; flex-shrink: 0;
+  border: 2px solid transparent; border-radius: 8px;
+  padding: 4px; cursor: pointer;
+  background: #fff;
+  transition: all 0.15s;
+  width: 72px;
+}
+.book-thumb-item:hover { border-color: #9fa8da; background: #f0f4ff; }
+.book-thumb-item.active { border-color: #667eea; background: #e8eaf6; }
+.book-thumb-img {
+  width: 64px; height: 48px;
+  object-fit: cover; border-radius: 5px;
+  display: block;
+}
+.book-thumb-placeholder {
+  width: 64px; height: 48px; border-radius: 5px;
+  background: #f0f0f0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem;
+}
+.book-thumb-label {
+  font-size: 0.65rem; color: #666; font-weight: 600;
+  max-width: 68px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+  text-align: center; line-height: 1.2;
+}
+.book-thumb-item.active .book-thumb-label { color: #667eea; }
 /* Reading mode button */
 .btn-book-preview { background: linear-gradient(135deg, #f093fb, #f5576c) !important; color: #fff !important; }
 .btn-book-preview:hover { opacity: 0.85; }
