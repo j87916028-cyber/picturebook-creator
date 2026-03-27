@@ -263,7 +263,10 @@ async def lifespan(app: FastAPI):
 
     if DATABASE_URL and _asyncpg_available:
         try:
-            _db_pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=5)
+            _db_pool = await asyncpg.create_pool(
+                DATABASE_URL, min_size=1, max_size=5,
+                command_timeout=30,  # 30 s hard cap per SQL statement; prevents hung queries from exhausting the pool
+            )
             async with _db_pool.acquire() as conn:
                 await conn.execute(_CREATE_PROJECTS)
                 await conn.execute(_CREATE_SCENES)

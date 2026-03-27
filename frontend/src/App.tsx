@@ -2098,6 +2098,19 @@ export default function App() {
   }
 
   const handleProjectCreated = (id: string, name: string) => {
+    // Abort any in-flight generation from the previous project (same reason as loadProjectData)
+    abortControllerRef.current?.abort()
+    batchAbortRef.current?.abort()
+    batchOutlineAbortRef.current?.abort()
+    abortControllerRef.current = null
+    batchAbortRef.current = null
+    batchOutlineAbortRef.current = null
+    setGenStatus(null)
+    setBatchRegenStatus(null)
+    setBatchImageStatus(null)
+    setBatchTitleStatus(null)
+    setBatchOutlineStatus(null)
+
     setCurrentProjectId(id || null)
     setProjectName(name)
     setScenes([])
@@ -2105,6 +2118,7 @@ export default function App() {
     setDroppedCharacters([])
     setError('')
     setPlanWarning(null)
+    setSavedError(null)
   }
 
   // ── Memoized derived state ─────────────────────────────────────
