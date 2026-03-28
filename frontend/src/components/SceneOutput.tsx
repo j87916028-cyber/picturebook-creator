@@ -1,12 +1,12 @@
-import { useRef, useState, useCallback, useEffect, useMemo, Fragment, lazy, Suspense } from 'react'
+import { useRef, useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import {
   DndContext, DragEndEvent, PointerSensor, KeyboardSensor, useSensor, useSensors, closestCenter,
 } from '@dnd-kit/core'
 import {
-  SortableContext, useSortable, sortableKeyboardCoordinates, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove,
+  SortableContext, useSortable, sortableKeyboardCoordinates, horizontalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Scene, Character, ScriptLine, EMOTION_META, EMOTION_LABELS, EMOTION_COLORS, STORY_STYLES, IMAGE_STYLES, lsSet } from '../types'
+import { Scene, Character, ScriptLine, EMOTION_LABELS, EMOTION_COLORS, lsSet } from '../types'
 const PlaybackModal = lazy(() => import('./PlaybackModal'))
 const BookPreviewModal = lazy(() => import('./BookPreviewModal'))
 import SceneCard from './SceneCard'
@@ -18,27 +18,7 @@ function resolveImgSrc(image: string): string {
   return `data:image/jpeg;base64,${image}`
 }
 
-// Wrap all occurrences of `query` in `text` with <mark className="search-hit">
-function highlightText(text: string, query: string): React.ReactNode {
-  if (!query.trim()) return text
-  const q = query.toLowerCase()
-  const lower = text.toLowerCase()
-  const nodes: React.ReactNode[] = []
-  let pos = 0
-  let idx = lower.indexOf(q)
-  while (idx !== -1) {
-    if (idx > pos) nodes.push(text.slice(pos, idx))
-    nodes.push(<mark key={idx} className="search-hit">{text.slice(idx, idx + q.length)}</mark>)
-    pos = idx + q.length
-    idx = lower.indexOf(q, pos)
-  }
-  if (pos < text.length) nodes.push(text.slice(pos))
-  return nodes.length === 0 ? text : <>{nodes}</>
-}
-
-const STYLES = STORY_STYLES
-
-// EMOTION_LABELS and EMOTION_COLORS imported from '../types'
+// highlightText + STYLES moved to SceneCard.tsx during extraction
 
 /** Return the most-frequent non-neutral emotion across a scene's lines, or 'neutral'. */
 function dominantEmotion(lines: { emotion?: string }[]): string {
