@@ -4876,8 +4876,12 @@ kbd {
   .scene-search-bar, .btn-view-toggle, .stats-chars,
   .splash { display: none !important; }
 
-  /* Reset layout: single column, no background */
-  body { background: var(--color-surface); color: #222; }
+  /* Force light colors for print — dark mode must not produce dark backgrounds */
+  :root { --color-bg: #fff; --color-surface: #fff; --color-text: #222;
+          --color-text-secondary: #444; --color-text-muted: #666;
+          --color-border: #ccc; --color-accent: #667eea; --color-accent-end: #764ba2;
+          --color-accent-light: #f0f0ff; --color-accent-border: #c5cae9; }
+  body { background: #fff; color: #222; }
   .app { display: block; }
   .app-main { display: block; padding: 0; max-width: 100%; }
   .right-panel, .main-content, .scene-output { display: block; width: 100%; }
