@@ -1,17 +1,23 @@
-.PHONY: test test-backend test-frontend typecheck build dev up down logs
+.PHONY: test test-backend test-frontend typecheck lint check build dev up down logs
+
+# ── All-in-one quality check (mirrors CI) ─────────────────────
+check: typecheck lint test build  ## Run ALL checks: types + lint + tests + build
 
 # ── Test ─────────────────────────────────────────────────────
-test: test-backend test-frontend  ## Run all 36 tests (backend + frontend)
+test: test-backend test-frontend  ## Run all 36 tests
 
-test-backend:  ## Run 20 backend smoke tests
+test-backend:  ## 20 backend smoke tests (pytest)
 	cd backend && python -m pytest test_smoke.py -v
 
-test-frontend:  ## Run 16 frontend unit tests
+test-frontend:  ## 16 frontend unit tests (vitest)
 	cd frontend && npm run test
 
 # ── Quality ──────────────────────────────────────────────────
 typecheck:  ## TypeScript type-check (no build output)
 	cd frontend && npm run typecheck
+
+lint:  ## ESLint (0 errors allowed, ≤50 warnings)
+	cd frontend && npx eslint src/ --max-warnings 50
 
 build:  ## Production build (frontend)
 	cd frontend && npm run build
