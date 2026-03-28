@@ -299,6 +299,19 @@ export default function App() {
           if (!res2.ok) return
           const proj: ProjectDetail = await res2.json()
           loadProjectData(proj)
+        } else {
+          // First visit: auto-create a default project so the user can start
+          // creating characters immediately without finding the "新增作品" button.
+          const createRes = await fetch('/api/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: '我的第一本繪本' }),
+          })
+          if (createRes.ok) {
+            const proj = await createRes.json()
+            setCurrentProjectId(proj.id)
+            setProjectName(proj.name)
+          }
         }
       } catch {}
     }
