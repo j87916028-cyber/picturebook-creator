@@ -6,7 +6,7 @@ import {
   SortableContext, useSortable, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Scene, Character, ScriptLine, EMOTION_META, EMOTION_LABELS, EMOTION_COLORS, STORY_STYLES, IMAGE_STYLES, lsSet } from '../types'
+import { Scene, Character, ScriptLine, EMOTION_LABELS, STORY_STYLES, IMAGE_STYLES, lsSet } from '../types'
 
 const STYLES = STORY_STYLES
 
@@ -59,49 +59,6 @@ function SortableLine({
   )
 }
 
-interface Props {
-  scenes: Scene[]
-  characters: Character[]
-  onSceneDelete: (sceneId: string) => void
-  onSceneMove: (sceneId: string, direction: 'up' | 'down') => void
-  onScenesReorder: (orderedIds: string[]) => void
-  onSceneDuplicate: (sceneId: string) => void
-  onLineMove: (sceneId: string, lineIndex: number, direction: 'up' | 'down') => void
-  onLineEditConfirm: (sceneId: string, lineIndex: number, newText: string) => Promise<void>
-  onLineEditTextOnly: (sceneId: string, lineIndex: number, newText: string) => void
-  onLineDelete: (sceneId: string, lineIndex: number) => void
-  onLineDuplicate: (sceneId: string, lineIndex: number) => Promise<void>
-  onLineAdd: (sceneId: string, characterId: string, text: string, insertAfterIndex?: number) => Promise<void>
-  onLineVoiceRegen: (sceneId: string, lineIndex: number) => Promise<void>
-  onLineEmotionChange: (sceneId: string, lineIndex: number, newEmotion: string) => Promise<void>
-  onLineCharacterChange: (sceneId: string, lineIndex: number, newCharacterId: string) => Promise<void>
-  onImageRegen: (sceneId: string, customPrompt?: string) => Promise<void>
-  onImageUpload: (sceneId: string, dataUrl: string) => void
-  onSceneDescriptionUpdate: (sceneId: string, newDescription: string) => void
-  onSceneTitleUpdate: (sceneId: string, newTitle: string) => void
-  onSceneNotesUpdate: (sceneId: string, newNotes: string) => void
-  onSceneSfxUpdate: (sceneId: string, newSfx: string) => void
-  onSceneRegen: (sceneId: string, newDescription: string, style: string, lineLength?: string, imageStyle?: string, mood?: string, lineCount?: string, ageGroup?: string) => Promise<void>
-  onSceneLockToggle: (sceneId: string) => void
-  onBatchRegenVoice: () => void
-  onSceneRegenAllVoices: (sceneId: string) => Promise<void>
-  batchRegenStatus: { done: number; total: number; failed?: number } | null
-  onBatchRegenImages: () => void
-  onBatchRegenAllImages: () => void
-  batchImageStatus: { done: number; total: number } | null
-  onBatchGenerateTitles: () => void
-  batchTitleStatus: { done: number; total: number } | null
-  onLinesReorder: (sceneId: string, newLines: ScriptLine[]) => void
-  onScrollToEditor?: () => void
-  /** Atomic batch replace: applies all line / title / description / notes changes in a
-   *  single state update so no intermediate write overwrites another.           */
-  onBatchReplaceAll: (changes: {
-    lines:  { sceneId: string; lineIndex: number; newText: string }[]
-    titles: { sceneId: string; newTitle: string }[]
-    descs:  { sceneId: string; newDesc: string }[]
-    notes:  { sceneId: string; newNotes: string }[]
-  }) => void
-}
 
 
 interface SceneCardProps {
