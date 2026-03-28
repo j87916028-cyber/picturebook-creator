@@ -76,6 +76,16 @@ export const EMOTION_META: Record<string, { emoji: string; label: string; color:
   neutral:   { emoji: '😐', label: '平靜', color: '#bdbdbd' },
 }
 
+/** Pre-computed "emoji label" per emotion — e.g. "😄 開心" */
+export const EMOTION_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(EMOTION_META).map(([k, v]) => [k, `${v.emoji} ${v.label}`])
+)
+
+/** Pre-computed color hex per emotion — e.g. "#4caf50" for happy */
+export const EMOTION_COLORS: Record<string, string> = Object.fromEntries(
+  Object.entries(EMOTION_META).map(([k, v]) => [k, v.color])
+)
+
 /** Story style options — shared by SceneEditor and SceneOutput. */
 export const STORY_STYLES: string[] = ['溫馨童趣', '奇幻冒險', '搞笑幽默', '感動溫情', '懸疑神秘']
 

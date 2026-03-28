@@ -6,7 +6,7 @@ import {
   SortableContext, useSortable, sortableKeyboardCoordinates, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Scene, Character, ScriptLine, EMOTION_META, STORY_STYLES, IMAGE_STYLES, lsSet } from '../types'
+import { Scene, Character, ScriptLine, EMOTION_META, EMOTION_LABELS, EMOTION_COLORS, STORY_STYLES, IMAGE_STYLES, lsSet } from '../types'
 import PlaybackModal from './PlaybackModal'
 import BookPreviewModal from './BookPreviewModal'
 
@@ -37,13 +37,7 @@ function highlightText(text: string, query: string): React.ReactNode {
 
 const STYLES = STORY_STYLES
 
-const EMOTION_LABELS = Object.fromEntries(
-  Object.entries(EMOTION_META).map(([k, v]) => [k, `${v.emoji} ${v.label}`])
-) as Record<string, string>
-
-const EMOTION_COLORS = Object.fromEntries(
-  Object.entries(EMOTION_META).map(([k, v]) => [k, v.color])
-) as Record<string, string>
+// EMOTION_LABELS and EMOTION_COLORS imported from '../types'
 
 /** Return the most-frequent non-neutral emotion across a scene's lines, or 'neutral'. */
 function dominantEmotion(lines: { emotion?: string }[]): string {
