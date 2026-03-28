@@ -4650,6 +4650,12 @@ kbd {
   .btn-generate { width: 100%; }
   .btn-cancel, .btn-reset, .btn-ending { flex: 1; }
 
+  /* Touch-friendly: enlarge tap targets to ≥44px (WCAG 2.5.8) */
+  .btn-scene-action { padding: 8px 14px; font-size: 0.82rem; }
+  .style-btn { min-height: 36px; }
+  .btn-play-line, .btn-regen-voice { min-height: 36px; min-width: 36px; }
+  .scene-nav-chip { min-height: 36px; padding: 6px 12px; }
+
   .script-line { gap: 8px; }
   .line-text { font-size: 0.88rem; }
 }
