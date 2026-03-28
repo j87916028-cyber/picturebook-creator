@@ -424,7 +424,7 @@ export default function SceneOutput({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [hasAudio, scenes.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hasAudio, scenes.length])  
 
   const missingAudioCount = useMemo(
     () => scenes.reduce((n, s) => n + s.lines.filter(l => l.text && !l.audio_base64).length, 0),
@@ -657,7 +657,7 @@ export default function SceneOutput({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])  
 
   // G key: open quick jump-to-scene dialog.
   // Uses the same ref pattern as arrow-nav so the handler is registered once.
@@ -686,7 +686,7 @@ export default function SceneOutput({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])  
 
   const handleJumpConfirm = () => {
     const n = parseInt(jumpInput.trim(), 10)

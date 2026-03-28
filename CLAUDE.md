@@ -27,6 +27,7 @@ npm run dev            # Dev server on http://localhost:5173
 npm run build          # Production build → dist/
 npm run typecheck      # Type-check only (no build output)
 npm run test           # Run 16 unit tests (vitest)
+npm run lint           # ESLint (TypeScript + React hooks rules)
 npm run preview        # Preview production build
 ```
 
