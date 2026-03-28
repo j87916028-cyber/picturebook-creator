@@ -46,7 +46,7 @@ function formatDuration(totalChars: number | undefined): string | null {
 
 export default function ProjectPanel({
   currentProjectId,
-  projectName,
+  projectName: _projectName,
   onProjectLoad,
   onProjectCreated,
   onProjectNameChange,

@@ -6,7 +6,7 @@ import {
   SortableContext, useSortable, sortableKeyboardCoordinates, horizontalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Scene, Character, ScriptLine, EMOTION_LABELS, EMOTION_COLORS, lsSet } from '../types'
+import { Scene, Character, ScriptLine, EMOTION_LABELS, EMOTION_COLORS } from '../types'
 const PlaybackModal = lazy(() => import('./PlaybackModal'))
 const BookPreviewModal = lazy(() => import('./BookPreviewModal'))
 import SceneCard from './SceneCard'
