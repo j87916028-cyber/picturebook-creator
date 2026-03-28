@@ -3137,6 +3137,8 @@ async def import_project_json(req: ImportJsonRequest, request: Request):
     ip = _client_ip(request)
     if not _rl_project.is_allowed(ip):
         raise _rl_429(_rl_project, ip)
+    if not _rl_project.is_allowed(ip):
+        raise _rl_429(_rl_project, ip)
     _db_required()
 
     # ── Sanitize characters ───────────────────────────────────────
