@@ -38,5 +38,5 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test
-      - run: npm run lint || true  # warnings only — doesn't block CI
+      - run: npx eslint src/ --max-warnings 50  # block on errors, allow warnings
       - run: npm run build
