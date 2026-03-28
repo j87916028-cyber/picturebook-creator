@@ -26,6 +26,7 @@ npm install
 npm run dev            # Dev server on http://localhost:5173
 npm run build          # Production build → dist/
 npm run typecheck      # Type-check only (no build output)
+npm run test           # Run 16 unit tests (vitest)
 npm run preview        # Preview production build
 ```
 
@@ -192,4 +193,4 @@ Nginx (`frontend/nginx.conf`) and the FastAPI middleware apply:
 - **PWA**: `manifest.json` + meta tags enable "Add to Home Screen" on mobile/desktop.
 - **Dark mode**: CSS custom properties (252 `var()` refs) + `[data-theme="dark"]` override + OS `prefers-color-scheme` auto-detection + localStorage persistence.
 - **CI**: GitHub Actions runs backend pytest (20 tests) + frontend typecheck + build on every push/PR to main.
-- **Tests**: `backend/test_smoke.py` — 20 tests covering health, validation, security headers, and 6 export function output tests. Run: `cd backend && pytest test_smoke.py -v`
+- **Tests**: Backend: `cd backend && pytest test_smoke.py -v` (20 tests). Frontend: `cd frontend && npm test` (16 vitest unit tests for utils.ts). Total: **36 tests**, all run in CI.
