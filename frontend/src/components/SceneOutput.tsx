@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect, useMemo, Fragment } from 'react'
+import { useRef, useState, useCallback, useEffect, useMemo, Fragment, lazy, Suspense } from 'react'
 import {
   DndContext, DragEndEvent, PointerSensor, KeyboardSensor, useSensor, useSensors, closestCenter,
 } from '@dnd-kit/core'
@@ -7,8 +7,8 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Scene, Character, ScriptLine, EMOTION_META, EMOTION_LABELS, EMOTION_COLORS, STORY_STYLES, IMAGE_STYLES, lsSet } from '../types'
-import PlaybackModal from './PlaybackModal'
-import BookPreviewModal from './BookPreviewModal'
+const PlaybackModal = lazy(() => import('./PlaybackModal'))
+const BookPreviewModal = lazy(() => import('./BookPreviewModal'))
 import SceneCard from './SceneCard'
 
 // Resolve image src: use data URI if base64 blob, else bare URL
@@ -1009,21 +1009,25 @@ export default function SceneOutput({
       )}
 
       {showPlayback && (
-        <PlaybackModal
-          scenes={scenes}
-          characters={characters}
-          onClose={() => setShowPlayback(false)}
-          initialSceneIdx={playbackStartScene}
-        />
+        <Suspense fallback={null}>
+          <PlaybackModal
+            scenes={scenes}
+            characters={characters}
+            onClose={() => setShowPlayback(false)}
+            initialSceneIdx={playbackStartScene}
+          />
+        </Suspense>
       )}
 
       {showBookPreview && (
-        <BookPreviewModal
-          scenes={scenes}
-          characters={characters}
-          initialScene={bookPreviewStart}
-          onClose={() => setShowBookPreview(false)}
-        />
+        <Suspense fallback={null}>
+          <BookPreviewModal
+            scenes={scenes}
+            characters={characters}
+            initialScene={bookPreviewStart}
+            onClose={() => setShowBookPreview(false)}
+          />
+        </Suspense>
       )}
 
       {viewMode === 'storyboard' ? (

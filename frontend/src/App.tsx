@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
 import { DndContext, DragEndEvent } from '@dnd-kit/core'
 import { Character, ScriptLine, ScriptResponse, Scene, ProjectDetail, EMOTION_META } from './types'
 import { stableImageSeed, blobChecksum, buildStoryContext, throttled, lineId as _lid } from './utils'
@@ -6,7 +6,7 @@ import CharacterPanel from './components/CharacterPanel'
 import SceneEditor from './components/SceneEditor'
 import SceneOutput from './components/SceneOutput'
 import ProjectPanel from './components/ProjectPanel'
-import KeyboardShortcutsModal from './components/KeyboardShortcutsModal'
+const KeyboardShortcutsModal = lazy(() => import('./components/KeyboardShortcutsModal'))
 
 /**
  * Derive a stable seed from the project's character set and image style.
@@ -2712,7 +2712,9 @@ export default function App() {
       )}
       {/* Keyboard shortcuts help modal */}
       {showKeyboardHelp && (
-        <KeyboardShortcutsModal onClose={() => setShowKeyboardHelp(false)} />
+        <Suspense fallback={null}>
+          <KeyboardShortcutsModal onClose={() => setShowKeyboardHelp(false)} />
+        </Suspense>
       )}
     </DndContext>
   )
