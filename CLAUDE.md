@@ -104,7 +104,8 @@ components/
   CharacterPanel.tsx         — Character creation form (emoji, name, personality, voice, color)
   CharacterCard.tsx          — Single character display card
   SceneEditor.tsx            — Drop-zone, description textarea, style/length selectors, Generate button
-  SceneOutput.tsx            — Scene cards with script, per-line audio, image, inline editing
+  SceneCard.tsx              — Single scene card: dialogue playback, inline editing, voice/image regen
+  SceneOutput.tsx            — Scene list container: nav strip, search/replace, batch ops, stats
   PlaybackModal.tsx          — Full-screen cross-scene audio playback (speed, volume, loop, keyboard shortcuts)
   BookPreviewModal.tsx       — Fullscreen page-flip reading mode with per-scene narration
   ProjectPanel.tsx           — Project list, create/load/rename/delete/duplicate
