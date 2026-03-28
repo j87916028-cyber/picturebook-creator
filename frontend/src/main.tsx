@@ -11,3 +11,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </React.StrictMode>
 )
+
+// Register service worker for PWA: caches app shell for instant revisit + offline fallback.
+// API calls are never cached — only static assets and the HTML shell.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
+}
